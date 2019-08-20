@@ -1,40 +1,36 @@
 package rpc
 
 import (
-	"os"
+	"fmt"
 	"testing"
 
-	"github.com/stretchr/testify/mock"
-	"github.com/lianxiangcloud/linkchain/libs/log"
-	"github.com/lianxiangcloud/linkchain/types"
-	"github.com/lianxiangcloud/linkchain/wallet/rpc/mocks"
+	gomock "github.com/golang/mock/gomock"
+	"github.com/lianxiangcloud/linkchain/libs/common"
+	"github.com/stretchr/testify/assert"
 )
 
-var fakeCtx *Context
+// var fakeCtx *Context
 
-func TestMain(m *testing.M) {
-	tx := types.UTXOTransaction{}
-	wallet := &mocks.Wallet{}
-	wallet.On("CreateUTXOTransaction", mock.Anything, mock.Anything, mock.Anything, mock.Anything,
-		mock.Anything).Return([]*types.UTXOTransaction{&tx}, nil)
+func TestSelectAddress(t *testing.T) {
+	mockCtl := gomock.NewController(t)
+	defer mockCtl.Finish()
 
-	fakeCtx = &Context{
-		wallet: wallet,
-		logger: log.Test(),
-	}
+	assert := assert.New(t)
 
-	exitCode := m.Run()
-	os.Exit(exitCode)
-}
+	mockWallet := NewMockWallet(mockCtl)
 
-func TestSignTx(t *testing.T) {
-	// {"jsonrpc":"2.0","id":"0","method":"sign_tx","params":...below...}
-	req := `{"subaddrs":[],"dests":[],"token":"0x0000000000000000000000000000000000000000","refundaddr":"0x0000000000000000000000000000000000000000","extra":null}`
-	t.Log(req)
-	rep, err := signTx(fakeCtx, []byte(req))
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	t.Log(rep)
+	mockBackend := NewMockBackend(mockCtl)
+	mockBackend.EXPECT().GetWallet().Return(mockWallet)
+
+	s := NewPublicTransactionPoolAPI(mockBackend, nil)
+
+	emptyAddr := common.EmptyAddress
+	mockWallet.EXPECT().SelectAddress(emptyAddr).Return(nil)
+	ok, _ := s.SelectAddress(nil, emptyAddr)
+	assert.Equal(true, ok, "not equal")
+
+	oneAddr := common.HexToAddress("0xa73810e519e1075010678d706533486d8ecc8000")
+	mockWallet.EXPECT().SelectAddress(oneAddr).Return(fmt.Errorf("SelectAddress fail"))
+	ok, _ = s.SelectAddress(nil, oneAddr)
+	assert.Equal(false, ok, "not equal")
 }
