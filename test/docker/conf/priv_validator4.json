@@ -1,0 +1,14 @@
+{
+  "address": "F64316EA137D6843FBC14875BF0373CF8C431478",
+  "pub_key": {
+    "type": "PubKeyEd25519",
+    "value": "0x724c2517228e6aa0be1e2649560c23b24a7a3e598ad42b3467e2780f4ad231f597269fa344395142"
+  },
+  "last_height": "0",
+  "last_round": "0",
+  "last_step": 0,
+  "priv_key": {
+    "type": "PrivKeyEd25519",
+    "value": "0x9e5e70a1b9af8fb8409a80908ea9e94006509c55b7448d05009284176ad193f6d3533136a8989c65e1be1e2649560c23b24a7a3e598ad42b3467e2780f4ad231f597269fa344395142"
+  }
+}

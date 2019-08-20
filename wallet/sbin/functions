@@ -1,0 +1,160 @@
+# source function library
+. /etc/rc.d/init.d/functions
+
+sendemail()
+{
+	return
+}
+
+check()
+{
+	echo -n $"Checking $prog: "
+
+	#cd $(dirname $0)
+	while true ; do
+		for file in ../bin/${prog} $conf; do
+			if [ ! -f "$file" ] ; then
+				failure
+				echo
+				echo -n "$file: No such file or directory"
+				break 2
+			fi
+		done
+		
+		if [ ! -z "${logconf}" ] ; then
+			if [ ! -f "${logconf}" ] ; then
+				failure
+				echo
+				echo -n "${logconf}: No such file or directory"
+				break 2
+			fi		
+		fi
+		success
+		break
+	done
+
+	RETVAL=$?
+	echo
+}
+
+start()
+{
+	check
+	
+	if [ -n "`pidofproc $prog`" ] ; then		
+		echo -n $"service running now"
+		failure
+		RETVAL=$?
+		echo
+		return
+	fi 
+	
+	echo -n $"Starting $prog: "
+	ulimit -c unlimited
+	ulimit -n 65000
+	
+	#cd $(dirname $0)
+	cd ../bin/
+	
+	if [ -f ../logs/${prog}.out ];then
+		\mv ../logs/${prog}.out ../logs/${prog}.out.1
+	fi
+	if [ -f ../logs/${prog}.err ];then
+		\mv ../logs/${prog}.err ../logs/${prog}.err.1
+	fi
+	`nohup ${runpath}/bin/${prog} ${args} 1>../logs/${prog}.out 2>../logs/${prog}.err &` && success || failure
+	RETVAL=$?
+	echo
+}
+
+stop()
+{
+	echo -n $"Stopping $prog: "
+	if [ -n "`pidofproc $prog`" ] ; then
+            killproc $prog
+        else
+            failure $"Stopping $prog"
+        fi
+        RETVAL=$?
+        echo
+}
+
+reload()
+{
+	echo -n $"Reloading $prog: "
+	if [ -n "`pidofproc $prog`" ] ; then
+		killproc $prog -HUP
+	else
+		failure $"Reloading $prog"
+	fi
+	RETVAL=$?
+	echo
+}
+
+monitor()
+{
+        echo -n $"Monitoring $prog: "
+        if [ -n "`pidofproc $prog`" ] ; then
+                success $"Monitoring $prog"
+		echo
+        else
+		warning $"Monitoring $prog"
+		echo
+                start		
+		sendemail
+        fi
+        RETVAL=$?
+}
+
+log()
+{
+	cd $(dirname $0)
+	if [ -z "$log" ] ; then
+		tail -f "../logs/${prog}.log"
+	else
+		tail -f $log
+	fi
+}
+
+stat()
+{
+	cd $(dirname $0)
+	tail -f "../logs/${prog}.stats.`date +'%Y%m%d'`"
+}
+
+run()
+{
+# See how we were called.
+case "$1" in
+	check)
+		check
+		;;
+	start)
+		start
+		;;
+	stop)
+		stop
+		;;
+	reload)
+		reload
+		;;
+	monitor)
+		monitor
+		;;
+	restart)
+		stop
+		start
+		;;
+	log)
+		log
+		;;
+	stat)
+		stat
+		;;
+	*)
+		echo $"usage: $prog {start|stop|restart|check|monitor|log}"
+		exit 1
+esac
+
+exit $RETVAL
+}

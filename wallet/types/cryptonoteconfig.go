@@ -1,0 +1,23 @@
+package types
+
+const (
+	UTXO_DESTS_MAX_NUM = 16
+)
+
+type NetConfig struct {
+	CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX    int
+	CRYPTONOTE_PUBLIC_SUBADDRESS_BASE58_PREFIX int
+	CRYPTONOTE_PREFIX_LENGTH                   int
+	CRYPTONOTE_ADDRESS_LENGTH                  int
+	CRYPTONOTE_CHECKSUM_LENGTH                 int
+}
+
+func GetConfig() *NetConfig {
+	return &NetConfig{
+		CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX:    60,
+		CRYPTONOTE_PUBLIC_SUBADDRESS_BASE58_PREFIX: 80,
+		CRYPTONOTE_PREFIX_LENGTH:                   1,
+		CRYPTONOTE_ADDRESS_LENGTH:                  32,
+		CRYPTONOTE_CHECKSUM_LENGTH:                 4,
+	}
+}

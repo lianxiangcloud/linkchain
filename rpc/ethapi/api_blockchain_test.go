@@ -1,0 +1,87 @@
+package ethapi
+
+import (
+	"math/big"
+	"testing"
+
+	"github.com/lianxiangcloud/linkchain/libs/common"
+	"github.com/lianxiangcloud/linkchain/libs/rpc"
+	"github.com/lianxiangcloud/linkchain/rpc/rtypes"
+	"github.com/lianxiangcloud/linkchain/types"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+)
+
+var testTxsRaw = `026bcb3e8d0066f8640185174876e80004940000000000000000000000000000000000000002030682ec8ea02a4515e621d4538c4d15d206ac7f5e13f90abc0da9d0ce4577defa4ef0354134a0084efd80585c76f16bd93ca76c8beb0511576b204c068154f98300ce55ea8d880288016fc855ab8201f880809400000000000000000000000000000000000000010285174876e80005940000000000000000000000000000000000000003040780808080f84582ec8da042bdbd5faa66ed5bd7ce555f861b855e1d3fd19c91d7219dd25399e820001d1ba01f7a4fe8c8057910a1b494b405100ef2da8cc3515ed388db02e7a91fcf1a720202a9010e85b85a0a1448a3d2e4c11d46be01fe0dda66c787bf52c9bc1c12204e770d025a2b052d1b6f5b2eb364e1460b1b1a86099797c6bcf83c3a5b84c0401a6bcb3e8d0066f8640185174876e80004940000000000000000000000000000000000000002030682ec8ea02a4515e621d4538c4d15d206ac7f5e13f90abc0da9d0ce4577defa4ef0354134a0084efd80585c76f16bd93ca76c8beb0511576b204c068154f98300ce55ea8d8802c7010e85b85a0a146ddae77b570508944b7c360aad61a12228dd67fa122095ae422ca3dab42db73f49f9c9d339ba8ded337f5a54542c8192db27ca77a6711a88016fc855ab8201f880809400000000000000000000000000000000000000010285174876e80005940000000000000000000000000000000000000003040780808080f84582ec8da042bdbd5faa66ed5bd7ce555f861b855e1d3fd19c91d7219dd25399e820001d1ba01f7a4fe8c8057910a1b494b405100ef2da8cc3515ed388db02e7a91fcf1a720202670e85b85a0a146ddae77b570508944b7c360aad61a12228dd67fa122095ae422ca3dab42db73f49f9c9d339ba8ded337f5a54542c8192db27ca77a6711a293ce1115424e3d994000000000000000000000000000000000000000102033405c8c3010302c304060502407e73fe9a3bf839a000000000000000000000000000000000000000000000000000000000000000019400000000000000000000000000000000000000020380050269a8e854e264f862a00000000000000000000000000000000000000000000000000000000000000001940000000000000000000000000000000000000002940000000000000000000000000000000000000003040594000000000000000000000000000000000000000602a101079e05ad0a8401080a123f0a14d1a70126ff7a149ca6f9b638db084480440ff842122517228e6a2000000000000000000000000000000000000000000000000000000000000000001814123f0a14d1a70126ff7a149ca6f9b638db084480440ff842122517228e6a200000000000000000000000000000000000000000000000000000000000000000181612090a01011201031a010212090a01041201061a010502293ce1115424e3d994000000000000000000000000000000000000000102033405c8c3010302c304060502279112255d22e1d79400000000000000000000000000000000000000013033c8c3010302c3040605026811538b3a0a521a50082812180814121400000000000000000000000000000000000000011218081412140000000000000000000000000000000000000002121808141214000000000000000000000000000000000000000312060a010112010212060a0103120104`
+
+func TestGetBlockBy(t *testing.T) {
+	b := &MockBackend{}
+	s := NewPublicBlockChainAPI(b)
+
+	block := getTestBlock()
+
+	assert := assert.New(t)
+
+	b.On("GetBlock", mock.Anything, mock.Anything).Return(block, nil).Once()
+	v, err := s.GetBlockByHash(nil, block.Hash(), true)
+	vb := v.(*rtypes.RPCBlock)
+	assert.Nil(err, "error")
+	assert.Equal(*vb.Hash, block.Hash(), "not equal")
+
+	// js, _ := json.Marshal(v)
+	// fmt.Printf("%s\n", js)
+
+	b.On("BlockByNumber", mock.Anything, mock.Anything).Return(block, nil).Once()
+	v, err = s.GetBlockByNumber(nil, rpc.BlockNumber(block.Height), false)
+	vb = v.(*rtypes.RPCBlock)
+	assert.Nil(err, "error")
+	assert.Equal(*vb.Hash, block.Hash(), "not equal")
+
+	// js, _ = json.Marshal(v)
+	// fmt.Printf("%s\n", js)
+
+	b.On("BlockByNumber", mock.Anything, mock.Anything).Return(block, nil).Once()
+	v, err = s.GetBlockByNumber(nil, rpc.PendingBlockNumber, false)
+	vb = v.(*rtypes.RPCBlock)
+	assert.Nil(err, "error")
+	assert.Nil(vb.Hash, "not nil")
+
+	// js, _ = json.Marshal(v)
+	// fmt.Printf("%s\n", js)
+
+}
+
+func getTestBlock() *types.Block {
+	txs, _ := getTestTxs()
+
+	block := &types.Block{
+		Header: &types.Header{
+			Height:         1,
+			ValidatorsHash: common.HexToHash("0x1"),
+		},
+		Data: &types.Data{
+			Txs: txs,
+		},
+		LastCommit: &types.Commit{},
+	}
+	return block
+}
+
+func getTestTxs() ([]types.Tx, []types.TxEntry) {
+	types.RegisterEventDatas()
+	types.RegisterBlockAmino()
+
+	txs := []types.Tx{
+		types.NewTransaction(1, common.HexToAddress("0x0000000000000000000000000000000000000002"), common.Big1, uint64(1e5), big.NewInt(1e11), nil),
+	}
+	txsEntry := make([]types.TxEntry, 0)
+	for idx := range txs {
+		entry := types.TxEntry{
+			BlockHash:   common.HexToHash("0x1"),
+			BlockHeight: 1,
+			Index:       uint64(idx),
+		}
+		txsEntry = append(txsEntry, entry)
+	}
+	return txs, txsEntry
+}

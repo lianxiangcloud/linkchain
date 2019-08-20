@@ -1,0 +1,55 @@
+{
+  "genesis_time": "2019-07-23 14:30:42.850082003 +0800 CST",
+  "chain_id": "chainID",
+  "consensus_params": {
+    "block_size_params": {
+      "max_bytes": "22020096",
+      "max_txs": "10000",
+      "max_gas": "5000000000"
+    },
+    "tx_size_params": {
+      "max_bytes": "10240",
+      "max_gas": "5000000000"
+    },
+    "block_gossip_params": {
+      "block_part_size_bytes": "32768"
+    },
+    "evidence_params": {
+      "max_age": "100000"
+    }
+  },
+  "validators": [
+    {
+      "pub_key": {
+        "type": "PubKeyEd25519",
+        "value": "0x724c2517228e6aa05231a470e2053f5fb2fe75d89f031ff5e4afec0af17923677e36eab2cfdb42b2"
+      },
+      "power": "10",
+      "name": ""
+    },
+    {
+      "pub_key": {
+        "type": "PubKeyEd25519",
+        "value": "0x724c2517228e6aa004bd13da03ded7db7184b5a43881a0d383b2f552a9a5fe935937fcbba318a4ce"
+      },
+      "power": "10",
+      "name": ""
+    },
+    {
+      "pub_key": {
+        "type": "PubKeyEd25519",
+        "value": "0x724c2517228e6aa0dedcea8424be49e792d060c2f16c5f36b26cff0faa78786138c4e7df1a7ffd89"
+      },
+      "power": "10",
+      "name": ""
+    },
+    {
+      "pub_key": {
+        "type": "PubKeyEd25519",
+        "value": "0x724c2517228e6aa0be1e2649560c23b24a7a3e598ad42b3467e2780f4ad231f597269fa344395142"
+      },
+      "power": "10",
+      "name": ""
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+{
+    "code": 0,
+    "type": 1,
+    "nodes": [
+        {
+            "pubkey": "0x724c2517228e6aa05231a470e2053f5fb2fe75d89f031ff5e4afec0af17923677e36eab2cfdb42b2",
+            "endpoint": {
+                "ip": [
+                    "127.0.0.1"
+                ],
+                "port": {
+                    "tcp": 13001
+                }
+            }
+        },
+        {
+            "pubkey": "0x724c2517228e6aa004bd13da03ded7db7184b5a43881a0d383b2f552a9a5fe935937fcbba318a4ce",
+            "endpoint": {
+                "ip": [
+                    "127.0.0.1"
+                ],
+                "port": {
+                    "tcp": 13002
+                }
+            }
+        },
+        {
+            "pubkey": "0x724c2517228e6aa0dedcea8424be49e792d060c2f16c5f36b26cff0faa78786138c4e7df1a7ffd89",
+            "endpoint": {
+                "ip": [
+                    "127.0.0.1"
+                ],
+                "port": {
+                    "tcp": 13003
+                }
+            }
+        },
+        {
+            "pubkey": "0x724c2517228e6aa0be1e2649560c23b24a7a3e598ad42b3467e2780f4ad231f597269fa344395142",
+            "endpoint": {
+                "ip": [
+                    "127.0.0.1"
+                ],
+                "port": {
+                    "tcp": 13004
+                }
+            }
+        }
+    ]
+}
