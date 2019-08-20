@@ -6,6 +6,7 @@ import (
 	"github.com/lianxiangcloud/linkchain/libs/common"
 	"github.com/lianxiangcloud/linkchain/libs/hexutil"
 	"github.com/lianxiangcloud/linkchain/libs/rpc"
+	wtypes "github.com/lianxiangcloud/linkchain/wallet/types"
 )
 
 // GetBlockTransactionCountByNumber returns the number of transactions in the block with the given block number.
@@ -57,6 +58,19 @@ func (s *PublicTransactionPoolAPI) GetRawTransactionByHash(ctx context.Context, 
 func (s *PublicTransactionPoolAPI) GetTransactionReceipt(ctx context.Context, hash common.Hash) (map[string]interface{}, error) {
 	return s.wallet.GetTransactionReceipt(hash)
 }
+
+// EstimateGas return gas
+func (s *PublicTransactionPoolAPI) EstimateGas(ctx context.Context, args wtypes.CallArgs) (*hexutil.Uint64, error) {
+	return s.wallet.EthEstimateGas(args)
+}
+
+// func (s *PublicTransactionPoolAPI) SignTransaction(ctx context.Context, args rtypes.SendTxArgs) (*rtypes.SignTransactionResult, error) {
+
+// }
+
+// func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encodedTx hexutil.Bytes) (common.Hash, error) {
+
+// }
 
 /*
 func (s *PublicTransactionPoolAPI) SignSpecTx(ctx context.Context, args rtypes.SendSpecTxArgs) (*rtypes.SignTransactionResult, error) {
