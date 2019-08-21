@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	nurl "net/url"
 	"os"
 	"os/exec"
 	"strings"
@@ -20,6 +21,7 @@ import (
 const (
 	succ                                 = 0
 	refreshCenterDataTimeIntervalMinutes = 10
+	sendMetricsArgName                   = "metrics"
 )
 
 type endPoint struct {
@@ -37,6 +39,12 @@ type node struct {
 type bootSvrEndPoints struct {
 	Code  int    `json:"code,omitempty"`
 	Nodes []node `json:"nodes"`
+}
+
+type rpcMetrics struct {
+	JsonRpc string `json:"jsonrpc"`
+	Id      int    `json:"id"`
+	Result  string `json:"result"`
 }
 
 func runLKBlockAgent(configs *lkBlockAgentConfigs) {
@@ -60,33 +68,39 @@ func runLKBlockAgent(configs *lkBlockAgentConfigs) {
 		return
 	}
 
+	wg := sync.WaitGroup{}
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		for {
 			m.globalMu.Lock()
-			defer m.globalMu.Unlock()
 
 			log.Info("Start getMetrics.")
 			prometheusMetrics := m.getMetrics()
 			log.Info("start send metrics to collector", "metrics", prometheusMetrics)
 			m.sendMetricsToMetricsCollector(prometheusMetrics)
+			m.globalMu.Unlock()
+
 			time.Sleep(time.Minute)
 		}
 	}()
 
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		for {
-			m.globalMu.Lock()
-			defer m.globalMu.Unlock()
-
 			time.Sleep(refreshCenterDataTimeIntervalMinutes * time.Minute)
+			m.globalMu.Lock()
 			log.Info("Start to update getConfigCenterData")
 			err = m.getConfigCenterData()
 			if err != nil {
 				log.Error("getConfigCenterData exec failed.", "err", err.Error())
 			}
+			m.globalMu.Unlock()
 		}
 	}()
 
+	wg.Wait()
 }
 
 type metrics struct {
@@ -118,7 +132,7 @@ func (m *metrics) getCommonMetrics(cMetrics *commonMetrics) error {
 		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
 			if ipnet.IP.To4() != nil {
 				if ipnet.IP.To4()[0] != 10 &&
-					ipnet.IP.To4()[0] != 172 &&
+					// ipnet.IP.To4()[0] != 172 &&
 					ipnet.IP.To4()[0] != 192 {
 					cMetrics.extIpaddr = ipnet.IP.String()
 				}
@@ -175,9 +189,7 @@ func (m *metrics) getMetrics() string {
 		if !m.isNodeTypeNeedForeach(xnodeDataObj.Type) {
 			continue
 		}
-		//if xnodeDataObj.HostName != m.cMetrics.hostname {
-		//	continue
-		//}
+		nodeType := xnodeDataObj.Type
 		for _, endPointIp := range xnodeDataObj.EndPoint.IP {
 			if strings.Index(endPointIp, m.cMetrics.extIpaddr) == -1 {
 				continue
@@ -203,7 +215,14 @@ func (m *metrics) getMetrics() string {
 				log.Error("ioutil.ReadAll failed", "err", err.Error())
 				continue
 			}
-			prometheusMetrics += string(metricsBytes)
+			rpcM := rpcMetrics{}
+			err = json.Unmarshal(metricsBytes, &rpcM)
+			if err != nil {
+				log.Error("json unmarshal failed.", "err", err.Error())
+				continue
+			}
+			prometheusMetrics += rpcM.Result
+			prometheusMetrics += m.genNodeTypeMetric(url, nodeType)
 		}
 	}
 
@@ -211,13 +230,18 @@ func (m *metrics) getMetrics() string {
 }
 
 func (m *metrics) genCpuMetric(cpuInfo string) string {
-	return fmt.Sprintf("linkchain_Cpuinfo{hostname=\"%s\",cpu_info=\"%s\"} 0",
+	return fmt.Sprintf("linkchain_Cpuinfo{hostname=\"%s\",cpu_info=\"%s\"} 0\n",
 		m.cMetrics.hostname, cpuInfo)
 }
 
 func (m *metrics) genMemoryMetric(memInfo string) string {
-	return fmt.Sprintf("linkchain_Cpuinfo{hostname=\"%s\",mem_info=\"%s\"} 0",
+	return fmt.Sprintf("linkchain_Meminfo{hostname=\"%s\",mem_info=\"%s\"} 0\n",
 		m.cMetrics.hostname, memInfo)
+}
+
+func (m *metrics) genNodeTypeMetric(endpoint string, nodeType int) string {
+	return fmt.Sprintf("linkchain_NodeType{hostname=\"%s\",endpoint=\"%s\",role=\"%d\"} 0\n",
+		m.cMetrics.hostname, endpoint, nodeType)
 }
 
 func (m *metrics) getCpuMemoryMetrics() string {
@@ -304,8 +328,9 @@ func (m *metrics) getConfigCenterData() error {
 
 func (m *metrics) sendMetricsToMetricsCollector(promethuesMetrics string) {
 	url := m.configs.MetricsCollectorUrl
-	post := []byte(promethuesMetrics)
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(post))
+	data := nurl.Values{}
+	data.Add(sendMetricsArgName, promethuesMetrics)
+	req, err := http.NewRequest("POST", url, strings.NewReader(data.Encode()))
 	if err != nil {
 		log.Error("new request failed.", "err", err.Error())
 	}
