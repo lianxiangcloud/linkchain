@@ -786,6 +786,9 @@ func (app *LinkApplication) processBlockEvidence(eviList types.EvidenceList, pro
 		case *types.FaultValidatorsEvidence:
 			award := ev.Proposer.Address().String()
 			if v, ok := processResult.txsResult.CandidatesMap[award]; ok {
+				if v.ProduceInfo < 0 {
+					v.ProduceInfo = 0
+				}
 				v.ProduceInfo++
 				if v.ProduceInfo > config.TwoConsecutive {
 					processResult.tmpState.UpdataeCandidateScore(ev.Proposer,
@@ -800,6 +803,9 @@ func (app *LinkApplication) processBlockEvidence(eviList types.EvidenceList, pro
 			if ev.Round > 0 {
 				punish := ev.FaultVal.Address().String()
 				if v, ok := processResult.txsResult.CandidatesMap[punish]; ok {
+					if v.ProduceInfo > 0 {
+						v.ProduceInfo = 0
+					}
 					v.ProduceInfo--
 					if v.ProduceInfo <= -config.TwoConsecutive {
 						processResult.tmpState.UpdataeCandidateScore(ev.FaultVal,
