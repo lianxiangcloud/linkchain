@@ -65,6 +65,7 @@ type Backend interface {
 	GetBlockTokenOutputSeq(ctx context.Context, blockHeight uint64) map[string]int64
 	GetOutput(ctx context.Context, token common.Address, index uint64) (*types.UTXOOutputData, error)
 	GetUTXOGas() uint64
+	GetTxsResult(ctx context.Context, blockNr uint64) (*types.TxsResult, error)
 
 	// TxPool API
 	SendTx(ctx context.Context, signedTx types.Tx) error
