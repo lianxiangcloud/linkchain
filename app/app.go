@@ -945,29 +945,21 @@ func AllocAward(st *state.StateDB, logger log.Logger) error {
 
 //CallWasmContract only be used by chain inner to call wasm contract directly
 func CallWasmContract(st *state.StateDB, sender, contractAddr common.Address, amount *big.Int, input []byte, logger log.Logger) ([]byte, error) {
-	caller := evm.AccountRef(sender)
-	to := evm.AccountRef(contractAddr)
-	value := amount
 	gas := uint64(10000000000000000000)
 
-	contract := wasm.NewContract(caller, to, value, gas)
-	contract.SetCallCode(&contractAddr, st.GetCodeHash(contractAddr), st.GetCode(contractAddr))
-	contract.Input = input
-
-	innerContract := vm.NewContract(contract.CallerAddress.Bytes(), contract.Address().Bytes(), contract.Value(), contract.Gas)
-	innerContract.SetCallCode(contract.CodeAddr.Bytes(), contract.CodeHash.Bytes(), contract.Code)
-	innerContract.Input = contract.Input
-	innerContract.CreateCall = contract.CreateCall
-	eng := vm.NewEngine(innerContract, contract.Gas, st, logger)
+	innerContract := vm.NewContract(sender.Bytes(), contractAddr.Bytes(), amount, gas)
+	innerContract.SetCallCode(contractAddr.Bytes(), st.GetCodeHash(contractAddr).Bytes(), st.GetCode(contractAddr))
+	innerContract.Input = input
+	eng := vm.NewEngine(innerContract, innerContract.Gas, st, logger)
 	eng.SetTrace(false) // trace app execution.
 
-	app, err := eng.NewApp(contract.Address().String(), contract.Code, false)
+	app, err := eng.NewApp(innerContract.Address().String(), innerContract.Code, false)
 	if err != nil {
 		return nil, fmt.Errorf("exec.NewApp fail: %s", err)
 	}
 
 	app.EntryFunc = vm.APPEntry
-	ret, err := eng.Run(app, contract.Input)
+	ret, err := eng.Run(app, innerContract.Input)
 	if err != nil {
 		return nil, fmt.Errorf("eng.Run fail: err=%s", err)
 	}
