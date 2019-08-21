@@ -73,16 +73,19 @@ func CallContractByInput(st *state.StateDB, contract *wasm.Contract, input strin
 	innerContract.Input = contract.Input
 	innerContract.CreateCall = contract.CreateCall
 	eng := vm.NewEngine(innerContract, contract.Gas, st, log.Test())
-	wasm.Inject(&ctx, st, nil)
+	wasm.Inject(st, wasm.NewWASM(ctx, st, nil))
 	eng.SetTrace(false)
 	app, err := eng.NewApp(contract.Address().String(), contract.Code, false)
+	if err != nil {
+		return "", fmt.Errorf("NewApp failed")
+	}
 
-	fnIndex := app.GetExportFunction("thunderchain_main")
+	fnIndex := app.GetExportFunction(vm.APPEntry)
 	if fnIndex < 0 {
 		fmt.Printf("eng.GetExportFunction Not Exist: func=%s\n", "thunderchain_main")
 		return "", fmt.Errorf("Function Not Exist")
 	}
-	app.EntryFunc = "thunderchain_main"
+	app.EntryFunc = vm.APPEntry
 	ret, err := eng.Run(app, contract.Input)
 	if err != nil {
 		fmt.Printf("eng.Run %s done: gas_used=%d, gas_left=%d\n", *fnNameFlag, eng.GasUsed(), eng.Gas())

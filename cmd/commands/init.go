@@ -358,7 +358,7 @@ func initWasmContract(st *state.StateDB, contractAddr common.Address, codeStr st
 	innerContract.SetCallCode(contract.CodeAddr.Bytes(), contract.CodeHash.Bytes(), contract.Code)
 	innerContract.Input = contract.Input
 	innerContract.CreateCall = contract.CreateCall
-	wasm.Inject(nil, st, nil)
+	wasm.Inject(st, nil) // WASM and context are useless when deploy contract
 	eng := vm.NewEngine(innerContract, contract.Gas, st, logger)
 	eng.SetTrace(false) // trace app execution.
 

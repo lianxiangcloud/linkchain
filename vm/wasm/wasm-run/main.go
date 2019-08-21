@@ -100,7 +100,7 @@ func main() {
 
 	eng := vm.NewEngine(contract, contract.Gas, st, log.With("mod", "wasm"))
 	eng.SetTrace(false)
-	wasm.Inject(&ctx, st, nil)
+	wasm.Inject(st, wasm.NewWASM(ctx, st, nil))
 
 	start := time.Now()
 

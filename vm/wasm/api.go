@@ -13,7 +13,6 @@ import (
 )
 
 var (
-	ctx    *Context
 	mState types.StateDB
 	mWasm  *WASM
 )
@@ -63,8 +62,7 @@ func init() {
 	env.RegisterFunc("TC_GetMsgTokenValue", &TCGetMsgTokenValue{})
 }
 
-func Inject(context *Context, stateDB types.StateDB, w *WASM) {
-	ctx = context
+func Inject(stateDB types.StateDB, w *WASM) {
 	mState = stateDB
 	mWasm = w
 }
@@ -104,8 +102,8 @@ func tcNotify(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 		Address:     common.BytesToAddress(eng.Contract.Address().Bytes()),
 		Topics:      topics,
 		Data:        data,
-		BlockNumber: ctx.BlockNumber.Uint64(),
-		BlockTime:   ctx.Time.Uint64(),
+		BlockNumber: mWasm.BlockNumber.Uint64(),
+		BlockTime:   mWasm.Time.Uint64(),
 	})
 	return 0, nil
 }
@@ -405,7 +403,7 @@ func tcBlockHash(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 	block := args[0]
 	app, _ := eng.RunningAppFrame()
 	vmem := app.VM.VMemory()
-	hash := ctx.GetHash(block)
+	hash := mWasm.GetHash(block)
 	hashStr := hash.String()
 
 	hashPointer, err := vmem.SetBytes([]byte(hashStr))
@@ -434,7 +432,7 @@ func tcGetCoinbase(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 	}
 	app, _ := eng.RunningAppFrame()
 	vmem := app.VM.VMemory()
-	coinbase := ctx.Coinbase
+	coinbase := mWasm.Coinbase
 	coinbaseStr := coinbase.String()
 
 	cPointer, err := vmem.SetBytes([]byte(coinbaseStr))
@@ -461,7 +459,7 @@ func tcGetGasLimit(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 	if len(args) != 0 {
 		return 0, vm.ErrInvalidApiArgs
 	}
-	gaslimit := ctx.GasLimit
+	gaslimit := mWasm.GasLimit
 
 	return uint64(gaslimit), nil
 }
@@ -482,7 +480,7 @@ func tcGetNumber(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 	if len(args) != 0 {
 		return 0, vm.ErrInvalidApiArgs
 	}
-	return ctx.BlockNumber.Uint64(), nil
+	return mWasm.BlockNumber.Uint64(), nil
 }
 
 type TCGetTimestamp struct{}
@@ -501,7 +499,7 @@ func tcGetTimestamp(eng *vm.Engine, index int64, args []uint64) (uint64, error) 
 	if len(args) != 0 {
 		return 0, vm.ErrInvalidApiArgs
 	}
-	return ctx.Time.Uint64(), nil
+	return mWasm.Time.Uint64(), nil
 }
 
 type TCNow struct{}
@@ -520,7 +518,7 @@ func tcNow(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 	if len(args) != 0 {
 		return 0, vm.ErrInvalidApiArgs
 	}
-	return ctx.Time.Uint64(), nil
+	return mWasm.Time.Uint64(), nil
 }
 
 type TCGetTxGasPrice struct{}
@@ -539,7 +537,7 @@ func tcGetTxGasPrice(eng *vm.Engine, index int64, args []uint64) (uint64, error)
 	if len(args) != 0 {
 		return 0, vm.ErrInvalidApiArgs
 	}
-	return ctx.GasPrice.Uint64(), nil
+	return mWasm.GasPrice.Uint64(), nil
 }
 
 type TCGetTxOrigin struct{}
@@ -560,7 +558,7 @@ func tcGetTxOrigin(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 	}
 	app, _ := eng.RunningAppFrame()
 	vmem := app.VM.VMemory()
-	orign := ctx.Origin
+	orign := mWasm.Origin
 
 	dataPtr, err := vmem.SetBytes([]byte(orign.String()))
 	if err != nil {
@@ -771,8 +769,8 @@ func tcLog0(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 		Address:     common.BytesToAddress(eng.Contract.Address().Bytes()),
 		Topics:      topics,
 		Data:        data,
-		BlockNumber: ctx.BlockNumber.Uint64(),
-		BlockTime:   ctx.Time.Uint64(),
+		BlockNumber: mWasm.BlockNumber.Uint64(),
+		BlockTime:   mWasm.Time.Uint64(),
 	})
 	return 0, nil
 }
@@ -813,8 +811,8 @@ func tcLog1(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 		Address:     common.BytesToAddress(eng.Contract.Address().Bytes()),
 		Topics:      topics,
 		Data:        data,
-		BlockNumber: ctx.BlockNumber.Uint64(),
-		BlockTime:   ctx.Time.Uint64(),
+		BlockNumber: mWasm.BlockNumber.Uint64(),
+		BlockTime:   mWasm.Time.Uint64(),
 	})
 	return 0, nil
 }
@@ -855,8 +853,8 @@ func tcLog2(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 		Address:     common.BytesToAddress(eng.Contract.Address().Bytes()),
 		Topics:      topics,
 		Data:        data,
-		BlockNumber: ctx.BlockNumber.Uint64(),
-		BlockTime:   ctx.Time.Uint64(),
+		BlockNumber: mWasm.BlockNumber.Uint64(),
+		BlockTime:   mWasm.Time.Uint64(),
 	})
 	return 0, nil
 }
@@ -897,8 +895,8 @@ func tcLog3(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 		Address:     common.BytesToAddress(eng.Contract.Address().Bytes()),
 		Topics:      topics,
 		Data:        data,
-		BlockNumber: ctx.BlockNumber.Uint64(),
-		BlockTime:   ctx.Time.Uint64(),
+		BlockNumber: mWasm.BlockNumber.Uint64(),
+		BlockTime:   mWasm.Time.Uint64(),
 	})
 	return 0, nil
 }
@@ -939,8 +937,8 @@ func tcLog4(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 		Address:     common.BytesToAddress(eng.Contract.Address().Bytes()),
 		Topics:      topics,
 		Data:        data,
-		BlockNumber: ctx.BlockNumber.Uint64(),
-		BlockTime:   ctx.Time.Uint64(),
+		BlockNumber: mWasm.BlockNumber.Uint64(),
+		BlockTime:   mWasm.Time.Uint64(),
 	})
 	return 0, nil
 }
@@ -1033,10 +1031,10 @@ func (t *TCTokenAddress) Gas(index int64, ops interface{}, args []uint64) (uint6
 func tcTokenAddress(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 	runningFrame, _ := eng.RunningAppFrame()
 	vmem := runningFrame.VM.VMemory()
-	if ctx.Token == common.EmptyAddress {
+	if mWasm.Token == common.EmptyAddress {
 		return vmem.SetBytes([]byte(common.Address{}.String()))
 	}
-	return vmem.SetBytes([]byte(ctx.Token.String()))
+	return vmem.SetBytes([]byte(mWasm.Token.String()))
 }
 
 type TCGetMsgValue struct{}
@@ -1062,7 +1060,7 @@ func tcGetMsgValue(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 		dataPtr uint64
 		err     error
 	)
-	if ctx.Token == common.EmptyAddress {
+	if mWasm.Token == common.EmptyAddress {
 		dataPtr, err = vmem.SetBytes([]byte(vStr))
 	} else {
 		dataPtr, err = vmem.SetBytes([]byte(big.NewInt(0).String()))
@@ -1075,7 +1073,7 @@ func tcGetMsgValue(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 
 func gasGetMsgValue(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 	valLen := 1
-	if ctx.Token == common.EmptyAddress {
+	if mWasm.Token == common.EmptyAddress {
 		valLen = len(eng.Contract.Value().String())
 	}
 	gas := vm.GasExtStep
@@ -1125,7 +1123,7 @@ func tcGetMsgTokenValue(eng *vm.Engine, index int64, args []uint64) (uint64, err
 
 func gasGetMsgTokenValue(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 	valLen := len(eng.Contract.Value().String())
-	if ctx.Token == common.EmptyAddress {
+	if mWasm.Token == common.EmptyAddress {
 		valLen = 1
 	}
 	gas := vm.GasExtStep

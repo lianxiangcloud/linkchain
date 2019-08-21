@@ -958,7 +958,6 @@ func CallWasmContract(st *state.StateDB, sender, contractAddr common.Address, am
 	innerContract.SetCallCode(contract.CodeAddr.Bytes(), contract.CodeHash.Bytes(), contract.Code)
 	innerContract.Input = contract.Input
 	innerContract.CreateCall = contract.CreateCall
-	wasm.Inject(nil, st, nil)
 	eng := vm.NewEngine(innerContract, contract.Gas, st, logger)
 	eng.SetTrace(false) // trace app execution.
 
