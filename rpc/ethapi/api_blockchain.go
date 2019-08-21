@@ -105,6 +105,11 @@ func (s *PublicBlockChainAPI) GetAllBalances(ctx context.Context, address common
 	return b, state.Error()
 }
 
+//GetTxsResult get txsResult
+func (s *PublicBlockChainAPI) GetTxsResult(ctx context.Context, blockNr uint64) (*types.TxsResult, error) {
+	return s.b.GetTxsResult(ctx, blockNr)
+}
+
 // GetBlockByNumber returns the requested block. When blockNr is -1 the chain head is returned. When fullTx is true all
 // transactions in the block are returned in full detail, otherwise only the transaction hash is returned.
 func (s *PublicBlockChainAPI) GetBlockByNumber(ctx context.Context, blockNr rpc.BlockNumber, fullTx bool) (interface{}, error) {
