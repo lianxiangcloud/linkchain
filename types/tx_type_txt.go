@@ -244,7 +244,7 @@ func (tx *TokenTransaction) UnmarshalJSON(input []byte) error {
 	}
 	var V byte
 	if isProtectedV(dec.Signdata.V) {
-		signParam := deriveSignParam(dec.Signdata.V).Uint64()
+		signParam := DeriveSignParam(dec.Signdata.V).Uint64()
 		V = byte(dec.Signdata.V.Uint64() - 35 - 2*signParam)
 	} else {
 		V = byte(dec.Signdata.V.Uint64() - 27)

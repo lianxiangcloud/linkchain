@@ -155,7 +155,7 @@ func (data signdata) recover(hash common.Hash, signParamMul *big.Int, homestead 
 
 // SignParam returns which sign param this transaction was signed with
 func (data signdata) SignParam() *big.Int {
-	return deriveSignParam(data.V)
+	return DeriveSignParam(data.V)
 }
 
 // STDEIP155Signer implements STDSigner using the EIP155 rules.
@@ -307,8 +307,8 @@ func recoverPlain(sighash common.Hash, R, S, Vb *big.Int, homestead bool) (commo
 	return addr, nil
 }
 
-// deriveSignParam derives the sign param from the given v parameter
-func deriveSignParam(v *big.Int) *big.Int {
+// DeriveSignParam derives the sign param from the given v parameter
+func DeriveSignParam(v *big.Int) *big.Int {
 	if v == nil {
 		return big.NewInt(0)
 	}
