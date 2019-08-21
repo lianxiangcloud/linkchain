@@ -16,5 +16,5 @@ var (
 	ErrNoTransInTx         = errors.New("no trans in tx")
 	ErrArgsInvalid         = errors.New("args invalid")
 	ErrUTXONotSupportToken = errors.New("utxo not support token")
-	ErrUTXODestsOverLimit  = fmt.Errorf("utxo dests over limiit, should less than %d", UTXO_DESTS_MAX_NUM)
+	ErrUTXODestsOverLimit  = fmt.Errorf("utxo dests over limit, should less than %d", UTXO_DESTS_MAX_NUM)
 )
