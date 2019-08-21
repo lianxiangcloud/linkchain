@@ -943,7 +943,7 @@ func AllocAward(wasm *wasm.WASM, logger log.Logger) error {
 
 //CallWasmContract only be used by chain inner to call wasm contract directly
 func CallWasmContract(wasm *wasm.WASM, sender, contractAddr common.Address, amount *big.Int, input []byte, logger log.Logger) ([]byte, error) {
-	gas := uint64(10000000000000000000)
+	gas := uint64(math.MaxUint64) //Max gas
 	st := wasm.StateDB
 
 	innerContract := vm.NewContract(sender.Bytes(), contractAddr.Bytes(), amount, gas)
