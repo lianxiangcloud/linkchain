@@ -18,7 +18,6 @@ import (
 	"github.com/lianxiangcloud/linkchain/libs/log"
 	"github.com/lianxiangcloud/linkchain/state"
 	"github.com/lianxiangcloud/linkchain/types"
-	"github.com/lianxiangcloud/linkchain/vm/wasm"
 	"github.com/spf13/cobra"
 	"github.com/xunleichain/tc-wasm/vm"
 )

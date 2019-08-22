@@ -55,7 +55,7 @@ func init() {
 	env.RegisterFunc("TC_TokenAddress", &TCTokenAddress{})
 	env.RegisterFunc("TC_GetMsgValue", &TCGetMsgValue{})
 	env.RegisterFunc("TC_GetMsgTokenValue", &TCGetMsgTokenValue{})
-	env.RegisterFunc("TC_CallContract", new(TCCallContract))
+	env.RegisterFunc("TC_CallContract", &TCCallContract{})
 }
 
 type TCNotify struct{}
@@ -413,8 +413,7 @@ func tcBlockHash(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 		eng.Logger().Error("TC_BlockHash get WASM failed")
 	}
 	hash := common.Hash{}
-	if mWasm.BlockNumber.Cmp(new(big.Int).SetUint64(block)) > 0 {
-
+	if mWasm.BlockNumber.Cmp(new(big.Int).SetUint64(block)) > 0 && types.BlockHeightZero <= block {
 		hash = mWasm.GetHash(block)
 	}
 	hashStr := hash.String()
