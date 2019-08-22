@@ -312,9 +312,9 @@ func TestReap(t *testing.T) {
 	fmt.Println(mem.Stats())
 }
 
-func TestBenchAdd(t *testing.T) {
-	testMempoolBench(1, 20)
-}
+// func TestBenchAdd(t *testing.T) {
+// 	testMempoolBench(1, 20)
+// }
 
 func testMempoolBench(aNum, tNum int) {
 	cfg := config.DefaultMempoolConfig()
@@ -403,4 +403,65 @@ func printFutureTxs(mem *Mempool) {
 		}
 	}
 	fmt.Println("----futureTxs end")
+}
+
+func TestTxHeap(t *testing.T) {
+	cache := newTxHeapManager(4, 3)
+	nums := 32
+
+	var hash common.Hash
+	for i := 0; i < nums; i++ {
+		hash[0] = byte(i)
+		cache.Put(makeNopTx(hash))
+	}
+	t.Logf("cache.Put ok")
+
+	if cache.Size() != nums {
+		t.Fatalf("cache.Size(): wanted=%d, goted=%d", nums, cache.Size())
+	}
+
+	hash = common.Hash{}
+	for i := 0; i < nums; i++ {
+		hash[0] = byte(i)
+		tx := cache.Get(hash)
+		if tx == nil {
+			t.Fatalf("cache.Get should not be nil")
+		}
+		t.Logf("cache.Get %s", tx.Hash().String())
+		cache.DelayDelete(hash)
+	}
+	t.Logf("cache.Get ok")
+
+	time.Sleep(time.Second * 4)
+	hash = common.Hash{}
+	for i := 0; i < nums; i++ {
+		hash[0] = byte(i)
+		tx := cache.Get(hash)
+		if tx != nil {
+			t.Fatalf("cache.Get should be nil")
+		}
+	}
+	if cache.Size() != 0 {
+		t.Fatalf("cache.Size(): wanted=%d, goted=%d", 0, cache.Size())
+	}
+	t.Logf("cache.DelayDelete ok")
+}
+
+func BenchmarkTxHeap(b *testing.B) {
+	cache := newTxHeapManager(4, 3)
+
+	var hash common.Hash
+	for i := 0; i < b.N; i++ {
+		hash[0] = byte(i % 0xff)
+		hash[1] = byte(i / 0xff)
+		cache.Put(makeNopTx(hash))
+	}
+
+	for i := 0; i < b.N; i++ {
+		hash[0] = byte(i % 0xff)
+		hash[1] = byte(i / 0xff)
+		if tx := cache.Get(hash); tx == nil {
+			b.Fatalf("cache.Get should be nil for %s", hash.String())
+		}
+	}
 }

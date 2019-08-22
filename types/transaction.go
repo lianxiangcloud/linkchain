@@ -152,8 +152,8 @@ func (tx *Transaction) From() (common.Address, error) {
 	return tx.Sender(GlobalSTDSigner)
 }
 
-func (tx *Transaction) StoreFrom(addr *common.Address) {
-	tx.data.from().Store(stdSigCache{signer: GlobalSTDSigner, from: *addr})
+func (tx *Transaction) StoreFrom(addr common.Address) {
+	tx.data.from().Store(stdSigCache{signer: GlobalSTDSigner, from: addr})
 }
 
 type txdataMarshaling struct {

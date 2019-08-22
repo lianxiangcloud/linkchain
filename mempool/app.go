@@ -7,7 +7,7 @@ import (
 
 	"github.com/lianxiangcloud/linkchain/accounts/keystore"
 	"github.com/lianxiangcloud/linkchain/libs/common"
-    "github.com/lianxiangcloud/linkchain/libs/log"
+	"github.com/lianxiangcloud/linkchain/libs/log"
 	"github.com/lianxiangcloud/linkchain/types"
 )
 
@@ -62,7 +62,7 @@ func (mApp *mockApp) CheckTx(tx types.Tx, checkBasic bool) error {
 			cost := eTx.Cost()
 
 			if cost.Cmp(balance) > 0 {
-                fmt.Println("insufficcient balance", "from", from.String(), "cost", cost, "balance", balance)
+				fmt.Println("insufficcient balance", "from", from.String(), "cost", cost, "balance", balance)
 				return types.ErrInsufficientFunds
 			}
 			if eTx.Nonce() < nonce {
@@ -121,7 +121,7 @@ func (mApp *mockApp) CheckTx(tx types.Tx, checkBasic bool) error {
 					mApp.nMtx.Lock()
 					mApp.nonce[fromAddr]++
 					mApp.nMtx.Unlock()
-		
+
 					mApp.bMtx.Lock()
 					mApp.balance[fromAddr].Sub(mApp.balance[fromAddr], input.Amount)
 					mApp.bMtx.Unlock()
@@ -133,18 +133,18 @@ func (mApp *mockApp) CheckTx(tx types.Tx, checkBasic bool) error {
 	} else {
 		switch eTx := tx.(type) {
 		case *types.UTXOTransaction:
-            if (eTx.UTXOKind()&types.AinAout) != types.IllKind { 
-                //AccountInput or call contract need account signature
-                fromAddr, err := tx.From()
-                if err != nil {
-                    log.Debug("CheckTx", "err", err)
-                    return types.ErrInvalidSig
-                }
-                eTx.StoreFrom(&fromAddr)
-            } else {
-                eTx.StoreFrom(&common.EmptyAddress)
-            } 
-        }
-    }
+			if (eTx.UTXOKind() & types.AinAout) != types.IllKind {
+				//AccountInput or call contract need account signature
+				fromAddr, err := tx.From()
+				if err != nil {
+					log.Debug("CheckTx", "err", err)
+					return types.ErrInvalidSig
+				}
+				eTx.StoreFrom(fromAddr)
+			} else {
+				eTx.StoreFrom(common.EmptyAddress)
+			}
+		}
+	}
 	return nil
 }

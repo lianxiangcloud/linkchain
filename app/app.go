@@ -316,15 +316,15 @@ func (app *LinkApplication) verifySpecTxSign(block *types.Block) error {
 		var err error
 		switch data := tx.(type) {
 		case *types.ContractCreateTx:
-			if _, verified := app.mempool.VerifyTxFromCache(data.Hash()); !verified {
+			if app.mempool.GetTxFromCache(data.Hash()) == nil {
 				err = data.VerifySign(app.crossState.GetMultiSignersInfo(types.TxContractCreateType))
 			}
 		case *types.ContractUpgradeTx:
-			if _, verified := app.mempool.VerifyTxFromCache(data.Hash()); !verified {
+			if app.mempool.GetTxFromCache(data.Hash()) == nil {
 				err = data.VerifySign(app.crossState.GetMultiSignersInfo(types.TxContractCreateType))
 			}
 		case *types.MultiSignAccountTx:
-			if _, verified := app.mempool.VerifyTxFromCache(data.Hash()); !verified {
+			if app.mempool.GetTxFromCache(data.Hash()) == nil {
 				_, vals := app.GetLastChangedVals()
 				valSets := types.NewValidatorSet(vals)
 				err = data.VerifySign(valSets)
@@ -354,30 +354,27 @@ func (app *LinkApplication) verifyTxsOnProcess(block *types.Block) error {
 				hash := txs[index].Hash()
 				switch tx := txs[index].(type) {
 				case *types.Transaction:
-					err := checkBlacklistAddress(tx)
-					if err != nil {
-						errRets[coIndex] = &err
-						return
-					}
-					addr, _ := app.mempool.VerifyTxFromCache(hash)
-					if addr != nil {
-						tx.StoreFrom(addr)
+					cacheTx := app.mempool.GetTxFromCache(hash)
+					if cacheTx != nil {
+						from, _ := cacheTx.From()
+						tx.StoreFrom(from)
 					} else {
 						_, err := tx.From()
 						if err != nil {
 							errRets[coIndex] = &err
 							return
 						}
+					}
+					err := checkBlacklistAddress(tx)
+					if err != nil {
+						errRets[coIndex] = &err
+						return
 					}
 				case *types.TokenTransaction:
-					err := checkBlacklistAddress(tx)
-					if err != nil {
-						errRets[coIndex] = &err
-						return
-					}
-					addr, _ := app.mempool.VerifyTxFromCache(hash)
-					if addr != nil {
-						tx.StoreFrom(addr)
+					cacheTx := app.mempool.GetTxFromCache(hash)
+					if cacheTx != nil {
+						from, _ := cacheTx.From()
+						tx.StoreFrom(from)
 					} else {
 						_, err := tx.From()
 						if err != nil {
@@ -385,7 +382,27 @@ func (app *LinkApplication) verifyTxsOnProcess(block *types.Block) error {
 							return
 						}
 					}
+					err := checkBlacklistAddress(tx)
+					if err != nil {
+						errRets[coIndex] = &err
+						return
+					}
+
 				case *types.UTXOTransaction:
+					if cacheTx := app.mempool.GetTxFromCache(hash); cacheTx == nil {
+						err := app.CheckTx(tx, true) //UTXO CheckBasic
+						if err == nil {
+							err = tx.CheckUTXODoubleSpend(app)
+						}
+						if err != nil {
+							errRets[coIndex] = &err
+							return
+						}
+					} else {
+						from, _ := cacheTx.From()
+						tx.StoreFrom(from)
+					}
+
 					// blacklist check
 					if (tx.UTXOKind() & types.Aout) == types.Aout {
 						for _, out := range tx.Outputs {
@@ -408,16 +425,6 @@ func (app *LinkApplication) verifyTxsOnProcess(block *types.Block) error {
 							return
 						}
 					}
-					if _, verified := app.mempool.VerifyTxFromCache(hash); !verified {
-						err := app.CheckTx(tx, true) //UTXO CheckBasic
-						if err == nil {
-							err = tx.CheckUTXODoubleSpend(app)
-						}
-						if err != nil {
-							errRets[coIndex] = &err
-							return
-						}
-					}
 				case *types.ContractCreateTx, *types.ContractUpgradeTx, *types.MultiSignAccountTx:
 					err := checkBlacklistAddress(tx)
 					if err != nil {
@@ -426,6 +433,7 @@ func (app *LinkApplication) verifyTxsOnProcess(block *types.Block) error {
 					}
 				default:
 				}
+
 			}
 		}(i)
 	}

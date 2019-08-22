@@ -429,7 +429,7 @@ func DefaultMempoolConfig() *MempoolConfig {
 		Size:              3000,
 		MaxReapSize:       10000,
 		SpecSize:          100,
-		UTXOSize:          500,
+		UTXOSize:          1000,
 		CacheSize:         203000,
 		FutureSize:        100000,
 		AccountQueue:      1000,

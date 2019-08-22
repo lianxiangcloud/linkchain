@@ -6,11 +6,11 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	mock "github.com/stretchr/testify/mock"
 	"github.com/lianxiangcloud/linkchain/libs/common"
 	"github.com/lianxiangcloud/linkchain/libs/crypto"
 	"github.com/lianxiangcloud/linkchain/libs/ser"
+	"github.com/stretchr/testify/assert"
+	mock "github.com/stretchr/testify/mock"
 )
 
 func TestTokenTransaction(t *testing.T) {
@@ -42,10 +42,10 @@ func TestTokenTransaction(t *testing.T) {
 
 	assert.Equal(t, TxToken, tx.TypeName())
 
-	tx.StoreFrom(&to)
+	tx.StoreFrom(to)
 	nFrom, _ := tx.From()
 	assert.Equal(t, to, nFrom)
-	tx.StoreFrom(&addr)
+	tx.StoreFrom(addr)
 
 	jsonData := map[string]string{"key": "val"}
 	bs, _ := json.Marshal(jsonData)
@@ -150,11 +150,11 @@ func TestTokenTransactionCheckBasic(t *testing.T) {
 	assert.Equal(t, ErrInvalidSender, err)
 
 	z1Addr := common.HexToAddress("0x1")
-	tx.StoreFrom(&z1Addr)
+	tx.StoreFrom(z1Addr)
 
 	tx = &TokenTransaction{data: tx.data}
 	z0Addr := common.HexToAddress("0x0")
-	tx.StoreFrom(&z0Addr)
+	tx.StoreFrom(z0Addr)
 
 	tx.data.Payload = make([]byte, 32000)
 	err = tx.CheckBasic(censor)
@@ -211,7 +211,7 @@ func TestTokenTransactionCheckState(t *testing.T) {
 	assert.Nil(t, err)
 
 	z0Addr := common.HexToAddress("0x0")
-	tx.StoreFrom(&z0Addr)
+	tx.StoreFrom(z0Addr)
 
 	state.On("Exist", mock.Anything).Return(false).Once()
 	state.On("GetNonce", mock.Anything).Return(tx.Nonce()).Once()

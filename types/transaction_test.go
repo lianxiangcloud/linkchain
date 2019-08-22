@@ -202,10 +202,10 @@ func TestTransaction(t *testing.T) {
 	assert.Equal(t, GlobalSTDSigner.SignParam().String(), tx.SignParam().String())
 	assert.Equal(t, TxNormal, tx.TypeName())
 
-	tx.StoreFrom(&to)
+	tx.StoreFrom(to)
 	nFrom, _ := tx.From()
 	assert.Equal(t, to, nFrom)
-	tx.StoreFrom(&addr)
+	tx.StoreFrom(addr)
 
 	jsonData := map[string]string{"key": "val"}
 	bs, _ := json.Marshal(jsonData)
@@ -323,12 +323,12 @@ func TestTransactionCheckBasic(t *testing.T) {
 	assert.Equal(t, ErrGasLimitOrGasPrice, err)
 
 	z1Addr := common.HexToAddress("0x1")
-	tx.StoreFrom(&z1Addr)
+	tx.StoreFrom(z1Addr)
 	err = tx.CheckBasic(censor)
 
 	tx = &Transaction{data: tx.data}
 	z0Addr := common.HexToAddress("0x0")
-	tx.StoreFrom(&z0Addr)
+	tx.StoreFrom(z0Addr)
 
 	tx.data.Payload = make([]byte, 32000)
 	err = tx.CheckBasic(censor)
@@ -374,7 +374,7 @@ func TestTransactionCheckState(t *testing.T) {
 
 	state.On("GetNonce", mock.Anything).Return(tx.Nonce() - 1).Once()
 	z1Addr := common.HexToAddress("0x1")
-	tx.StoreFrom(&z1Addr)
+	tx.StoreFrom(z1Addr)
 	err = tx.CheckState(censor)
 
 	state.On("GetNonce", mock.Anything).Return(tx.Nonce()).Once()

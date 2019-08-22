@@ -454,14 +454,14 @@ func EcdhDecode(masked *types.EcdhTuple, sharedSec types.Key, shortAmount bool) 
 	cMasked := C.malloc(C.sizeof_rct_ecdhTuple_t)
 	defer C.free(unsafe.Pointer(cMasked))
 
-	toRctEcdhTuple(masked, (*C.rct_ecdhTuple_t)(unsafe.Pointer(cMasked)))
-	ret := C.x_ecdh_decode((*C.rct_ecdhTuple_t)(unsafe.Pointer(cMasked)), C.p_rct_key_t(unsafe.Pointer(&sharedSec[0])), C.int(flag))
+	toRctEcdhTuple(masked, (*C.rct_ecdhTuple_t)(cMasked))
+	ret := C.x_ecdh_decode((*C.rct_ecdhTuple_t)(cMasked), C.p_rct_key_t(unsafe.Pointer(&sharedSec[0])), C.int(flag))
 
 	if ret < 0 {
 		return false
 	}
 
-	fromRctEcdhTuple((*C.rct_ecdhTuple_t)(unsafe.Pointer(cMasked)), masked)
+	fromRctEcdhTuple((*C.rct_ecdhTuple_t)(cMasked), masked)
 	return true
 }
 
@@ -474,14 +474,14 @@ func EcdhEncode(unmasked *types.EcdhTuple, sharedSec types.Key, shortAmount bool
 	cUnmasked := C.malloc(C.sizeof_rct_ecdhTuple_t)
 	defer C.free(unsafe.Pointer(cUnmasked))
 
-	toRctEcdhTuple(unmasked, (*C.rct_ecdhTuple_t)(unsafe.Pointer(cUnmasked)))
+	toRctEcdhTuple(unmasked, (*C.rct_ecdhTuple_t)(cUnmasked))
 	ret := C.x_ecdh_encode((*C.rct_ecdhTuple_t)(unsafe.Pointer(cUnmasked)), C.p_rct_key_t(unsafe.Pointer(&sharedSec[0])), C.int(flag))
 
 	if ret < 0 {
 		return false
 	}
 
-	fromRctEcdhTuple((*C.rct_ecdhTuple_t)(unsafe.Pointer(cUnmasked)), unmasked)
+	fromRctEcdhTuple((*C.rct_ecdhTuple_t)(cUnmasked), unmasked)
 	return true
 }
 

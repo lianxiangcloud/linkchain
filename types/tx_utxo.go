@@ -287,8 +287,8 @@ func (tx *UTXOTransaction) Sign(signer STDSigner, prv *ecdsa.PrivateKey) error {
 	return nil
 }
 
-func (tx *UTXOTransaction) StoreFrom(addr *common.Address) {
-	tx.Sigs.from().Store(stdSigCache{signer: GlobalSTDSigner, from: *addr})
+func (tx *UTXOTransaction) StoreFrom(addr common.Address) {
+	tx.Sigs.from().Store(stdSigCache{signer: GlobalSTDSigner, from: addr})
 }
 
 func (tx *UTXOTransaction) From() (common.Address, error) {
@@ -411,7 +411,17 @@ func (tx *UTXOTransaction) GasPrice() *big.Int { return new(big.Int).SetInt64(Pa
 func (tx *UTXOTransaction) TxType() string     { return TxUTXO }
 func (tx *UTXOTransaction) Data() []byte       { panic("should not call"); return nil }
 func (tx *UTXOTransaction) Value() *big.Int    { panic("should not call"); return big.NewInt(0) }
-func (tx *UTXOTransaction) Nonce() uint64      { panic("should not call"); return 0 }
+func (tx *UTXOTransaction) Nonce() uint64 {
+	for _, txin := range tx.Inputs {
+		switch input := txin.(type) {
+		case *AccountInput:
+			return input.Nonce
+		}
+	}
+
+	panic("should not call for no AccountInput UTXOTransaction")
+	return 0
+}
 
 //CheckBasic check tx's input, output, commit, bulletproof, and ringct.
 func (tx *UTXOTransaction) CheckBasic(censor TxCensor) error {
@@ -923,9 +933,9 @@ func (tx *UTXOTransaction) checkTxSemantic(censor TxCensor) error {
 		if err != nil {
 			return ErrInvalidSig
 		}
-		tx.StoreFrom(&fromAddr)
+		tx.StoreFrom(fromAddr)
 	} else {
-		tx.StoreFrom(&common.EmptyAddress)
+		tx.StoreFrom(common.EmptyAddress)
 	}
 	tx.kind.Store(kind)
 	tx.utxoInNum.Store(utxoInNum)

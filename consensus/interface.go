@@ -36,12 +36,12 @@ func (m MockMempool) Reap(n int) types.Txs {
 	return types.Txs{}
 }
 func (m MockMempool) Update(height uint64, txs types.Txs) error { return nil }
-func (m MockMempool) Flush()                                                              {}
-func (m MockMempool) FlushAppConn() error                                                 { return nil }
-func (m MockMempool) TxsAvailable() <-chan struct{}                                       { return make(chan struct{}) }
-func (m MockMempool) EnableTxsAvailable()                                                 {}
-func (m MockMempool) VerifyTxFromCache(hash common.Hash) (*common.Address, bool) {
-	return &common.Address{}, false
+func (m MockMempool) Flush()                                    {}
+func (m MockMempool) FlushAppConn() error                       { return nil }
+func (m MockMempool) TxsAvailable() <-chan struct{}             { return make(chan struct{}) }
+func (m MockMempool) EnableTxsAvailable()                       {}
+func (m MockMempool) GetTxFromCache(hash common.Hash) types.Tx {
+	return nil
 }
 func (m MockMempool) SetReceiveP2pTx(on bool) {}
 

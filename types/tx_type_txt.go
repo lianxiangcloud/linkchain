@@ -143,8 +143,8 @@ func (tx *TokenTransaction) Protected() bool {
 	return tx.data.Signdata.Protected()
 }
 
-func (tx *TokenTransaction) StoreFrom(addr *common.Address) {
-	tx.data.Signdata.fromValue.Store(stdSigCache{signer: GlobalSTDSigner, from: *addr})
+func (tx *TokenTransaction) StoreFrom(addr common.Address) {
+	tx.data.Signdata.fromValue.Store(stdSigCache{signer: GlobalSTDSigner, from: addr})
 }
 
 func (tx *TokenTransaction) IllegalGasLimitOrGasPrice(hascode bool) bool {

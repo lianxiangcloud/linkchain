@@ -1,12 +1,16 @@
 package mempool
 
 import (
+	"bytes"
+	"encoding/hex"
 	"fmt"
+	"math/rand"
 	"reflect"
 	"runtime"
 	"time"
 
 	"github.com/lianxiangcloud/linkchain/libs/clist"
+	"github.com/lianxiangcloud/linkchain/libs/common"
 	"github.com/lianxiangcloud/linkchain/libs/log"
 	"github.com/lianxiangcloud/linkchain/libs/ser"
 
@@ -34,6 +38,9 @@ type MempoolReactor struct {
 	Mempool          *Mempool
 	cacheRev         *clist.CList //tx
 	mutisignCacheRev *clist.CList //mutisign tx
+
+	cacheHash txCache
+	txReqCh   chan txRequest
 }
 
 // NewMempoolReactor returns a new MempoolReactor with the given config and mempool.
@@ -43,6 +50,8 @@ func NewMempoolReactor(config *cfg.MempoolConfig, mempool *Mempool) *MempoolReac
 		Mempool:          mempool,
 		cacheRev:         clist.New(),
 		mutisignCacheRev: clist.New(),
+		cacheHash:        newTxHeap(15),
+		txReqCh:          make(chan txRequest, 20000),
 	}
 	memR.BaseReactor = *p2p.NewBaseReactor("MempoolReactor", memR)
 	return memR
@@ -70,6 +79,7 @@ func (memR *MempoolReactor) OnStart() error {
 
 	go memR.receiveTxRoutine()
 	go memR.handleMutilsignTx()
+	go memR.handleTxReqRoutine()
 	return nil
 }
 
@@ -78,8 +88,9 @@ func (memR *MempoolReactor) OnStart() error {
 func (memR *MempoolReactor) GetChannels() []*p2p.ChannelDescriptor {
 	return []*p2p.ChannelDescriptor{
 		{
-			ID:       MempoolChannel,
-			Priority: 5,
+			ID:                MempoolChannel,
+			Priority:          5,
+			SendQueueCapacity: 2000,
 		},
 	}
 }
@@ -87,7 +98,8 @@ func (memR *MempoolReactor) GetChannels() []*p2p.ChannelDescriptor {
 // AddPeer implements Reactor.
 // It starts a broadcast routine ensuring all txs are forwarded to the given peer.
 func (memR *MempoolReactor) AddPeer(peer p2p.Peer) {
-	go memR.broadcastTxRoutine(peer)
+	// go memR.broadcastTxRoutine(peer)
+	go memR.broadcastTxToPeer(peer)
 }
 
 // RemovePeer implements Reactor.
@@ -107,6 +119,26 @@ func defaultHandReceiveMsg(memR *MempoolReactor, msg MempoolMessage, src p2p.Pee
 		} else {
 			memR.cacheRev.PushBack(&RecieveMessage{src.ID(), tx})
 		}
+	case TxHashMessage:
+		memR.Logger.Debug("Receive", "src", src.ID(), "msg", msg.String())
+		if msg.Kind == TxHashNotify {
+			for _, hash := range msg.Hashs {
+				if memR.Mempool.cache.Exists(hash) { // mempool already has it
+					continue
+				}
+				if memR.cacheHash.Put(makeNopTx(hash)) { // put to cache ok
+					memR.txReqCh <- txRequest{hash: hash, src: src}
+				} // already cache
+			}
+		}
+		if msg.Kind == TxHashRequest {
+			for _, hash := range msg.Hashs {
+				if cacheTx := memR.Mempool.cache.Get(hash); cacheTx != nil {
+					memR.txReqCh <- txRequest{tx: cacheTx, dst: src}
+				}
+			}
+		}
+
 	default:
 		memR.Logger.Error(fmt.Sprintf("Unknown message type %v", reflect.TypeOf(msg)))
 	}
@@ -208,65 +240,109 @@ type PeerState interface {
 }
 
 // Send new mempool txs to peer.
-func (memR *MempoolReactor) broadcastTxRoutine(peer p2p.Peer) {
+func (memR *MempoolReactor) broadcastTxToPeer(peer p2p.Peer) {
 	if !memR.config.Broadcast {
 		return
 	}
 
-	nextTx := memR.Mempool.txsFront()
-	nextSpecTx := memR.Mempool.specTxsFront()
-	const (
-		sendSpecTxs = iota
-		sendNormalTxs
-		sendFinish
-	)
-	next, turn := nextSpecTx, sendSpecTxs
+	total := 0
+	_start := time.Now()
+	send := func(next *clist.CElement) error {
+		// @Note: should be < 1000
+		maxCount := 256 + int(rand.Int31n(256))
 
-	for {
-		// This happens because the CElement we were looking at got garbage
-		// collected (removed). That is, .NextWait() returned nil. Go ahead and
-		// start from the beginning.
+		for next != nil {
+			count := 0
+			msg := TxHashMessage{Kind: TxHashNotify}
+			hashs := make([]common.Hash, 0, maxCount)
 
-		//Send specTxs txs
-		if next == nil {
-			turn++
-			if turn == sendNormalTxs {
-				next = nextTx
+			for (next != nil) && (count < maxCount) {
+				switch v := next.Value.(type) {
+				case *mempoolTx:
+					hashs = append(hashs, v.tx.Hash())
+					next = next.Next()
+					count++
+				}
 			}
-		}
-		if turn == sendFinish {
-			memR.Logger.Info("memR broadcast all txs  finished")
-			return
-		}
 
-		if next == nil {
-			continue
-		}
+			select {
+			case <-peer.Quit():
+				return fmt.Errorf("peer Quit")
+			case <-memR.Quit():
+				return fmt.Errorf("MemReactor Quit")
+			default:
+			}
 
-		select {
-		case <-peer.Quit():
-			return
-		case <-memR.Quit():
-			return
-		default:
-		}
-
-		var sendData []byte
-		switch v := next.Value.(type) {
-		case *mempoolTx:
-			msg := &TxMessage{Tx: v.tx}
-			data, err := ser.EncodeToBytesWithType(msg)
+			msg.Hashs = hashs
+			data, err := ser.EncodeToBytesWithType(&msg)
 			if err != nil {
-				memR.Logger.Error("failed to marshal tx", "hash", v.tx.Hash().String())
+				memR.Logger.Error("broadcastTxToPeer: marshal fail", "err", err)
+				return err
 			}
-			sendData = data
+
+			if !peer.Send(MempoolChannel, data) {
+				memR.Logger.Warn("broadcastTxToPeer: send timeout")
+			}
+			total += len(hashs)
 		}
-		success := peer.Send(MempoolChannel, sendData)
-		if !success {
-			time.Sleep(peerCatchupSleepIntervalMS * time.Millisecond)
-			continue
+		return nil
+	}
+
+	if err := send(memR.Mempool.utxoTxsFront()); err != nil {
+		return
+	}
+	if err := send(memR.Mempool.txsFront()); err != nil {
+		return
+	}
+	if err := send(memR.Mempool.specTxsFront()); err != nil {
+		return
+	}
+	memR.Logger.Info("broadcastTxToPeer: done", "total", total, "used", time.Since(_start).String())
+}
+
+func (memR *MempoolReactor) handleTxReqRoutine() {
+	for {
+		select {
+		case <-memR.Quit():
+			memR.Logger.Info("handleTxReqRoutine exit...")
+			return
+		case req := <-memR.txReqCh:
+			var (
+				peer p2p.Peer
+				data []byte
+				err  error
+				wait bool
+			)
+
+			if req.src != nil { // send tx request to peer
+				memR.cacheHash.DelayDelete(req.hash)
+				peer = req.src
+				msg := TxHashMessage{Hashs: []common.Hash{req.hash}, Kind: TxHashRequest}
+				data, err = ser.EncodeToBytesWithType(&msg)
+				if err != nil {
+					memR.Logger.Error("handleTxReqRoutine: marshal tx fail", "hash", req.hash)
+					continue
+				}
+			} else { // send tx data to peer
+				peer = req.dst
+				msg := TxMessage{Tx: req.tx}
+				data, err = ser.EncodeToBytesWithType(&msg)
+				if err != nil {
+					memR.Logger.Error("handleTxReqRoutine: marshal tx fail", "hash", req.tx.Hash())
+					continue
+				}
+				if req.tx.TypeName() == types.TxMultiSignAccount {
+					wait = true
+				}
+			}
+
+			if !wait { // no wait
+				if !peer.TrySend(MempoolChannel, data) {
+					go peer.Send(MempoolChannel, data)
+				}
+			}
+			peer.Send(MempoolChannel, data)
 		}
-		next = next.Next()
 	}
 }
 
@@ -279,6 +355,7 @@ type MempoolMessage interface{}
 func RegisterMempoolMessages() {
 	ser.RegisterInterface((*MempoolMessage)(nil), nil)
 	ser.RegisterConcrete(TxMessage{}, "mempool/TxMessage", nil)
+	ser.RegisterConcrete(TxHashMessage{}, "mempool/TxHashMessage", nil)
 }
 
 // decodeMsg decodes a byte-array into a MempoolMessage.
@@ -304,7 +381,60 @@ func (m TxMessage) String() string {
 	return fmt.Sprintf("[TxMessage %v]", m.Tx)
 }
 
+type TxHashMessageKind int
+
+const (
+	_ TxHashMessageKind = iota
+	TxHashNotify
+	TxHashRequest
+)
+
+// TxHashMessage --
+type TxHashMessage struct {
+	Hashs []common.Hash
+	Kind  TxHashMessageKind
+}
+
+func (m TxHashMessage) String() string {
+	buf := bytes.NewBufferString("[TxHashMessage K:L:V ")
+	buf.WriteString(fmt.Sprintf("%d:%d:[", m.Kind, len(m.Hashs)))
+
+	for i := 0; i < len(m.Hashs); i++ {
+		buf.WriteString(hex.EncodeToString(m.Hashs[i][:3]))
+		buf.WriteString("..., ")
+	}
+	buf.WriteString("] ]")
+	return buf.String()
+
+	// return fmt.Sprintf("[TxHashMessage %d:%v]", m.Kind, m.Hashs)
+}
+
 type RecieveMessage struct {
 	PeerID string
 	Tx     types.Tx
+}
+
+// ---------------------------
+type nopTx common.Hash
+
+func makeNopTx(hash common.Hash) *nopTx {
+	tx := new(common.Hash)
+	copy(tx[:], hash[:])
+	return (*nopTx)(tx)
+}
+
+func (tx *nopTx) Hash() common.Hash               { return common.Hash(*tx) }
+func (tx *nopTx) From() (common.Address, error)   { panic("nopTx Not Support") }
+func (tx *nopTx) To() *common.Address             { panic("nopTx Not Support") }
+func (tx *nopTx) TypeName() string                { return "nopTx" }
+func (tx *nopTx) CheckBasic(types.TxCensor) error { panic("nopTx Not Support") }
+func (tx *nopTx) CheckState(types.TxCensor) error { panic("nopTx Not Support") }
+
+// ------------------------
+type txRequest struct {
+	src  p2p.Peer
+	hash common.Hash
+
+	tx  types.Tx
+	dst p2p.Peer
 }

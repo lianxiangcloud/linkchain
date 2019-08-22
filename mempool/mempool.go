@@ -58,6 +58,7 @@ var canPromoteTxType = map[string]struct{}{
 	types.TxToken:           struct{}{},
 	types.TxContractCreate:  struct{}{},
 	types.TxContractUpgrade: struct{}{},
+	types.TxUTXO:            struct{}{},
 }
 
 var canAddTxType = map[string]struct{}{
@@ -74,6 +75,7 @@ var canAddFutureTxType = map[string]struct{}{
 	types.TxToken:           struct{}{},
 	types.TxContractCreate:  struct{}{},
 	types.TxContractUpgrade: struct{}{},
+	types.TxUTXO:            struct{}{},
 }
 
 var (
@@ -90,6 +92,7 @@ type Mempool struct {
 	app App
 
 	proxyMtx             sync.Mutex
+	utxoTxs              *clist.CList // for utxo input purelly
 	goodTxs              *clist.CList // concurrent linked-list of good txs
 	specGoodTxs          *clist.CList //for updatavalidators Tx and MultiSignAccount Tx
 	futureTxs            map[common.Address]*txList
@@ -128,6 +131,7 @@ func NewMempool(config *cfg.MempoolConfig, height uint64, sw p2p.P2PManager, opt
 	sem := semaphore.NewWeighted(sigWorkers)
 	mempool := &Mempool{
 		config:          config,
+		utxoTxs:         clist.New(),
 		goodTxs:         clist.New(),
 		specGoodTxs:     clist.New(),
 		futureTxs:       make(map[common.Address]*txList),
@@ -143,7 +147,8 @@ func NewMempool(config *cfg.MempoolConfig, height uint64, sw p2p.P2PManager, opt
 	}
 
 	if config.CacheSize > 0 {
-		mempool.cache = newMapTxCache(config.CacheSize)
+		// mempool.cache = newMapTxCache(config.CacheSize)
+		mempool.cache = newTxHeapManager(4, 30) // @Todo: make it configurable??
 	} else {
 		mempool.cache = nopTxCache{}
 	}
@@ -227,6 +232,7 @@ func (mem *Mempool) Stats() (int, int, int) {
 func (mem *Mempool) stats() (specPending int, pending int, queued int) {
 	specPending = mem.specGoodTxs.Len()
 	pending = mem.goodTxs.Len()
+	pending += mem.utxoTxs.Len()
 	for _, list := range mem.futureTxs {
 		queued += list.Len()
 	}
@@ -271,8 +277,14 @@ func (mem *Mempool) SetReceiveP2pTx(on bool) {
 }
 
 //VerifyTxFromCache is used to check whether tx has been verify in mempool by APP
-func (mem *Mempool) VerifyTxFromCache(hash common.Hash) (*common.Address, bool) {
-	return mem.cache.VerifyTxFromCache(hash)
+// func (mem *Mempool) VerifyTxFromCache(hash common.Hash) (*common.Address, bool) {
+func (mem *Mempool) GetTxFromCache(hash common.Hash) types.Tx {
+	return mem.cache.Get(hash)
+}
+
+// UTXOTxsSize return pure utxoTxs list length.
+func (mem *Mempool) UTXOTxsSize() int {
+	return mem.utxoTxs.Len()
 }
 
 // GoodTxsSize returns goodTxs list length.
@@ -283,6 +295,10 @@ func (mem *Mempool) GoodTxsSize() int {
 // SpecGoodTxsSize returns specGoodList length.
 func (mem *Mempool) SpecGoodTxsSize() int {
 	return mem.specGoodTxs.Len()
+}
+
+func (mem *Mempool) utxoTxsFront() *clist.CElement {
+	return mem.utxoTxs.Front()
 }
 
 // txsFront returns the first transaction in the ordered list for peer
@@ -296,15 +312,38 @@ func (mem *Mempool) specTxsFront() *clist.CElement {
 }
 
 func (mem *Mempool) addUTXOTx(tx types.Tx) (err error) {
-	if mem.goodTxs.Len() >= mem.config.Size {
-		return types.ErrMempoolIsFull
+	isOnlyUtxoInput := false
+	from, _ := tx.From()
+	if from == common.EmptyAddress { // pure utxo input
+		isOnlyUtxoInput = true
 	}
 
+	if isOnlyUtxoInput {
+		if mem.utxoTxs.Len() >= mem.config.Size {
+			return types.ErrMempoolIsFull
+		}
+	}
+
+	// @Note: we have already add nonce at tx.CheckState;
 	if err := mem.app.CheckTx(tx, StateCheck); err != nil {
+		if err == types.ErrNonceTooHigh { // has account input
+			if mem.futureTxsCount >= mem.config.FutureSize {
+				return types.ErrMempoolIsFull
+			}
+			if from == common.EmptyAddress {
+				panic("addUTXOTx: from is empty, should not happen")
+			}
+			err = mem.addFutureTx(tx)
+			log.Debug("add UTXOTx to Future", "tx", tx.Hash, "from", from, "err", err)
+		}
 		return err
 	}
 
-	mem.addGoodTx(tx, true)
+	if isOnlyUtxoInput {
+		mem.addPureUtxoTx(tx)
+	} else {
+		mem.addGoodTx(tx, true)
+	}
 	return nil
 }
 
@@ -318,7 +357,7 @@ func (mem *Mempool) addLocalTx(tx types.Tx) (err error) {
 		}
 	} else if err == types.ErrNonceTooHigh {
 		if mem.futureTxsCount >= mem.config.FutureSize {
-			mem.cache.Remove(tx)
+			mem.cache.Delete(tx.Hash())
 			return types.ErrMempoolIsFull
 		}
 		err = mem.addFutureTx(tx)
@@ -346,27 +385,20 @@ func (mem *Mempool) addLocalSpecTx(tx types.Tx) (err error) {
 //AddTx add good txs in a concurrent linked-list
 func (mem *Mempool) AddTx(peerID string, tx types.Tx) (err error) {
 	// CACHE
-	if !mem.cache.Push(tx) {
+	if !mem.cache.Put(tx) {
 		return types.ErrTxDuplicate
 	}
 	// END CACHE
 
 	if _, exist := canAddTxType[tx.TypeName()]; !exist {
-		mem.cache.Remove(tx)
+		mem.cache.Delete(tx.Hash())
 		return types.ErrParams
 	}
 
 	if err = mem.app.CheckTx(tx, BasicCheck); err != nil {
-		mem.cache.Remove(tx)
+		mem.cache.Delete(tx.Hash())
 		return
 	}
-
-	var from common.Address
-	if from, err = tx.From(); err != nil {
-		mem.cache.Remove(tx)
-		return
-	}
-	mem.cache.SetTxFrom(tx.Hash(), &from)
 
 	mem.proxyMtx.Lock()
 	defer mem.proxyMtx.Unlock()
@@ -380,7 +412,7 @@ func (mem *Mempool) AddTx(peerID string, tx types.Tx) (err error) {
 				switch aOutput := out.(type) {
 				case *types.AccountOutput:
 					if types.BlacklistInstance().IsBlackAddress(common.EmptyAddress, aOutput.To) {
-						mem.cache.Remove(tx)
+						mem.cache.Delete(tx.Hash())
 						return types.ErrBlacklistAddress
 					}
 				}
@@ -392,7 +424,7 @@ func (mem *Mempool) AddTx(peerID string, tx types.Tx) (err error) {
 				fromAddr = common.EmptyAddress
 			}
 			if types.BlacklistInstance().IsBlackAddress(fromAddr, common.EmptyAddress) {
-				mem.cache.Remove(tx)
+				mem.cache.Delete(tx.Hash())
 				return types.ErrBlacklistAddress
 			}
 		}
@@ -410,7 +442,7 @@ func (mem *Mempool) AddTx(peerID string, tx types.Tx) (err error) {
 			toAddr = common.EmptyAddress
 		}
 		if types.BlacklistInstance().IsBlackAddress(fromAddr, toAddr) {
-			mem.cache.Remove(tx)
+			mem.cache.Delete(tx.Hash())
 			return types.ErrBlacklistAddress
 		}
 		err = mem.addLocalTx(tx)
@@ -427,18 +459,18 @@ func (mem *Mempool) AddTx(peerID string, tx types.Tx) (err error) {
 			toAddr = common.EmptyAddress
 		}
 		if types.BlacklistInstance().IsBlackAddress(fromAddr, toAddr) {
-			mem.cache.Remove(tx)
+			mem.cache.Delete(tx.Hash())
 			return types.ErrBlacklistAddress
 		}
 		err = mem.addLocalSpecTx(tx)
 	default:
 		mem.logger.Error("AddTx fail,Invaild tx type")
-		mem.cache.Remove(tx)
+		mem.cache.Delete(tx.Hash())
 		return types.ErrParams
 	}
 
 	if err != nil {
-		mem.cache.Remove(tx)
+		mem.cache.Delete(tx.Hash())
 	} else if mem.config.Broadcast {
 		select {
 		case mem.broadcastTxChan <- &RecieveMessage{PeerID: peerID, Tx: tx}:
@@ -461,7 +493,7 @@ func (mem *Mempool) add(data interface{}) (err error) {
 }
 
 func waitBroadcast(resultChain chan bool) {
-	tick := time.NewTicker(time.Duration(2) * time.Second)
+	tick := time.NewTicker(time.Duration(3) * time.Second)
 	defer tick.Stop()
 	for {
 		select {
@@ -495,43 +527,45 @@ func (mem *Mempool) broadcastTxRoutine() {
 }
 
 func defaultBroadcastTx(peerID string, tx types.Tx, sw p2p.P2PManager, logger log.Logger) {
-	msg := &TxMessage{Tx: tx}
-	logger.Debug("mempool broadcast tx to peers", "hash", tx.Hash().String(), "peers", sw.Peers().List())
-	data, err := ser.EncodeToBytesWithType(msg)
+	msg := TxHashMessage{Hashs: []common.Hash{tx.Hash()}, Kind: TxHashNotify}
+	data, err := ser.EncodeToBytesWithType(&msg)
 	if err != nil {
-		logger.Error("mempool failed to marshal tx", "hash", tx.Hash().String())
+		logger.Error("BroadcastTx: mempool marshal tx fail", "hash", tx.Hash())
+		return
 	}
-	if tx.TypeName() == types.TxMultiSignAccount {
-		logger.Debug("TxMultiSignAccount")
-
-		resultChain := sw.BroadcastE(MempoolChannel, peerID, data)
-		waitBroadcast(resultChain)
-	} else {
-		sw.BroadcastE(MempoolChannel, peerID, data)
-	}
+	sw.BroadcastE(MempoolChannel, peerID, data)
 }
 
 func (mem *Mempool) addSpecGoodTx(tx types.Tx) {
 	addtime := time.Now()
 	memTx := &mempoolTx{tx: tx, addtime: &addtime}
 	mem.specGoodTxs.PushBack(memTx)
-	mem.logger.Debug("Added Specgood transaction", "tx", tx.Hash().Hex(), "type", tx.TypeName())
+	mem.logger.Debug("Added Specgood transaction", "tx", tx.Hash(), "type", tx.TypeName())
+	mem.notifyTxsAvailable()
+}
+
+func (mem *Mempool) addPureUtxoTx(tx types.Tx) {
+	memTx := &mempoolTx{tx: tx}
+	mem.utxoTxs.PushBack(memTx)
+	mem.logger.Debug("Added pure utxo transaction", "tx", tx.Hash(), "type", tx.TypeName())
 	mem.notifyTxsAvailable()
 }
 
 // addGoodTx add a transaction to goodTxs
-func (mem *Mempool) addGoodTx(tx types.Tx, promote bool) {
+func (mem *Mempool) addGoodTx(tx types.Tx, notPromote bool) {
 	memTx := &mempoolTx{tx: tx}
 	mem.goodTxs.PushBack(memTx)
-	mem.logger.Debug("Added good transaction", "tx", tx.Hash().Hex(), "type", tx.TypeName())
+	mem.logger.Debug("Added good transaction", "tx", tx.Hash(), "type", tx.TypeName())
 	mem.metrics.Size.Set(float64(mem.GoodTxsSize()))
 	mem.notifyTxsAvailable()
 
 	if _, exist := canPromoteTxType[tx.TypeName()]; !exist {
 		return
 	}
-	from, _ := tx.From()
-	mem.promoteExecutables([]common.Address{from})
+	if notPromote {
+		from, _ := tx.From()
+		mem.promoteExecutables([]common.Address{from})
+	}
 }
 
 func (mem *Mempool) addTofutureTxs(from common.Address, tx types.RegularTx) error {
@@ -593,7 +627,7 @@ func (mem *Mempool) promoteExecutables(accounts []common.Address) {
 		// Drop all transactions that are deemed too old (low nonce)
 		for _, tx := range list.Forward(mem.app.GetNonce(addr)) {
 			//remove from cache
-			mem.cache.Remove(tx)
+			mem.cache.Delete(tx.Hash())
 			mem.futureTxsCount--
 			mem.logger.Trace("Removed old futureTx", "tx", tx.Hash(), "nonce", tx.Nonce())
 		}
@@ -603,13 +637,19 @@ func (mem *Mempool) promoteExecutables(accounts []common.Address) {
 			startNonce := mem.app.GetNonce(addr)
 			endNonce := startNonce + uint64(need)
 			promoting = list.Ready(startNonce, endNonce)
+			goodSize := mem.GoodTxsSize()
 			for _, tx := range promoting {
+				if goodSize > mem.config.Size { // GoodTx is full
+					break
+				}
+
 				if err := mem.app.CheckTx(tx, StateCheck); err != nil {
-					mem.cache.Remove(tx)
+					mem.cache.Delete(tx.Hash())
 					mem.logger.Error("promoting transaction", "tx", tx.Hash().Hex(), "err", err)
 				} else {
 					mem.addGoodTx(tx, false)
 					mem.logger.Trace("move futureTx to goodTxs", "tx", tx.Hash().Hex(), "nonce", tx.Nonce())
+					goodSize++
 				}
 				mem.futureTxsCount--
 			}
@@ -622,13 +662,13 @@ func (mem *Mempool) promoteExecutables(accounts []common.Address) {
 		if mem.config.RemoveFutureTx {
 			// Drop all transactions over the allowed limit
 			for _, tx := range list.Cap(mem.config.AccountQueue) {
-				mem.cache.Remove(tx)
+				mem.cache.Delete(tx.Hash())
 				mem.futureTxsCount--
 				mem.logger.Trace("Removed cap-exceeding futureTx", "tx", tx.Hash(), "nonce", tx.Nonce())
 			}
 		}
 
-		// Delete the entire queue entry if it became empty.
+		// Deleteete the entire queue entry if it became empty.
 		if list.Empty() {
 			delete(mem.futureTxs, addr)
 			delete(mem.beats, addr)
@@ -691,7 +731,7 @@ func (mem *Mempool) removeFutureTx(addr common.Address, etx types.RegularTx) {
 			delete(mem.futureTxs, addr)
 			delete(mem.beats, addr)
 		}
-		mem.cache.Remove(etx)
+		mem.cache.Delete(etx.Hash())
 		mem.futureTxsCount--
 		mem.logger.Debug("removeFutureTx", "tx", etx.Hash().Hex(), "nonce", etx.Nonce())
 	}
@@ -724,7 +764,7 @@ func (mem *Mempool) Reap(maxTxs int) types.Txs {
 	mem.proxyMtx.Lock()
 	defer mem.proxyMtx.Unlock()
 
-	mem.logger.Debug("Reap start", "maxTxs", maxTxs, "goodTxs", mem.GoodTxsSize(), "specTx", mem.SpecGoodTxsSize())
+	mem.logger.Info("Reap start", "maxTxs", maxTxs, "utxoTxs", mem.UTXOTxsSize(), "goodTxs", mem.GoodTxsSize(), "specTx", mem.SpecGoodTxsSize())
 	if maxTxs <= 0 {
 		return make([]types.Tx, 0)
 	}
@@ -737,11 +777,13 @@ func (mem *Mempool) Reap(maxTxs int) types.Txs {
 		maxTxs = mem.config.MaxReapSize
 	}
 
+	utxoTxs := mem.collectTxs(mem.utxoTxs, mem.config.UTXOSize)     // get all pure utxo txs
 	specTxs := mem.collectTxs(mem.specGoodTxs, mem.config.SpecSize) //get all special Txs
 
-	maxTxs = maxTxs - len(specTxs)
+	maxTxs = maxTxs - len(specTxs) - len(utxoTxs)
 	txs := mem.collectTxs(mem.goodTxs, maxTxs)
-	mem.logger.Debug("Reap end", "specTxs", len(specTxs), "txsLen", len(txs), "maxTxs", maxTxs)
+	mem.logger.Info("Reap end", "utxoTxs", len(utxoTxs), "specTxs", len(specTxs), "txsLen", len(txs), "maxTxs", maxTxs)
+	txs = append(txs, utxoTxs...)
 	txs = append(txs, specTxs...)
 	return txs
 }
@@ -790,11 +832,15 @@ func (mem *Mempool) Update(height uint64, txs types.Txs) error {
 	if mem.SpecGoodTxsSize() > 0 {
 		mem.recheckSpecTxs()
 	}
+
+	if mem.UTXOTxsSize() > 0 {
+		mem.recheckUtxoTxs()
+	}
 	atomic.StoreInt32(&mem.rechecking, 0)
 	// Gather all executable transactions and promote them
 	mem.promoteExecutables(nil)
 
-	if mem.GoodTxsSize() > 0 || mem.SpecGoodTxsSize() > 0 {
+	if mem.GoodTxsSize() > 0 || mem.SpecGoodTxsSize() > 0 || mem.UTXOTxsSize() > 0 {
 		mem.logger.Info("mem.notifyTxsAvailable start")
 		mem.notifyTxsAvailable()
 		mem.logger.Info("mem.notifyTxsAvailable end")
@@ -804,18 +850,34 @@ func (mem *Mempool) Update(height uint64, txs types.Txs) error {
 }
 
 func (mem *Mempool) filterTxs(blockTxsMap map[string]struct{}) {
-	filterList := []*clist.CList{mem.goodTxs, mem.specGoodTxs}
+	filterList := []*clist.CList{mem.goodTxs, mem.utxoTxs, mem.specGoodTxs}
 	for _, txsList := range filterList {
 		for e := txsList.Front(); e != nil; e = e.Next() {
 			memTx := e.Value.(*mempoolTx)
 			// Remove the tx if it's alredy in a block.
 			if _, ok := blockTxsMap[memTx.tx.Hash().String()]; ok {
 				txsList.Remove(e)
-				mem.cache.Remove(memTx.tx)
+				mem.cache.DelayDelete(memTx.tx.Hash())
 				e.DetachPrev()
 			}
 		}
 	}
+}
+
+func (mem *Mempool) recheckUtxoTxs() {
+	var err error
+	mem.logger.Info("recheckUtxoTxs start", "len", mem.UTXOTxsSize())
+	for e := mem.utxoTxs.Front(); e != nil; e = e.Next() {
+		memTx := e.Value.(*mempoolTx)
+		if err = mem.app.CheckTx(memTx.tx, StateCheck); err == nil {
+			continue
+		}
+		mem.utxoTxs.Remove(e)
+		e.DetachPrev()
+		mem.cache.Delete(memTx.tx.Hash())
+		mem.logger.Debug("removeUtxoTx when recheck", "hash", memTx.tx.Hash(), "err", err)
+	}
+	mem.logger.Info("recheckUtxoTxs end", "len", mem.UTXOTxsSize())
 }
 
 // NOTE: pass in goodTxs because mem.txs can mutate concurrently.
@@ -844,9 +906,9 @@ func (mem *Mempool) recheckTxs() {
 			txsList.Remove(e)
 			e.DetachPrev()
 			if err != nil {
-				mem.cache.Remove(memTx.tx)
+				mem.cache.Delete(memTx.tx.Hash())
 			}
-			mem.logger.Debug("removeGoodTx when recheck", "hash", memTx.tx.Hash().String(), "err", err)
+			mem.logger.Debug("removeGoodTx when recheck", "hash", memTx.tx.Hash(), "err", err)
 		}
 		mem.logger.Info("recheckTxs end", "i", i, "len", txsList.Len())
 	}
@@ -866,7 +928,7 @@ func (mem *Mempool) recheckSpecTxs() {
 		}
 		mem.specGoodTxs.Remove(e)
 		e.DetachPrev()
-		mem.cache.Remove(memTx.tx)
+		mem.cache.Delete(memTx.tx.Hash())
 		name, hash := memTx.tx.TypeName, memTx.tx.Hash().String()
 		mem.logger.Debug("remove SpecGoodTx when recheck", "type", name, "hash", hash, "err", err, "timeout", timeout)
 	}
@@ -884,90 +946,12 @@ type mempoolTx struct {
 //--------------------------------------------------------------------------------
 
 type txCache interface {
-	Reset()
-	VerifyTxFromCache(hash common.Hash) (*common.Address, bool)
-	Exists(tx types.Tx) bool
-	Push(tx types.Tx) bool
-	SetTxFrom(hash common.Hash, from *common.Address)
-	Remove(tx types.Tx)
+	Put(tx types.Tx) bool
+	Get(common.Hash) types.Tx
+	Delete(common.Hash)
+	DelayDelete(common.Hash)
+	Exists(common.Hash) bool
 	Size() int
-}
-
-// mapTxCache maintains a cache of transactions.
-type mapTxCache struct {
-	mtx      sync.RWMutex
-	size     int
-	mapCache map[common.Hash]*common.Address
-}
-
-var _ txCache = (*mapTxCache)(nil)
-
-// newMapTxCache returns a new mapTxCache.
-func newMapTxCache(cacheSize int) *mapTxCache {
-	return &mapTxCache{
-		size:     cacheSize,
-		mapCache: make(map[common.Hash]*common.Address, cacheSize),
-	}
-}
-
-func (cache *mapTxCache) Size() int {
-	cache.mtx.Lock()
-	size := len(cache.mapCache)
-	cache.mtx.Unlock()
-	return size
-}
-
-// Reset resets the cache to an empty state.
-func (cache *mapTxCache) Reset() {
-	cache.mtx.Lock()
-	cache.mapCache = make(map[common.Hash]*common.Address, cache.size)
-	cache.mtx.Unlock()
-}
-
-// Push adds the given tx to the cache and returns true. It returns false if tx
-// is already in the cache.
-func (cache *mapTxCache) Push(tx types.Tx) bool {
-	cache.mtx.Lock()
-	if _, exists := cache.mapCache[tx.Hash()]; exists {
-		cache.mtx.Unlock()
-		return false
-	}
-	cache.mapCache[tx.Hash()] = nil
-	cache.mtx.Unlock()
-	return true
-}
-
-// Exists returns true if tx is already in the cache.
-func (cache *mapTxCache) Exists(tx types.Tx) bool {
-	cache.mtx.RLock()
-	_, exists := cache.mapCache[tx.Hash()]
-	cache.mtx.RUnlock()
-	return exists
-}
-
-func (cache *mapTxCache) VerifyTxFromCache(hash common.Hash) (*common.Address, bool) {
-	cache.mtx.RLock()
-	v, exists := cache.mapCache[hash]
-	cache.mtx.RUnlock()
-	if exists {
-		return v, true
-	}
-	return nil, false
-}
-
-func (cache *mapTxCache) SetTxFrom(hash common.Hash, from *common.Address) {
-	cache.mtx.Lock()
-	cache.mapCache[hash] = from
-	cache.mtx.Unlock()
-}
-
-// Remove removes the given tx from the cache.
-func (cache *mapTxCache) Remove(tx types.Tx) {
-	cache.mtx.Lock()
-	txHash := tx.Hash()
-	delete(cache.mapCache, txHash)
-
-	cache.mtx.Unlock()
 }
 
 type nopTxCache struct{}
@@ -978,12 +962,11 @@ func (nopTxCache) Size() int {
 	return 0
 }
 
-func (nopTxCache) VerifyTxFromCache(hash common.Hash) (*common.Address, bool) { return nil, false }
-func (nopTxCache) Exists(types.Tx) bool                                       { return false }
-func (nopTxCache) Reset()                                                     {}
-func (nopTxCache) Push(types.Tx) bool                                         { return true }
-func (nopTxCache) SetTxFrom(hash common.Hash, from *common.Address)           {}
-func (nopTxCache) Remove(types.Tx)                                            {}
+func (nopTxCache) Get(common.Hash) types.Tx { return nil }
+func (nopTxCache) Exists(common.Hash) bool  { return false }
+func (nopTxCache) Put(types.Tx) bool        { return true }
+func (nopTxCache) Delete(common.Hash)       {}
+func (nopTxCache) DelayDelete(common.Hash)  {}
 
 // addressByHeartbeat is an account address tagged with its last activity timestamp.
 type addressByHeartbeat struct {
@@ -996,6 +979,169 @@ type addresssByHeartbeat []addressByHeartbeat
 func (a addresssByHeartbeat) Len() int           { return len(a) }
 func (a addresssByHeartbeat) Less(i, j int) bool { return a[i].heartbeat.Before(a[j].heartbeat) }
 func (a addresssByHeartbeat) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+
+//--------------------------------
+
+type expireHash struct {
+	hash   common.Hash
+	expire int64 // in seconds
+}
+
+type expireHashHeap []expireHash
+
+func (h expireHashHeap) Len() int            { return len(h) }
+func (h expireHashHeap) Less(i, j int) bool  { return h[i].expire < h[j].expire }
+func (h expireHashHeap) Swap(i, j int)       { h[i], h[j] = h[j], h[i] }
+func (h *expireHashHeap) Push(x interface{}) { *h = append(*h, x.(expireHash)) }
+func (h *expireHashHeap) Pop() interface{} {
+	res := (*h)[len(*h)-1]
+	*h = (*h)[:len(*h)-1]
+	return res
+}
+
+type txHeap struct {
+	sync.RWMutex
+	items  *expireHashHeap
+	txMap  map[common.Hash]types.Tx
+	expire int64 // in seconds
+}
+
+func newTxHeap(expire int64) *txHeap {
+	items := make([]expireHash, 0, 100000)
+	h := &txHeap{
+		items:  (*expireHashHeap)(&items),
+		txMap:  make(map[common.Hash]types.Tx, 100000),
+		expire: expire,
+	}
+
+	go h.loop()
+	return h
+}
+
+func (h *txHeap) Put(tx types.Tx) bool {
+	hash := tx.Hash()
+
+	flag := false
+	h.Lock()
+	if _, ok := h.txMap[hash]; !ok {
+		h.txMap[hash] = tx
+		flag = true
+	}
+	h.Unlock()
+	return flag
+}
+
+func (h *txHeap) Get(hash common.Hash) types.Tx {
+	h.RLock()
+	tx := h.txMap[hash]
+	h.RUnlock()
+	return tx
+}
+
+func (h *txHeap) DelayDelete(hash common.Hash) {
+	now := time.Now().Unix()
+	h.Lock()
+	h.items.Push(expireHash{hash: hash, expire: now + h.expire})
+	h.Unlock()
+}
+
+func (h *txHeap) Delete(hash common.Hash) {
+	h.Lock()
+	delete(h.txMap, hash)
+	h.Unlock()
+}
+
+func (h *txHeap) Exists(hash common.Hash) bool {
+	h.RLock()
+	_, ok := h.txMap[hash]
+	h.RUnlock()
+	return ok
+}
+
+func (h *txHeap) Len() int {
+	h.RLock()
+	n := h.items.Len()
+	h.RUnlock()
+	return n
+}
+
+func (h *txHeap) Size() int {
+	h.RLock()
+	n := len(h.txMap)
+	h.RUnlock()
+	return n
+}
+
+func (h *txHeap) loop() {
+	for {
+		size := h.Len()
+		if size == 0 {
+			time.Sleep(time.Millisecond * 1500)
+			continue
+		}
+
+		h.Lock()
+		item := h.items.Pop().(expireHash)
+		h.Unlock()
+
+		now := time.Now().Unix()
+		delta := item.expire - now
+		if delta > 0 {
+			time.Sleep(time.Second * time.Duration(delta))
+		}
+		delete(h.txMap, item.hash)
+		log.Debug("txHeap delete", "hash", item.hash)
+	}
+}
+
+type txHeapManager struct {
+	h []*txHeap
+}
+
+func newTxHeapManager(nums int, expire int64) *txHeapManager {
+	h := make([]*txHeap, 0, nums)
+	for i := 0; i < nums; i++ {
+		h = append(h, newTxHeap(expire))
+	}
+
+	return &txHeapManager{
+		h: h,
+	}
+}
+
+func (m *txHeapManager) Size() int {
+	size := 0
+	for _, h := range m.h {
+		size += h.Size()
+	}
+	return size
+}
+
+func (m *txHeapManager) Put(tx types.Tx) bool {
+	hash := tx.Hash()
+	index := int(hash[0]) % len(m.h)
+	return m.h[index].Put(tx)
+}
+
+func (m *txHeapManager) Get(hash common.Hash) types.Tx {
+	index := int(hash[0]) % len(m.h)
+	return m.h[index].Get(hash)
+}
+
+func (m *txHeapManager) DelayDelete(hash common.Hash) {
+	index := int(hash[0]) % len(m.h)
+	m.h[index].DelayDelete(hash)
+}
+
+func (m *txHeapManager) Delete(hash common.Hash) {
+	index := int(hash[0]) % len(m.h)
+	m.h[index].Delete(hash)
+}
+
+func (m *txHeapManager) Exists(hash common.Hash) bool {
+	index := int(hash[0]) % len(m.h)
+	return m.h[index].Exists(hash)
+}
 
 //-------UTXO----------
 func (m *Mempool) KeyImageReset() {

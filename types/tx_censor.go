@@ -36,7 +36,8 @@ type UTXOStore interface {
 type Mempool interface {
 	Reap(maxTxs int) Txs
 	Update(height uint64, txs Txs) error
-	VerifyTxFromCache(hash common.Hash) (*common.Address, bool)
+	// VerifyTxFromCache(hash common.Hash) (*common.Address, bool)
+	GetTxFromCache(common.Hash) Tx
 	Lock()
 	Unlock()
 	KeyImageExists(key types.Key) bool
