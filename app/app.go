@@ -776,7 +776,7 @@ func (app *LinkApplication) processBlockEvidence(eviList types.EvidenceList, pro
 		case *types.DuplicateVoteEvidence:
 			addr := ev.PubKey.Address().String()
 			if v, ok := processResult.txsResult.CandidatesMap[addr]; ok {
-				processResult.tmpState.UpdataeCandidateScore(ev.PubKey,
+				processResult.tmpState.UpdateCandidateScore(ev.PubKey,
 					state.OPCLEAR, app.lastCoe.MaxScore, int64(processResult.height), app.logger)
 				v.ProduceInfo = config.PunishThreshold
 				v.Score = 0
@@ -791,7 +791,7 @@ func (app *LinkApplication) processBlockEvidence(eviList types.EvidenceList, pro
 				}
 				v.ProduceInfo++
 				if v.ProduceInfo > config.TwoConsecutive {
-					processResult.tmpState.UpdataeCandidateScore(ev.Proposer,
+					processResult.tmpState.UpdateCandidateScore(ev.Proposer,
 						state.OPADD, app.lastCoe.MaxScore, int64(processResult.height), app.logger)
 					v.ProduceInfo = 0
 					if v.Score < app.lastCoe.MaxScore {
@@ -808,7 +808,7 @@ func (app *LinkApplication) processBlockEvidence(eviList types.EvidenceList, pro
 					}
 					v.ProduceInfo--
 					if v.ProduceInfo <= -config.TwoConsecutive {
-						processResult.tmpState.UpdataeCandidateScore(ev.FaultVal,
+						processResult.tmpState.UpdateCandidateScore(ev.FaultVal,
 							state.OPSUB, app.lastCoe.MaxScore, int64(processResult.height), app.logger)
 						if v.Score > 1 {
 							v.Score--

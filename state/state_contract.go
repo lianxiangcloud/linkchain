@@ -26,7 +26,7 @@ type CoefficientJSON struct {
 //GetCoefficient read all coefficient from contract stateDB
 func (st *StateDB) GetCoefficient(logger log.Logger) *types.Coefficient {
 	buff := st.GetState(config.ContractCoefficientAddr, crypto.Keccak256Hash([]byte("Coefficient")))
-	if len(buff) < 3 {
+	if len(buff) <= 3 {
 		logger.Error("GetCoefficient: GetState nil")
 		return nil
 	}
@@ -65,7 +65,7 @@ func (st *StateDB) GetWhiteValidators(logger log.Logger) []*types.Validator {
 	for _, key := range pubkeyList {
 		keyByte := packStringkey("Validator", key)
 		buff := st.GetState(config.ContractValidatorsAddr, crypto.Keccak256Hash(keyByte))
-		if len(buff) < 3 {
+		if len(buff) <= 3 {
 			logger.Error("GetWhiteValidators: GetState nil")
 			continue
 		}
@@ -107,7 +107,7 @@ func (st *StateDB) GetAllCandidates(logger log.Logger) []*types.CandidateState {
 	for _, key := range pubkeyList {
 		keyByte := packStringkey("cand", key)
 		buff := st.GetState(config.ContractCandidatesAddr, crypto.Keccak256Hash(keyByte))
-		if len(buff) < 3 {
+		if len(buff) <= 3 {
 			logger.Error("GetAllCandidates: GetState nil")
 			continue
 		}
@@ -144,23 +144,23 @@ const (
 	OPSUB       //-1
 )
 
-//UpdataeCandidateScore update the canidate score in canidate contract
-func (st *StateDB) UpdataeCandidateScore(pubkey crypto.PubKey, op int, maxScore, height int64, logger log.Logger) {
+//UpdateCandidateScore update the canidate score in canidate contract
+func (st *StateDB) UpdateCandidateScore(pubkey crypto.PubKey, op int, maxScore, height int64, logger log.Logger) {
 	key := common.Bytes2Hex(pubkey.Bytes())
 	key = "0x" + key + string(0)
 
-	logger.Debug("UpdataeCandidateScore: ", "pubkey", key, "op", op, "maxScore", maxScore)
+	logger.Debug("UpdateCandidateScore: ", "pubkey", key, "op", op, "maxScore", maxScore)
 	keyByte := packStringkey("cand", key)
 
 	buff := st.GetState(config.ContractCandidatesAddr, crypto.Keccak256Hash(keyByte))
-	if len(buff) < 3 {
-		logger.Error("UpdataeCandidateScore: GetState nil")
+	if len(buff) <= 3 {
+		logger.Error("UpdateCandidateScore: GetState nil")
 		return
 	}
 
 	var canJSON = CandidateJSON{}
 	if err := json.Unmarshal(buff[3:len(buff)-1], &canJSON); err != nil {
-		logger.Error("UpdataeCandidateScore: JSON Unmarshal fail", "err", err, "buff", hex.EncodeToString(buff))
+		logger.Error("UpdateCandidateScore: JSON Unmarshal fail", "err", err, "buff", hex.EncodeToString(buff))
 		return
 	}
 
