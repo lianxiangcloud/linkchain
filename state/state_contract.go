@@ -2,6 +2,7 @@ package state
 
 import (
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -70,7 +71,7 @@ func (st *StateDB) GetWhiteValidators(logger log.Logger) []*types.Validator {
 		}
 		var valJSON = ValidatorJSON{}
 		if err := json.Unmarshal(buff[3:len(buff)-1], &valJSON); err != nil {
-			logger.Error("GetWhiteValidators: JSON Unmarshal val", "err", err)
+			logger.Error("GetWhiteValidators: JSON Unmarshal fail", "err", err, "buff", hex.EncodeToString(buff))
 			continue
 		}
 		pubkey, err := crypto.HexToPubkey(valJSON.PubKey)
@@ -113,7 +114,7 @@ func (st *StateDB) GetAllCandidates(logger log.Logger) []*types.CandidateState {
 
 		var canJSON = CandidateJSON{}
 		if err := json.Unmarshal(buff[3:len(buff)-1], &canJSON); err != nil {
-			logger.Error("GetAllCandidates: JSON Unmarshal can", "err", err)
+			logger.Error("GetAllCandidates: JSON Unmarshal fail", "err", err, "buff", hex.EncodeToString(buff))
 			continue
 		}
 		pubkey, err := crypto.HexToPubkey(canJSON.PubKey)
@@ -159,7 +160,7 @@ func (st *StateDB) UpdataeCandidateScore(pubkey crypto.PubKey, op int, maxScore,
 
 	var canJSON = CandidateJSON{}
 	if err := json.Unmarshal(buff[3:len(buff)-1], &canJSON); err != nil {
-		logger.Error("UpdataeCandidateScore: JSON Unmarshal can", "err", err)
+		logger.Error("UpdataeCandidateScore: JSON Unmarshal fail", "err", err, "buff", hex.EncodeToString(buff))
 		return
 	}
 
