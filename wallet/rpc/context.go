@@ -80,4 +80,5 @@ type Wallet interface {
 	GetTransactionReceipt(hash common.Hash) (r map[string]interface{}, err error)
 	//
 	EthEstimateGas(args wtypes.CallArgs) (*hexutil.Uint64, error)
+	SendRawTransaction(encodedTx hexutil.Bytes) (common.Hash, error)
 }

@@ -594,6 +594,9 @@ func (la *LinkAccount) RescanBlockchain() error {
 
 // GetGOutIndex return curr idx
 func (la *LinkAccount) GetGOutIndex(token common.Address) uint64 {
+	la.lock.Lock()
+	defer la.lock.Unlock()
+
 	_, ok := la.gOutIndex[token]
 	if !ok {
 		return 0

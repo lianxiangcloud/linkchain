@@ -734,3 +734,33 @@ func (w *Wallet) EthEstimateGas(args wtypes.CallArgs) (*hexutil.Uint64, error) {
 	// w.Logger.Debug("eth_estimateGas", "result", string(jsonRes.Result), "gas", uint64(gas))
 	return &gas, nil
 }
+
+// SendRawTransaction wallet
+func (w *Wallet) SendRawTransaction(encodedTx hexutil.Bytes) (common.Hash, error) {
+	p := make([]interface{}, 1)
+	p[0] = encodedTx
+
+	body, err := daemon.CallJSONRPC("eth_sendRawTransaction", p)
+	if err != nil || body == nil || len(body) == 0 {
+		w.Logger.Error("eth_sendRawTransaction check body", "tx", encodedTx, "err", err, "body", body)
+		return common.EmptyHash, fmt.Errorf("CallJSONRPC fail,err:%v", err)
+	}
+	var jsonRes wtypes.RPCResponse
+	if err = json.Unmarshal(body, &jsonRes); err != nil {
+		w.Logger.Error("eth_sendRawTransaction json.Unmarshal body", "tx", encodedTx, "err", err, "body", string(body))
+		return common.EmptyHash, fmt.Errorf("CallJSONRPC fail UnmarshalJSON,err:%v", err)
+	}
+	if jsonRes.Error.Code != 0 {
+		w.Logger.Error("eth_sendRawTransaction check jsonRes.Error.Code", "tx", encodedTx, "err", err, "body", string(body), "jsonRes", jsonRes)
+		return common.EmptyHash, fmt.Errorf("CallJSONRPC check jsonRes.Error.Code,err:%v", jsonRes.Error)
+	}
+	var hash common.Hash
+
+	if err = json.Unmarshal(jsonRes.Result, &hash); err != nil {
+		w.Logger.Error("eth_sendRawTransaction json.Unmarshal jsonRes.Result", "tx", encodedTx, "err", err, "body", string(body), "jsonRes.Result", jsonRes.Result)
+		return common.EmptyHash, fmt.Errorf("CallJSONRPC json.Unmarshal jsonRes.Result,err:%v", jsonRes.Error)
+	}
+	w.Logger.Info("eth_sendRawTransaction", "tx", encodedTx, "hash", hash)
+
+	return hash, nil
+}

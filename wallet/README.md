@@ -40,6 +40,8 @@
         - [ltk_getRawTransactionByHash](#ltk_getrawtransactionbyhash)
         - [ltk_getTransactionReceipt](#ltk_gettransactionreceipt)
         - [ltk_estimateGas](#ltk_estimategas)
+        - [ltk_signTransaction](#ltk_signtransaction)
+        - [ltk_sendRawTransaction](#ltk_sendrawtransaction)
 
 <!-- /TOC -->
 
@@ -938,7 +940,59 @@ curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"l
 }
 ```
 
+### ltk_signTransaction
 
+功能：计算account账户转账的交易签名
+参数：  
+from 字符串，十六进制 转账from地址  
+to  字符串，十六进制 转账to地址  
+value 字符串，十六进制 转账金额 单位:wei  
+data 字符串，十六进制 合约参数  
+nonce 字符串，十六进制 from账户的交易序号  
+gas 字符串，十六进制 gas花费  
+gasPrice 字符串，十六进制 gasPrice  
+返回：  
+     tx 交易结构内容  
+     raw 字符串，十六进制 签名后的交易  
+示例：
 
+```shell
+curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"ltk_signTransaction","params":[{"from":"0xa73810e519e1075010678d706533486d8ecc8000","to":"0xa73810e519e1075010678d706533486d8ecc8001","value":"0x4563918244f40000000","data":"0x4563918244f40000","nonce":"0x4","gas":"0x3d090000","gasPrice":"0x174876e800"}]}' -H 'Content-Type: application/json'|json_pp
+{
+   "jsonrpc" : "2.0",
+   "result" : {
+      "tx" : {
+         "gasPrice" : "0x174876e800",
+         "r" : "0xa83cd1f18678f0631ea59c81d4ade2a9b59616073ad6b0f5114d183b3efddbdf",
+         "gas" : "0x3d090000",
+         "v" : "0xe3e5",
+         "s" : "0x56f768216d7def987b369df3d3fa50146029ab7378495f0ec62e1aadf70c8324",
+         "value" : "0x4563918244f40000000",
+         "nonce" : "0x4",
+         "hash" : "0xc7bca4525694bf64cfe58ac2f4ded6457f6c3701109714e73f78042db2140e51",
+         "to" : "0xa73810e519e1075010678d706533486d8ecc8001",
+         "input" : "0x4563918244f40000"
+      },
+      "raw" : "0xf87a0485174876e800843d09000094a73810e519e1075010678d706533486d8ecc80018a04563918244f40000000884563918244f4000082e3e5a0a83cd1f18678f0631ea59c81d4ade2a9b59616073ad6b0f5114d183b3efddbdfa056f768216d7def987b369df3d3fa50146029ab7378495f0ec62e1aadf70c8324"
+   },
+   "id" : "0"
+}
+```
 
+### ltk_sendRawTransaction
 
+功能：发送交易  
+参数：  
+raw 字符串，十六进制 签名后的交易内容  
+返回：  
+     交易hash  字符串，十六进制  
+示例：  
+
+```shell
+curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"ltk_sendRawTransaction","params":["0xf87a0485174876e800843d09000094a73810e519e1075010678d706533486d8ecc80018a04563918244f40000000884563918244f4000082e3e5a0a83cd1f18678f0631ea59c81d4ade2a9b59616073ad6b0f5114d183b3efddbdfa056f768216d7def987b369df3d3fa50146029ab7378495f0ec62e1aadf70c8324"]}' -H 'Content-Type: application/json'|json_pp
+{
+   "jsonrpc" : "2.0",
+   "result" : "0xc7bca4525694bf64cfe58ac2f4ded6457f6c3701109714e73f78042db2140e51",
+   "id" : "0"
+}
+```
