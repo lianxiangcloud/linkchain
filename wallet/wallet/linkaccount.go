@@ -299,12 +299,10 @@ func (la *LinkAccount) processNewTransaction(tx *tctypes.UTXOTransaction, height
 			// TODO
 			gid := la.increaseGOutIndex(tx.TokenID)
 
-			la.Logger.Debug("GenerateKeyDerivation", "rkey", tx.RKey, "ViewSKey", la.account.GetKeys().ViewSKey, "len(tx.AddKeys)", len(tx.AddKeys))
 			derivationKeys := make([]lkctypes.KeyDerivation, 0)
 			derivationKey, err := xcrypto.GenerateKeyDerivation(tx.RKey, la.account.GetKeys().ViewSKey)
 			if err != nil {
-				//log.Error("xcrypto.GenerateKeyDerivation", "rPubkey", source.RKey, "err", err)
-				la.Logger.Error("GenerateKeyDerivation fail", "rkey", tx.RKey, "ViewSKey", la.account.GetKeys().ViewSKey, "err", err)
+				la.Logger.Error("GenerateKeyDerivation fail", "rkey", tx.RKey, "err", err)
 				continue
 			}
 			derivationKeys = append(derivationKeys, derivationKey)
@@ -312,23 +310,20 @@ func (la *LinkAccount) processNewTransaction(tx *tctypes.UTXOTransaction, height
 				for _, addkey := range tx.AddKeys {
 					derivationKey, err = xcrypto.GenerateKeyDerivation(addkey, la.account.GetKeys().ViewSKey)
 					if err != nil {
-						//log.Error("xcrypto.GenerateKeyDerivation", "rPubkey", source.RKey, "err", err)
-						la.Logger.Error("GenerateKeyDerivation fail", "rkey", tx.RKey, "ViewSKey", la.account.GetKeys().ViewSKey, "err", err)
+						la.Logger.Error("GenerateKeyDerivation fail", "rkey", tx.RKey, "err", err)
 						continue
 					}
 					derivationKeys = append(derivationKeys, derivationKey)
-					la.Logger.Debug("processNewTransaction add derivationKey", "derivationKey", derivationKey)
 				}
 			}
 
 			recIdx := uint64(outputID)
 			realDeriKey, subaddrIndex, err := tctypes.IsOutputBelongToAccount(la.account.GetKeys(), la.account.KeyIndex, ro.OTAddr, derivationKeys, recIdx)
 			if err != nil {
-				la.Logger.Error("IsOutputBelongToAccount fail", "ro.OTAddr", ro.OTAddr, "derivationKey", derivationKey, "recIdx", recIdx, "err", err)
+				la.Logger.Info("IsOutputBelongToAccount fail", "ro.OTAddr", ro.OTAddr, "derivationKey", derivationKey, "recIdx", recIdx, "err", err)
 				continue
 			}
 			needSaveTx = true
-			la.Logger.Debug("processNewTransaction", "realDeriKey", realDeriKey)
 			var realRKey lkctypes.PublicKey
 			for k, deriKey := range derivationKeys {
 				if realDeriKey == deriKey {
@@ -375,8 +370,6 @@ func (la *LinkAccount) processNewTransaction(tx *tctypes.UTXOTransaction, height
 				uod.Amount = ro.Amount
 
 			} else {
-				la.Logger.Debug("processNewTransaction output", "tx.RCTSig.RctSigBase.EcdhInfo[outputID].Amount", tx.RCTSig.RctSigBase.EcdhInfo[outputID].Amount)
-				// var 	tmpa  :=tx.RCTSig.RctSigBase.EcdhInfo[outputID].Amount[:8]
 				ecdh := &lkctypes.EcdhTuple{
 					Mask:   tx.RCTSig.RctSigBase.EcdhInfo[outputID].Mask,
 					Amount: tx.RCTSig.RctSigBase.EcdhInfo[outputID].Amount,

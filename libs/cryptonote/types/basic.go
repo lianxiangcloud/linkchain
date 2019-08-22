@@ -127,8 +127,8 @@ type AccountKey struct {
 }
 
 func (a *AccountKey) String() string {
-	return fmt.Sprintf("{Addr:[%x %x],SpendSKey:%x,ViewSKey:%x,SubIdx:%d}",
-		a.Addr.ViewPublicKey, a.Addr.SpendPublicKey, a.SpendSKey, a.ViewSKey, a.SubIdx)
+	return fmt.Sprintf("{Addr:[%x %x],SubIdx:%d}",
+		a.Addr.ViewPublicKey, a.Addr.SpendPublicKey, a.SubIdx)
 }
 
 func (key *Key) IsEqual(to *Key) bool {
