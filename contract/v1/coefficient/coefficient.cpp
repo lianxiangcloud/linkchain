@@ -7,6 +7,8 @@
 #define CKey "Coefficient"
 #define RKEY  "right"
 
+//VoteRate decide how many candidates we will choose
+//total num * Nume/Deno and no more than UpperLimit
 struct VoteRate {
 	int Deno;   //Denominator
 	int Nume;   //molecule
