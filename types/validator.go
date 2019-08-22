@@ -77,10 +77,12 @@ func (v *Validator) Hash() []byte {
 	return aminoHash(struct {
 		Address     crypto.Address
 		PubKey      crypto.PubKey
+		CoinBase    cmn.Address
 		VotingPower int64
 	}{
 		v.Address,
 		v.PubKey,
+		v.CoinBase,
 		v.VotingPower,
 	})
 }
