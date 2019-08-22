@@ -629,7 +629,7 @@ OUTER_LOOP:
 		}
 
 		// If the peer is on a previous height, help catch up.
-		if (0 < prs.Height) && (prs.Height < rs.Height) {
+		if (types.BlockHeightZero < prs.Height) && (prs.Height < rs.Height) {
 			heightLogger := logger.With("height", prs.Height)
 
 			// if we never received the commit message from the peer, the block parts wont be initialized
@@ -770,7 +770,7 @@ OUTER_LOOP:
 
 		// Special catchup logic.
 		// If peer is lagging by height 1, send LastCommit.
-		if prs.Height != 0 && rs.Height == prs.Height+1 {
+		if prs.Height != types.BlockHeightZero && rs.Height == prs.Height+1 {
 			if ps.PickSendVote(rs.LastCommit) {
 				logger.Debug("Picked rs.LastCommit to send", "height", prs.Height)
 				continue OUTER_LOOP
@@ -779,7 +779,7 @@ OUTER_LOOP:
 
 		// Catchup logic
 		// If peer is lagging by more than 1, send Commit.
-		if prs.Height != 0 && rs.Height >= prs.Height+2 {
+		if prs.Height != types.BlockHeightZero && rs.Height >= prs.Height+2 {
 			// Load the block commit for prs.Height,
 			// which contains precommit signatures for prs.Height.
 			commit := conR.conS.appmgr.LoadBlockCommit(prs.Height)
@@ -929,7 +929,7 @@ OUTER_LOOP:
 		// Maybe send Height/CatchupCommitRound/CatchupCommit.
 		{
 			prs := ps.GetRoundState()
-			if prs.CatchupCommitRound != -1 && 0 < prs.Height && prs.Height <= conR.conS.appmgr.Height() {
+			if prs.CatchupCommitRound != -1 && types.BlockHeightZero < prs.Height && prs.Height <= conR.conS.appmgr.Height() {
 				commit := conR.conS.LoadCommit(prs.Height)
 				peer.TrySend(StateChannel, ser.MustEncodeToBytesWithType(&VoteSetMaj23Message{
 					Height:  prs.Height,

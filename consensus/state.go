@@ -449,7 +449,7 @@ func (cs *ConsensusState) SetProposalAndBlock(proposal *types.Proposal, block *t
 // internal functions for managing the state
 
 func (cs *ConsensusState) getLastFaultValsInfo(lastCommit *types.Commit) types.Evidence {
-	if cs.Height > 1 && !cs.status.LastRecover {
+	if cs.Height > types.BlockHeightOne && !cs.status.LastRecover {
 		lastRound := lastCommit.FirstPrecommit().Round
 		fvi := &types.FaultValidatorsEvidence{
 			BlockHeight: cs.Height - 1, //evidence for lastBlock
@@ -570,7 +570,7 @@ func (cs *ConsensusState) checkFaultValEvidence(ev *types.FaultValidatorsEvidenc
 }
 
 func (cs *ConsensusState) checkBlockEvidence(block *types.Block) bool {
-	if cs.Height <= 1 || cs.status.LastRecover {
+	if cs.Height <= types.BlockHeightOne || cs.status.LastRecover {
 		return true
 	}
 
@@ -643,7 +643,7 @@ func (cs *ConsensusState) sendInternalMessage(mi msgInfo) {
 // Reconstruct LastCommit from SeenCommit, which we saved along with the block,
 // (which happens even before saving the state)
 func (cs *ConsensusState) reconstructLastCommit(status NewStatus) {
-	if status.LastBlockHeight == 0 {
+	if status.LastBlockHeight == types.BlockHeightZero {
 		return
 	}
 	seenCommit := cs.appmgr.LoadSeenCommit(status.LastBlockHeight)
@@ -994,7 +994,7 @@ func (cs *ConsensusState) enterNewRound(height uint64, round int) {
 // needProofBlock returns true on the first height (so the genesis app hash is signed right away)
 // and where the last block (height-1) caused the app hash to change
 func (cs *ConsensusState) needProofBlock(height uint64) bool {
-	if height == 1 {
+	if height == types.BlockHeightOne {
 		return true
 	}
 
@@ -1155,7 +1155,7 @@ func (cs *ConsensusState) isProposalComplete() bool {
 // NOTE: keep it side-effect free for clarity.
 func (cs *ConsensusState) createProposalBlock() (*types.Block, *types.PartSet) {
 	var commit *types.Commit
-	if cs.Height == 1 {
+	if cs.Height == types.BlockHeightOne {
 		// We're creating a proposal for the first block.
 		// The commit is empty, but not nil.
 		commit = &types.Commit{}
@@ -1637,7 +1637,7 @@ func (cs *ConsensusState) recordMetrics(height uint64, block *types.Block) {
 	}
 	cs.metrics.ByzantineValidatorsPower.Set(float64(byzantineValidatorsPower))
 
-	if height > 1 {
+	if height > types.BlockHeightOne {
 		//lastBlockMeta := cs.blockStore.LoadBlockMeta(height - 1)
 		//cs.metrics.BlockIntervalSeconds.Observe(
 		//	block.Time.Sub(lastBlockMeta.Header.Time).Seconds(),

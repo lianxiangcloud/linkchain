@@ -83,7 +83,7 @@ func (b *Block) ValidateBasic() error {
 	if !bytes.Equal(b.LastCommitHash.Bytes(), b.LastCommit.Hash().Bytes()) {
 		return fmt.Errorf("Wrong Block.Header.LastCommitHash.  Expected %v, got %v", b.LastCommitHash, b.LastCommit.Hash())
 	}
-	if b.Header.Height != 1 {
+	if b.Header.Height != BlockHeightOne {
 		if err := b.LastCommit.ValidateBasic(); err != nil {
 			return err
 		}

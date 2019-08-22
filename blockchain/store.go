@@ -80,6 +80,25 @@ func (bs *BlockStore) Height() uint64 {
 	return bs.height
 }
 
+var initBlockHeightKey = []byte("BINITH")
+
+func (bs *BlockStore) SaveInitHeight(height uint64) {
+	heightBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(heightBytes, height)
+	bs.db.SetSync(initBlockHeightKey, heightBytes)
+}
+
+func (bs *BlockStore) LoadInitHeight() (uint64, error) {
+	h, err := bs.db.Load(initBlockHeightKey)
+	if err != nil {
+		return 0, err
+	}
+	if len(h) < 8 {
+		return 0, fmt.Errorf("init height(%x) is not a uint64", h)
+	}
+	return binary.BigEndian.Uint64(h), nil
+}
+
 // LoadBlock returns the block with the given height.
 // If no block is found for that height, it returns nil.
 func (bs *BlockStore) LoadBlock(height uint64) *types.Block {
@@ -278,7 +297,7 @@ func (bs *BlockStore) SaveBlock(block *types.Block, blockParts *types.PartSet, s
 	}
 
 	height := block.Height
-	if height > 0 {
+	if height > types.BlockHeightZero {
 		if g, w := height, bs.Height()+1; g != w {
 			cmn.PanicSanity(cmn.Fmt("BlockStore can only save contiguous blocks. Wanted %v, got %v", w, g))
 		}
@@ -296,14 +315,14 @@ func (bs *BlockStore) SaveBlock(block *types.Block, blockParts *types.PartSet, s
 	}
 
 	// Save block commit (duplicate and separate from the Block)
-	if height > 0 {
+	if height > types.BlockHeightZero {
 		blockCommitBytes := ser.MustEncodeToBytes(block.LastCommit)
 		bsBatch.Set(calcBlockCommitKey(height-1), blockCommitBytes)
 	}
 
 	// Save seen commit (seen +2/3 precommits for block)
 	// NOTE: we can delete this at a later height
-	if seenCommit != nil || height > 0 {
+	if seenCommit != nil || height > types.BlockHeightZero {
 		seenCommitBytes := ser.MustEncodeToBytes(seenCommit)
 		bsBatch.Set(calcSeenCommitKey(height), seenCommitBytes)
 	}
@@ -358,7 +377,7 @@ func (bs *BlockStore) SaveBlock(block *types.Block, blockParts *types.PartSet, s
 }
 
 func (bs *BlockStore) saveBlockPart(height uint64, index int, part *types.Part, bsBatch dbm.Batch) {
-	//if height > 0 && height != bs.Height()+1 {
+	//if height > types.BlockHeightZero && height != bs.Height()+1 {
 	//	cmn.PanicSanity(cmn.Fmt("BlockStore can only save contiguous blocks. Wanted %v, got %v", bs.Height()+1, height))
 	//}
 	partBytes := ser.MustEncodeToBytes(part)
@@ -367,7 +386,7 @@ func (bs *BlockStore) saveBlockPart(height uint64, index int, part *types.Part, 
 
 // WriteReceipts stores all the transaction receipts belonging to a block.
 func (bs *BlockStore) saveReceipts(height uint64, receipts *types.Receipts) {
-	//if height > 0 && height != bs.Height()+1 {
+	//if height > types.BlockHeightZero && height != bs.Height()+1 {
 	//	cmn.PanicSanity(cmn.Fmt("BlockStore can only save contiguous receipts. Wanted %v, got %v", bs.Height()+1, height))
 	//}
 	if receipts == nil {
@@ -421,7 +440,7 @@ func (bs *BlockStore) GetHeader(height uint64) *types.Header {
 
 // saveTxsResult stores all the transaction process result.
 func (bs *BlockStore) saveTxsResult(height uint64, txsResult *types.TxsResult) {
-	//if height > 0 && height != bs.Height()+1 {
+	//if height > types.BlockHeightZero && height != bs.Height()+1 {
 	//	cmn.PanicSanity(cmn.Fmt("BlockStore can only save contiguous txsResult. Wanted %v, got %v", bs.Height()+1, height))
 	//}
 	if txsResult == nil {
@@ -609,7 +628,7 @@ func LoadBlockStoreStateJSON(db dbm.DB) BlockStoreStateJSON {
 	bytes := db.Get(blockStoreKey)
 	if len(bytes) == 0 {
 		return BlockStoreStateJSON{
-			Height: 0,
+			Height: types.BlockHeightZero,
 		}
 	}
 	bsj := BlockStoreStateJSON{}

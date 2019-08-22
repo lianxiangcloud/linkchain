@@ -153,6 +153,11 @@ func NewNode(config *cfg.Config,
 		return nil, err
 	}
 	blockStore := bc.NewBlockStore(blockStoreDB)
+	initHeight, err := blockStore.LoadInitHeight()
+	if err != nil {
+		return nil, err
+	}
+	types.UpdateBlockHeightZero(initHeight)
 
 	// Get Balance Records Store
 	balanceRecordStoreDB, err := dbProvider(&DBContext{"balance_record", config})

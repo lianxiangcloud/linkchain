@@ -7,6 +7,17 @@ import (
 	"github.com/lianxiangcloud/linkchain/libs/crypto/merkle"
 )
 
+var (
+	// BlockHeightZero is the genesis block height
+	BlockHeightZero = uint64(0)
+	BlockHeightOne  = BlockHeightZero + 1
+)
+
+func UpdateBlockHeightZero(height uint64) {
+	BlockHeightZero = height
+	BlockHeightOne = BlockHeightZero + 1
+}
+
 var IsTestMode = false
 
 const (

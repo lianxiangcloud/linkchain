@@ -51,7 +51,7 @@ func validateBlock(statusDB dbm.DB, status NewStatus, block *types.Block) error 
 	}
 
 	// Validate block LastCommit.
-	if block.Height == 1 {
+	if block.Height == types.BlockHeightOne {
 		if len(block.LastCommit.Precommits) != 0 {
 			return errors.New("Block at height 1 (first block) should have no LastCommit precommits")
 		}
@@ -87,7 +87,7 @@ func validateBlock(statusDB dbm.DB, status NewStatus, block *types.Block) error 
 		}
 	}
 
-	if !onlyOneFvi && block.Height > 1 && !status.LastRecover {
+	if !onlyOneFvi && block.Height > types.BlockHeightOne && !status.LastRecover {
 		return fmt.Errorf("Not found FaultValidatorsEvidence height:%d", block.Height)
 	}
 

@@ -132,16 +132,16 @@ func MakeGenesisStatus(genDoc *types.GenesisDoc) (NewStatus, error) {
 
 		ChainID: genDoc.ChainID,
 
-		LastBlockHeight: 0,
+		LastBlockHeight: types.BlockHeightZero,
 		LastBlockID:     types.BlockID{},
 		LastBlockTime:   uint64(time.Now().Unix()),
 
 		Validators:                  types.NewValidatorSet(validators),
 		LastValidators:              types.NewValidatorSet(nil),
-		LastHeightValidatorsChanged: 1,
+		LastHeightValidatorsChanged: types.BlockHeightOne,
 
 		ConsensusParams:                  *genDoc.ConsensusParams,
-		LastHeightConsensusParamsChanged: 1,
+		LastHeightConsensusParamsChanged: types.BlockHeightOne,
 	}, nil
 }
 

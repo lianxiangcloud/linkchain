@@ -25,6 +25,7 @@ import (
 
 func init() {
 	InitFilesCmd.Flags().String("chain_id", config.ChainID, "Blockchain id")
+	InitFilesCmd.Flags().Uint64("init_height", config.InitHeight, "Blockchain initial height")
 	InitFilesCmd.Flags().Bool("on_line", config.OnLine, "Set true for the online version, the default value is false")
 	InitFilesCmd.Flags().String("genesis_file", config.Genesis, "genesis file for init")
 
@@ -52,6 +53,7 @@ var InitFilesCmd = &cobra.Command{
 func initFiles(cmd *cobra.Command, args []string) error {
 	// delete dir of data
 	//os.RemoveAll(config.DBDir())
+	types.UpdateBlockHeightZero(config.InitHeight)
 
 	if !config.OnLine {
 		err := initFilesOfKeyStore(config)
@@ -229,6 +231,7 @@ func createGenesisBlock(config *cfg.Config, genDoc *types.GenesisDoc) ([]*types.
 	}
 
 	blockStore := bc.NewBlockStore(blockStoreDB)
+	blockStore.SaveInitHeight(types.BlockHeightZero)
 	defaultParams := genDoc.ConsensusParams
 
 	for straddr, account := range genDoc.AllocAccounts {
@@ -245,7 +248,7 @@ func createGenesisBlock(config *cfg.Config, genDoc *types.GenesisDoc) ([]*types.
 	block := &types.Block{
 		Header: &types.Header{
 			ChainID:    config.ChainID,
-			Height:     0,
+			Height:     types.BlockHeightZero,
 			Coinbase:   common.HexToAddress("0x0000000000000000000000000000000000000000"),
 			Time:       uint64(1507737600),
 			NumTxs:     0,
@@ -284,7 +287,7 @@ func createGenesisBlock(config *cfg.Config, genDoc *types.GenesisDoc) ([]*types.
 
 	fmt.Println("genesisBlock stateHash", stateHash.Hex())
 	fmt.Println("genesisBlock trieRoot", trieRoot.Hex())
-	fmt.Printf("genesisBlock ChainID:%v block.Hash:%v\n", block.ChainID, block.Hash().String())
+	fmt.Printf("genesisBlock ChainID:%v Height:%d block.Hash:%v\n", block.ChainID, block.Height, block.Hash().String())
 	blockStore.SaveBlock(block, block.MakePartSet(defaultParams.BlockGossip.BlockPartSizeBytes), nil, nil, &txsResult)
 
 	bbr := types.NewBlockBalanceRecords()

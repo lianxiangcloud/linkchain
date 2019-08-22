@@ -16,6 +16,22 @@ import (
 	"github.com/lianxiangcloud/linkchain/types"
 )
 
+func TestInitHeight(t *testing.T) {
+	db := db.NewMemDB()
+	bs := NewBlockStore(db)
+	h, err := bs.LoadInitHeight()
+	assert.Equal(t, "init height() is not a uint64", err.Error())
+
+	db.SetSync(initBlockHeightKey, []byte{1})
+	h, err = bs.LoadInitHeight()
+	assert.Equal(t, "init height(01) is not a uint64", err.Error())
+
+	bs.SaveInitHeight(1)
+	h, err = bs.LoadInitHeight()
+	assert.Equal(t, uint64(1), h)
+	assert.Nil(t, err)
+}
+
 func TestLoadBlockStoreStateJSON(t *testing.T) {
 	db := db.NewMemDB()
 

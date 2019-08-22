@@ -106,6 +106,9 @@ type BaseConfig struct {
 	// The ID of the chain to join (should be signed with every transaction and vote)
 	ChainID string `mapstructure:"chain_id"`
 
+	// The chain initial height
+	InitHeight uint64 `mapstructure:"init_height"`
+
 	// The root directory for all data.
 	// This should be set in viper so it can unmarshal into this struct
 	RootDir string `mapstructure:"home"`

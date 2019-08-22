@@ -64,7 +64,7 @@ type VoteSet struct {
 
 // Constructs a new VoteSet struct used to accumulate votes for given height/round.
 func NewVoteSet(chainID string, height uint64, round int, type_ byte, valSet *ValidatorSet) *VoteSet {
-	if height == 0 {
+	if height == BlockHeightZero {
 		cmn.PanicSanity("Cannot make VoteSet for height == 0, doesn't make sense.")
 	}
 	return &VoteSet{
