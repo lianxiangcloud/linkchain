@@ -86,7 +86,7 @@ func (u *UtxoStore) GetBlockTokenUtxoOutputSeq(blockHeight uint64) map[string]in
 	tokenOutputSeqs := make(map[string]int64, 0)
 	val, err := u.utxoDB.Load(genBlockTokenInitSeq(blockHeight))
 	if err != nil {
-		u.logger.Error("get block Token utxo outputs seq failed.", "blockHeight", blockHeight,
+		u.logger.Info("get block Token utxo outputs seq failed.", "blockHeight", blockHeight,
 			"err", err.Error())
 		return nil
 	}
