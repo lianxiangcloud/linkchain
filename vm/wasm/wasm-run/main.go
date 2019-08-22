@@ -99,8 +99,8 @@ func main() {
 	st.AddBalance(to.Address(), testBalance2)
 
 	eng := vm.NewEngine(contract, contract.Gas, st, log.With("mod", "wasm"))
+	eng.Ctx = wasm.NewWASM(ctx, st, nil)
 	eng.SetTrace(false)
-	wasm.Inject(st, wasm.NewWASM(ctx, st, nil))
 
 	start := time.Now()
 

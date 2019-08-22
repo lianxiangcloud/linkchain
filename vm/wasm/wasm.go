@@ -155,6 +155,7 @@ func run(wasm *WASM, c types.Contract, input []byte) ([]byte, uint64, error) {
 	innerContract.Input = contract.Input
 	innerContract.CreateCall = contract.CreateCall
 	eng := vm.NewEngine(innerContract, localMaxGas, wasm.StateDB, log.New("mod", "wasm"))
+	eng.Ctx = wasm
 	eng.SetTrace(false)
 	addr := contract.CodeAddr
 	app, err := eng.NewApp(addr.String(), nil, false)

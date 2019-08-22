@@ -12,11 +12,6 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
-var (
-	mState types.StateDB
-	mWasm  *WASM
-)
-
 func init() {
 	env := vm.NewEnvTable()
 
@@ -62,11 +57,6 @@ func init() {
 	env.RegisterFunc("TC_GetMsgTokenValue", &TCGetMsgTokenValue{})
 }
 
-func Inject(stateDB types.StateDB, w *WASM) {
-	mState = stateDB
-	mWasm = w
-}
-
 type TCNotify struct{}
 
 func (t *TCNotify) Call(index int64, ops interface{}, args []uint64) (uint64, error) {
@@ -98,7 +88,11 @@ func tcNotify(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 
 	topics := make([]common.Hash, 0)
 	topics = append(topics, eventIDHash)
-	mState.AddLog(&types.Log{
+	mWasm, ok := eng.Ctx.(*WASM)
+	if !ok {
+		eng.Logger().Error("TC_Notify get WASM failed")
+	}
+	mWasm.StateDB.AddLog(&types.Log{
 		Address:     common.BytesToAddress(eng.Contract.Address().Bytes()),
 		Topics:      topics,
 		Data:        data,
@@ -133,6 +127,7 @@ func tcStorageSetBytes(eng *vm.Engine, index int64, args []uint64) (uint64, erro
 	}
 	eng.Logger().Debug("TC_StorageSetBytes", "key", string(key), "val", string(val), "size", len(val))
 
+	mState := eng.State.(types.StateDB)
 	mState.SetState(common.BytesToAddress(eng.Contract.Address().Bytes()), crypto.Keccak256Hash(key), val)
 	return 0, nil
 }
@@ -162,6 +157,7 @@ func tcStoragePureSetString(eng *vm.Engine, index int64, args []uint64) (uint64,
 	}
 	eng.Logger().Debug("TC_StoragePureSetString", "key", string(key), "size", len(key), "val", string(val), "size", len(val))
 
+	mState := eng.State.(types.StateDB)
 	mState.SetState(common.BytesToAddress(eng.Contract.Address().Bytes()), crypto.Keccak256Hash(key), val)
 	return 0, nil
 }
@@ -191,6 +187,7 @@ func tcStoragePureSetBytes(eng *vm.Engine, index int64, args []uint64) (uint64, 
 	}
 	eng.Logger().Debug("TC_StoragePureSetBytes", "key", string(key), "size", len(key), "val", string(val), "size", len(val))
 
+	mState := eng.State.(types.StateDB)
 	mState.SetState(common.BytesToAddress(eng.Contract.Address().Bytes()), crypto.Keccak256Hash(key), val)
 	return 0, nil
 }
@@ -216,6 +213,7 @@ func tcStoragePureGet(eng *vm.Engine, index int64, args []uint64) (uint64, error
 		return 0, vm.ErrMemoryGet
 	}
 
+	mState := eng.State.(types.StateDB)
 	val := mState.GetState(common.BytesToAddress(eng.Contract.Address().Bytes()), crypto.Keccak256Hash(key))
 	valPointer, err := vmem.SetBytes(val)
 	if err != nil {
@@ -248,6 +246,7 @@ func tcStorageGet(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 		return 0, vm.ErrMemoryGet
 	}
 
+	mState := eng.State.(types.StateDB)
 	val := mState.GetState(common.BytesToAddress(eng.Contract.Address().Bytes()), crypto.Keccak256Hash(key))
 	valPointer, err := vmem.SetBytes(val)
 	if err != nil {
@@ -283,6 +282,7 @@ func tcContractStoragePureGet(eng *vm.Engine, index int64, args []uint64) (uint6
 		return 0, vm.ErrMemoryGet
 	}
 
+	mState := eng.State.(types.StateDB)
 	val := mState.GetState(common.HexToAddress(string(contract)), crypto.Keccak256Hash(key))
 	valPointer, err := vmem.SetBytes(val)
 	if err != nil {
@@ -318,6 +318,7 @@ func tcContractStorageGet(eng *vm.Engine, index int64, args []uint64) (uint64, e
 		return 0, vm.ErrMemoryGet
 	}
 
+	mState := eng.State.(types.StateDB)
 	val := mState.GetState(common.HexToAddress(string(contract)), crypto.Keccak256Hash(key))
 	valPointer, err := vmem.SetBytes(val)
 	if err != nil {
@@ -354,6 +355,7 @@ func tcStorageSet(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 	}
 	eng.Logger().Debug("TC_StorageSetString", "key", string(key), "val", string(val))
 
+	mState := eng.State.(types.StateDB)
 	mState.SetState(common.BytesToAddress(eng.Contract.Address().Bytes()), crypto.Keccak256Hash(key), val)
 	return 0, nil
 }
@@ -380,6 +382,7 @@ func tcStorageDel(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 	eng.Logger().Debug("TC_StorageDel", "key", string(key))
 
 	var val []byte
+	mState := eng.State.(types.StateDB)
 	mState.SetState(common.BytesToAddress(eng.Contract.Address().Bytes()), crypto.Keccak256Hash(key), val)
 	return 0, nil
 }
@@ -403,6 +406,11 @@ func tcBlockHash(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 	block := args[0]
 	app, _ := eng.RunningAppFrame()
 	vmem := app.VM.VMemory()
+
+	mWasm, ok := eng.Ctx.(*WASM)
+	if !ok {
+		eng.Logger().Error("TC_BlockHash get WASM failed")
+	}
 	hash := mWasm.GetHash(block)
 	hashStr := hash.String()
 
@@ -432,6 +440,11 @@ func tcGetCoinbase(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 	}
 	app, _ := eng.RunningAppFrame()
 	vmem := app.VM.VMemory()
+
+	mWasm, ok := eng.Ctx.(*WASM)
+	if !ok {
+		eng.Logger().Error("TC_GetCoinbase get WASM failed")
+	}
 	coinbase := mWasm.Coinbase
 	coinbaseStr := coinbase.String()
 
@@ -459,6 +472,10 @@ func tcGetGasLimit(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 	if len(args) != 0 {
 		return 0, vm.ErrInvalidApiArgs
 	}
+	mWasm, ok := eng.Ctx.(*WASM)
+	if !ok {
+		eng.Logger().Error("TC_GetGasLimit get WASM failed")
+	}
 	gaslimit := mWasm.GasLimit
 
 	return uint64(gaslimit), nil
@@ -480,6 +497,10 @@ func tcGetNumber(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 	if len(args) != 0 {
 		return 0, vm.ErrInvalidApiArgs
 	}
+	mWasm, ok := eng.Ctx.(*WASM)
+	if !ok {
+		eng.Logger().Error("TC_GetNumber get WASM failed")
+	}
 	return mWasm.BlockNumber.Uint64(), nil
 }
 
@@ -498,6 +519,10 @@ func (t *TCGetTimestamp) Gas(index int64, ops interface{}, args []uint64) (uint6
 func tcGetTimestamp(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 	if len(args) != 0 {
 		return 0, vm.ErrInvalidApiArgs
+	}
+	mWasm, ok := eng.Ctx.(*WASM)
+	if !ok {
+		eng.Logger().Error("TC_GetTimestamp get WASM failed")
 	}
 	return mWasm.Time.Uint64(), nil
 }
@@ -518,6 +543,10 @@ func tcNow(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 	if len(args) != 0 {
 		return 0, vm.ErrInvalidApiArgs
 	}
+	mWasm, ok := eng.Ctx.(*WASM)
+	if !ok {
+		eng.Logger().Error("TC_Now get WASM failed")
+	}
 	return mWasm.Time.Uint64(), nil
 }
 
@@ -536,6 +565,10 @@ func (t *TCGetTxGasPrice) Gas(index int64, ops interface{}, args []uint64) (uint
 func tcGetTxGasPrice(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 	if len(args) != 0 {
 		return 0, vm.ErrInvalidApiArgs
+	}
+	mWasm, ok := eng.Ctx.(*WASM)
+	if !ok {
+		eng.Logger().Error("TC_GetTxGasPrice get WASM failed")
 	}
 	return mWasm.GasPrice.Uint64(), nil
 }
@@ -558,6 +591,11 @@ func tcGetTxOrigin(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 	}
 	app, _ := eng.RunningAppFrame()
 	vmem := app.VM.VMemory()
+
+	mWasm, ok := eng.Ctx.(*WASM)
+	if !ok {
+		eng.Logger().Error("TC_GetTxOrigin get WASM failed")
+	}
 	orign := mWasm.Origin
 
 	dataPtr, err := vmem.SetBytes([]byte(orign.String()))
@@ -587,6 +625,7 @@ func tcGetBalance(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 		return 0, vm.ErrInvalidApiArgs
 	}
 	addr := common.HexToAddress(string(addrTmp))
+	mState := eng.State.(types.StateDB)
 	balance := mState.GetBalance(addr)
 	eng.Logger().Debug("tcGetBalance", "balance", balance.String())
 	return vmem.SetBytes([]byte(balance.String()))
@@ -626,16 +665,19 @@ func tcTransfer(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 	if val.Sign() == 0 {
 		return 0, nil
 	}
+	mState := eng.State.(types.StateDB)
 	if mState.GetBalance(from).Cmp(val) < 0 {
 		return 0, vm.ErrBalanceNotEnough
 	}
 	mState.SubBalance(from, val)
 	mState.AddBalance(to, val)
 
-	if mWasm != nil {
-		mWasm.otxs = append(mWasm.otxs,
-			types.GenBalanceRecord(from, to, types.AccountAddress, types.AccountAddress, types.TxContract, common.EmptyAddress, val))
+	mWasm, ok := eng.Ctx.(*WASM)
+	if !ok {
+		eng.Logger().Error("TC_Transfer get WASM failed")
 	}
+	mWasm.otxs = append(mWasm.otxs,
+		types.GenBalanceRecord(from, to, types.AccountAddress, types.AccountAddress, types.TxContract, common.EmptyAddress, val))
 
 	return 0, nil
 }
@@ -680,6 +722,7 @@ func tcTransferToken(eng *vm.Engine, index int64, args []uint64) (uint64, error)
 		return 0, nil
 	}
 
+	mState := eng.State.(types.StateDB)
 	if token == common.EmptyAddress {
 		if mState.GetBalance(from).Cmp(val) >= 0 {
 			mState.SubBalance(from, val)
@@ -698,10 +741,12 @@ func tcTransferToken(eng *vm.Engine, index int64, args []uint64) (uint64, error)
 		}
 	}
 
-	if mWasm != nil {
-		mWasm.otxs = append(mWasm.otxs,
-			types.GenBalanceRecord(from, to, types.AccountAddress, types.AccountAddress, types.TxContract, token, val))
+	mWasm, ok := eng.Ctx.(*WASM)
+	if !ok {
+		eng.Logger().Error("TC_TransferToken get WASM failed")
 	}
+	mWasm.otxs = append(mWasm.otxs,
+		types.GenBalanceRecord(from, to, types.AccountAddress, types.AccountAddress, types.TxContract, token, val))
 
 	return 0, nil
 }
@@ -726,6 +771,7 @@ func tcSelfDestruct(eng *vm.Engine, index int64, args []uint64) (uint64, error) 
 	if err != nil || !common.IsHexAddress(string(toTmp)) {
 		return 0, vm.ErrInvalidApiArgs
 	}
+	mState := eng.State.(types.StateDB)
 	to := common.HexToAddress(string(toTmp))
 	tv := mState.GetTokenBalances(addr)
 
@@ -764,7 +810,13 @@ func tcLog0(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 	data := make([]byte, len(dataTmp))
 	copy(data, dataTmp)
 
+	mWasm, ok := eng.Ctx.(*WASM)
+	if !ok {
+		eng.Logger().Error("TC_Log0 get WASM failed")
+	}
+
 	topics := make([]common.Hash, 0)
+	mState := eng.State.(types.StateDB)
 	mState.AddLog(&types.Log{
 		Address:     common.BytesToAddress(eng.Contract.Address().Bytes()),
 		Topics:      topics,
@@ -798,6 +850,10 @@ func tcLog1(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 	data := make([]byte, len(dataTmp))
 	copy(data, dataTmp)
 
+	mWasm, ok := eng.Ctx.(*WASM)
+	if !ok {
+		eng.Logger().Error("TC_Log1 get WASM failed")
+	}
 	topics := make([]common.Hash, 0)
 	for i := 1; i < 2; i++ {
 		topicTmp, err := vmem.GetString(args[i])
@@ -807,6 +863,7 @@ func tcLog1(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 		topic := common.BytesToHash(topicTmp)
 		topics = append(topics, topic)
 	}
+	mState := eng.State.(types.StateDB)
 	mState.AddLog(&types.Log{
 		Address:     common.BytesToAddress(eng.Contract.Address().Bytes()),
 		Topics:      topics,
@@ -840,6 +897,10 @@ func tcLog2(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 	data := make([]byte, len(dataTmp))
 	copy(data, dataTmp)
 
+	mWasm, ok := eng.Ctx.(*WASM)
+	if !ok {
+		eng.Logger().Error("TC_Log2 get WASM failed")
+	}
 	topics := make([]common.Hash, 0)
 	for i := 1; i < 3; i++ {
 		topicTmp, err := vmem.GetString(args[i])
@@ -849,6 +910,7 @@ func tcLog2(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 		topic := common.BytesToHash(topicTmp)
 		topics = append(topics, topic)
 	}
+	mState := eng.State.(types.StateDB)
 	mState.AddLog(&types.Log{
 		Address:     common.BytesToAddress(eng.Contract.Address().Bytes()),
 		Topics:      topics,
@@ -882,6 +944,10 @@ func tcLog3(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 	data := make([]byte, len(dataTmp))
 	copy(data, dataTmp)
 
+	mWasm, ok := eng.Ctx.(*WASM)
+	if !ok {
+		eng.Logger().Error("TC_Log3 get WASM failed")
+	}
 	topics := make([]common.Hash, 0)
 	for i := 1; i < 4; i++ {
 		topicTmp, err := vmem.GetString(args[i])
@@ -891,6 +957,7 @@ func tcLog3(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 		topic := common.BytesToHash(topicTmp)
 		topics = append(topics, topic)
 	}
+	mState := eng.State.(types.StateDB)
 	mState.AddLog(&types.Log{
 		Address:     common.BytesToAddress(eng.Contract.Address().Bytes()),
 		Topics:      topics,
@@ -924,6 +991,10 @@ func tcLog4(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 	data := make([]byte, len(dataTmp))
 	copy(data, dataTmp)
 
+	mWasm, ok := eng.Ctx.(*WASM)
+	if !ok {
+		eng.Logger().Error("TC_Log4 get WASM failed")
+	}
 	topics := make([]common.Hash, 0)
 	for i := 1; i < 5; i++ {
 		topicTmp, err := vmem.GetString(args[i])
@@ -933,6 +1004,7 @@ func tcLog4(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 		topic := common.BytesToHash(topicTmp)
 		topics = append(topics, topic)
 	}
+	mState := eng.State.(types.StateDB)
 	mState.AddLog(&types.Log{
 		Address:     common.BytesToAddress(eng.Contract.Address().Bytes()),
 		Topics:      topics,
@@ -970,12 +1042,15 @@ func tcIssue(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 	if amount.Sign() > 0 {
 		contractAddr := common.BytesToAddress(eng.Contract.Address().Bytes())
 		codeAddr := common.BytesToAddress(eng.Contract.CodeAddr.Bytes())
+		mState := eng.State.(types.StateDB)
 		mState.AddTokenBalance(contractAddr, codeAddr, amount)
 
-		if mWasm != nil {
-			mWasm.otxs = append(mWasm.otxs,
-				types.GenBalanceRecord(common.EmptyAddress, contractAddr, types.NoAddress, types.AccountAddress, types.TxContract, common.BytesToAddress(eng.Contract.CodeAddr.Bytes()), amount))
+		mWasm, ok := eng.Ctx.(*WASM)
+		if !ok {
+			eng.Logger().Error("TC_Issue get WASM failed")
 		}
+		mWasm.otxs = append(mWasm.otxs,
+			types.GenBalanceRecord(common.EmptyAddress, contractAddr, types.NoAddress, types.AccountAddress, types.TxContract, common.BytesToAddress(eng.Contract.CodeAddr.Bytes()), amount))
 	}
 
 	return 0, nil
@@ -1007,6 +1082,7 @@ func tcTokenBalance(eng *vm.Engine, index int64, args []uint64) (uint64, error) 
 	}
 	token := common.HexToAddress(string(tokenTmp))
 
+	mState := eng.State.(types.StateDB)
 	var balance *big.Int
 	if token == common.EmptyAddress {
 		balance = mState.GetBalance(addr)
@@ -1031,6 +1107,10 @@ func (t *TCTokenAddress) Gas(index int64, ops interface{}, args []uint64) (uint6
 func tcTokenAddress(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 	runningFrame, _ := eng.RunningAppFrame()
 	vmem := runningFrame.VM.VMemory()
+	mWasm, ok := eng.Ctx.(*WASM)
+	if !ok {
+		eng.Logger().Error("TC_TokenAddress get WASM failed")
+	}
 	if mWasm.Token == common.EmptyAddress {
 		return vmem.SetBytes([]byte(common.Address{}.String()))
 	}
@@ -1060,6 +1140,10 @@ func tcGetMsgValue(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 		dataPtr uint64
 		err     error
 	)
+	mWasm, ok := eng.Ctx.(*WASM)
+	if !ok {
+		eng.Logger().Error("TC_GetMsgValue get WASM failed")
+	}
 	if mWasm.Token == common.EmptyAddress {
 		dataPtr, err = vmem.SetBytes([]byte(vStr))
 	} else {
@@ -1072,6 +1156,10 @@ func tcGetMsgValue(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 }
 
 func gasGetMsgValue(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
+	mWasm, ok := eng.Ctx.(*WASM)
+	if !ok {
+		eng.Logger().Error("TC_GetMsgValue get WASM failed")
+	}
 	valLen := 1
 	if mWasm.Token == common.EmptyAddress {
 		valLen = len(eng.Contract.Value().String())
@@ -1110,6 +1198,10 @@ func tcGetMsgTokenValue(eng *vm.Engine, index int64, args []uint64) (uint64, err
 		dataPtr uint64
 		err     error
 	)
+	mWasm, ok := eng.Ctx.(*WASM)
+	if !ok {
+		eng.Logger().Error("TC_GetMsgTokenValue get WASM failed")
+	}
 	if mWasm.Token == common.EmptyAddress {
 		dataPtr, err = vmem.SetBytes([]byte(big.NewInt(0).String()))
 	} else {
@@ -1122,6 +1214,10 @@ func tcGetMsgTokenValue(eng *vm.Engine, index int64, args []uint64) (uint64, err
 }
 
 func gasGetMsgTokenValue(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
+	mWasm, ok := eng.Ctx.(*WASM)
+	if !ok {
+		eng.Logger().Error("TC_GetMsgTokenValue get WASM failed")
+	}
 	valLen := len(eng.Contract.Value().String())
 	if mWasm.Token == common.EmptyAddress {
 		valLen = 1

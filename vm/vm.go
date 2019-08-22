@@ -48,7 +48,6 @@ func (v *VmFactory) AddVm(context types.Context, statedb types.StateDB, cfg type
 	case *wasm.Context:
 		log.Debug("VmFactory.AddVm", "Context", "NewWASM")
 		v.wasm = wasm.NewWASM(*ctx, statedb, cfg)
-		wasm.Inject(statedb, v.wasm)
 	default:
 		log.Error("VmFactory.AddVm", "context", "unknown type")
 	}

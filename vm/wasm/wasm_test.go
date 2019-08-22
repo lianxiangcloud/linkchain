@@ -103,7 +103,7 @@ func TestCallContract(t *testing.T) {
 		BlockNumber: big.NewInt(3456),
 	}
 	eng := vm.NewEngine(contract, 1000000, cState, log.Test())
-	Inject(cState, NewWASM(ctx, cState, nil))
+	eng.Ctx = NewWASM(ctx, cState, nil)
 	app, err := eng.NewApp(addr1.String(), nil, false)
 	if err != nil {
 		t.Logf("new app fail: err: %v", err)
@@ -142,7 +142,7 @@ func TestNotify(t *testing.T) {
 		BlockNumber: big.NewInt(3456),
 	}
 	eng := vm.NewEngine(contract, 100000, cState, log.Test())
-	Inject(cState, NewWASM(ctx, cState, nil))
+	eng.Ctx = NewWASM(ctx, cState, nil)
 	app, err := eng.NewApp(addr.String(), nil, false)
 	if err != nil {
 		t.Logf("new app fail: err: %v", err)
@@ -178,7 +178,7 @@ func TestToken(t *testing.T) {
 		BlockNumber: big.NewInt(3456),
 	}
 	eng := vm.NewEngine(contract, 100000, cState, log.Test())
-	Inject(cState, NewWASM(ctx, cState, nil))
+	eng.Ctx = NewWASM(ctx, cState, nil)
 	app, err := eng.NewApp(addr.String(), nil, false)
 	if err != nil {
 		t.Logf("new app fail: err: %v", err)
@@ -210,7 +210,7 @@ func TestMalloc(t *testing.T) {
 		BlockNumber: big.NewInt(3456),
 	}
 	eng := vm.NewEngine(contract, 100000, cState, log.Test())
-	Inject(cState, NewWASM(ctx, cState, nil))
+	eng.Ctx = NewWASM(ctx, cState, nil)
 	app, err := eng.NewApp(addr.String(), nil, false)
 	if err != nil {
 		t.Logf("new app fail: err: %v", err)
@@ -242,7 +242,7 @@ func TestPrints(t *testing.T) {
 		BlockNumber: big.NewInt(3456),
 	}
 	eng := vm.NewEngine(contract, 100000, cState, log.Test())
-	Inject(cState, NewWASM(ctx, cState, nil))
+	eng.Ctx = NewWASM(ctx, cState, nil)
 	app, err := eng.NewApp(addr.String(), nil, false)
 	if err != nil {
 		t.Logf("new app fail: err: %v", err)
@@ -274,7 +274,7 @@ func TestLog(t *testing.T) {
 		BlockNumber: big.NewInt(3456),
 	}
 	eng := vm.NewEngine(contract, 100000, cState, log.Test())
-	Inject(cState, NewWASM(ctx, cState, nil))
+	eng.Ctx = NewWASM(ctx, cState, nil)
 	app, err := eng.NewApp(addr.String(), nil, false)
 	if err != nil {
 		t.Logf("new app fail: err: %v", err)
@@ -312,7 +312,7 @@ func TestSelfDestruct(t *testing.T) {
 		BlockNumber: big.NewInt(3456),
 	}
 	eng := vm.NewEngine(contract, 100000, cState, log.Test())
-	Inject(cState, NewWASM(ctx, cState, nil))
+	eng.Ctx = NewWASM(ctx, cState, nil)
 	app, err := eng.NewApp(addr.String(), nil, false)
 	if err != nil {
 		t.Logf("new app fail: err: %v", err)
@@ -352,7 +352,7 @@ func TestSelfAddress(t *testing.T) {
 		BlockNumber: big.NewInt(3456),
 	}
 	eng := vm.NewEngine(contract, 100000, cState, log.Test())
-	Inject(cState, NewWASM(ctx, cState, nil))
+	eng.Ctx = NewWASM(ctx, cState, nil)
 	app, err := eng.NewApp(addr.String(), nil, false)
 	if err != nil {
 		t.Logf("new app fail: err: %v", err)
@@ -384,7 +384,7 @@ func TestGetBalance(t *testing.T) {
 		BlockNumber: big.NewInt(3456),
 	}
 	eng := vm.NewEngine(contract, 100000, cState, log.Test())
-	Inject(cState, NewWASM(ctx, cState, nil))
+	eng.Ctx = NewWASM(ctx, cState, nil)
 	app, err := eng.NewApp(addr.String(), nil, false)
 	if err != nil {
 		t.Logf("new app fail: err: %v", err)
@@ -416,7 +416,7 @@ func TestEcrecover(t *testing.T) {
 		BlockNumber: big.NewInt(3456),
 	}
 	eng := vm.NewEngine(contract, 100000, cState, log.Test())
-	Inject(cState, NewWASM(ctx, cState, nil))
+	eng.Ctx = NewWASM(ctx, cState, nil)
 	app, err := eng.NewApp(addr.String(), nil, false)
 	if err != nil {
 		t.Logf("new app fail: err: %v", err)
@@ -448,7 +448,7 @@ func TestRipemd160(t *testing.T) {
 		BlockNumber: big.NewInt(3456),
 	}
 	eng := vm.NewEngine(contract, 100000, cState, log.Test())
-	Inject(cState, NewWASM(ctx, cState, nil))
+	eng.Ctx = NewWASM(ctx, cState, nil)
 	app, err := eng.NewApp(addr.String(), nil, false)
 	if err != nil {
 		t.Logf("new app fail: err: %v", err)
@@ -480,7 +480,7 @@ func TestSha256(t *testing.T) {
 		BlockNumber: big.NewInt(3456),
 	}
 	eng := vm.NewEngine(contract, 100000, cState, log.Test())
-	Inject(cState, NewWASM(ctx, cState, nil))
+	eng.Ctx = NewWASM(ctx, cState, nil)
 	app, err := eng.NewApp(addr.String(), nil, false)
 	if err != nil {
 		t.Logf("new app fail: err: %v", err)
@@ -512,7 +512,7 @@ func TestKeccak256(t *testing.T) {
 		BlockNumber: big.NewInt(3456),
 	}
 	eng := vm.NewEngine(contract, 100000, cState, log.Test())
-	Inject(cState, NewWASM(ctx, cState, nil))
+	eng.Ctx = NewWASM(ctx, cState, nil)
 	app, err := eng.NewApp(addr.String(), nil, false)
 	if err != nil {
 		t.Logf("new app fail: err: %v", err)
@@ -546,7 +546,7 @@ func TestTransfer(t *testing.T) {
 		BlockNumber: big.NewInt(3456),
 	}
 	eng := vm.NewEngine(contract, 100000, cState, log.Test())
-	Inject(cState, NewWASM(ctx, cState, nil))
+	eng.Ctx = NewWASM(ctx, cState, nil)
 	app, err := eng.NewApp(addr.String(), nil, false)
 	if err != nil {
 		t.Logf("new app fail: err: %v", err)
