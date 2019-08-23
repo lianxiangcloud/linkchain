@@ -53,7 +53,7 @@ func NewBlockStore(db dbm.DB) *BlockStore {
 		height: bsjson.Height,
 		db:     db,
 
-		startDeleteHeight: 0,
+		startDeleteHeight: loadStartDeleteHeight(db),
 	}
 }
 
@@ -83,11 +83,13 @@ func (bs *BlockStore) Height() uint64 {
 // LoadBlock returns the block with the given height.
 // If no block is found for that height, it returns nil.
 func (bs *BlockStore) LoadBlock(height uint64) *types.Block {
+	if height < bs.startDeleteHeight {
+		return nil
+	}
 	var blockMeta = bs.LoadBlockMeta(height)
 	if blockMeta == nil {
 		return nil
 	}
-
 	var block = new(types.Block)
 	buf := []byte{}
 	for i := 0; i < blockMeta.BlockID.PartsHeader.Total; i++ {
@@ -106,6 +108,9 @@ func (bs *BlockStore) LoadBlock(height uint64) *types.Block {
 }
 
 func (bs *BlockStore) LoadBlockAndMeta(height uint64) (*types.Block, *types.BlockMeta) {
+	if height < bs.startDeleteHeight {
+		return nil, nil
+	}
 	var blockMeta = bs.LoadBlockMeta(height)
 	if blockMeta == nil {
 		return nil, nil
@@ -133,6 +138,9 @@ func (bs *BlockStore) LoadBlockAndMeta(height uint64) (*types.Block, *types.Bloc
 func (bs *BlockStore) LoadBlockByHash(hash common.Hash) *types.Block {
 	var blockMeta = bs.LoadBlockMetaByHash(hash)
 	if blockMeta == nil {
+		return nil
+	}
+	if blockMeta.Header.Height < bs.startDeleteHeight {
 		return nil
 	}
 
@@ -504,11 +512,6 @@ func (bs *BlockStore) deleteBlock(height uint64) (nTxs int, err error) {
 
 func (bs *BlockStore) DeleteHistoricalData(keepLatestBlocks uint64) {
 	minHeight := bs.startDeleteHeight
-	if minHeight == 0 {
-		minHeight = loadStartDeleteHeight(bs.db)
-		bs.startDeleteHeight = minHeight
-	}
-
 	maxHeight := bs.Height()
 	if maxHeight < minHeight+keepLatestBlocks {
 		return
@@ -623,7 +626,7 @@ func saveStartDeleteHeight(db dbm.DB, height uint64) {
 
 func loadStartDeleteHeight(db dbm.DB) uint64 {
 	h, err := db.Load(startDeleteHeight)
-	if err == nil {
+	if err == nil && len(h) != 0 {
 		return binary.BigEndian.Uint64(h)
 	}
 	return 1

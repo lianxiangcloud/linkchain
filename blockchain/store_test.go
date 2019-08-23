@@ -274,6 +274,12 @@ func TestBlockStoreSaveLoadBlock(t *testing.T) {
 	if bs.startDeleteHeight != loadStartDeleteHeight(bs.db) {
 		t.Fatal("start delete height not eq:", bs.startDeleteHeight)
 	}
+
+	blockDeleted := bs.LoadBlock(1)
+	if blockDeleted != nil {
+		t.Fatal("block 1 should deleted.")
+	}
+
 }
 
 func TestBlockStoreTxs(t *testing.T) {
