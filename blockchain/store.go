@@ -486,7 +486,7 @@ func (bs *BlockStore) GetTransactionReceipt(hash common.Hash) (*types.Receipt, c
 
 func (bs *BlockStore) deleteBlock(height uint64) (nTxs int, err error) {
 	block, blockMeta := bs.LoadBlockAndMeta(height)
-	if blockMeta == nil || blockMeta.Header == nil {
+	if blockMeta == nil || blockMeta.Header == nil || block == nil {
 		return 0, nil
 	}
 
@@ -512,14 +512,18 @@ func (bs *BlockStore) deleteBlock(height uint64) (nTxs int, err error) {
 
 func (bs *BlockStore) DeleteHistoricalData(keepLatestBlocks uint64) {
 	minHeight := bs.startDeleteHeight
+	if minHeight == 0 {
+		minHeight = loadStartDeleteHeight(bs.db)
+		bs.startDeleteHeight = minHeight
+	}
 	maxHeight := bs.Height()
-	if maxHeight < minHeight+keepLatestBlocks {
+	if maxHeight-keepLatestBlocks < minHeight {
 		return
 	}
 
 	log.Info("deleteHistoricalData: in blockChain and txmgr", "minHeight", minHeight, "maxHeight", maxHeight)
 
-	for total := 0; minHeight <= maxHeight; minHeight++ {
+	for total := 0; minHeight <= maxHeight-keepLatestBlocks; minHeight++ {
 		n, err := bs.deleteBlock(minHeight)
 		if err != nil {
 			log.Warn("deleteHistoricalData: ", "height", minHeight, "err", err)
