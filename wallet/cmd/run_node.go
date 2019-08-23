@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-
 	cmn "github.com/lianxiangcloud/linkchain/libs/common"
+	"github.com/lianxiangcloud/linkchain/types"
 	cfg "github.com/lianxiangcloud/linkchain/wallet/config"
 	nm "github.com/lianxiangcloud/linkchain/wallet/node"
 	"github.com/spf13/cobra"
@@ -28,6 +28,7 @@ func AddNodeFlags(cmd *cobra.Command) {
 	// cmd.Flags().String("daemon.login", config.Daemon.Login, "Specify username[:password] for daemon RPC client")
 	// cmd.Flags().Bool("daemon.trusted", config.Daemon.Trusted, "Enable commands which rely on a trusted daemon")
 	// cmd.Flags().Bool("daemon.testnet", config.Daemon.Testnet, "For testnet. Daemon must also be launched with --testnet flag")
+	cmd.Flags().Bool("test_net", config.BaseConfig.TestNet, "signparam will be set to 29154 if this flag is set")
 
 	// rpc flags
 	cmd.Flags().StringSlice("rpc.http_modules", config.RPC.HTTPModules, "API's offered over the HTTP-RPC interface")
@@ -52,9 +53,11 @@ func NewRunNodeCmd(nodeProvider nm.NodeProvider) *cobra.Command {
 		Use:   "node",
 		Short: "Run the wallet node",
 		RunE: func(cmd *cobra.Command, args []string) error {
-
 			logger.Info("NewRunNodeCmd", "base", config.BaseConfig, "daemon", config.Daemon, "rpc", config.RPC, "log", config.Log)
 			fmt.Printf("conf:%v\n", *config)
+
+			types.InitSignParam(config.TestNet)
+
 			initKeyStoreDir(config)
 			// Create & start node
 			n, err := nodeProvider(config, logger.With("module", "node"))

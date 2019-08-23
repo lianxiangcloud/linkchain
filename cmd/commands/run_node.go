@@ -2,7 +2,6 @@ package commands
 
 import (
 	"fmt"
-
 	"github.com/lianxiangcloud/linkchain/bootcli"
 	cfg "github.com/lianxiangcloud/linkchain/config"
 	"github.com/lianxiangcloud/linkchain/libs/log"
@@ -25,6 +24,7 @@ func AddNodeFlags(cmd *cobra.Command) {
 	cmd.Flags().Bool("roll_back", config.BaseConfig.RollBack, "roll-back one block, default false")
 	cmd.Flags().Uint64("wasm_gas_rate", config.BaseConfig.WasmGasRate, "wasm vm gas rate,default 1")
 	cmd.Flags().Bool("is_test_mode", config.BaseConfig.IsTestMode, "for test")
+	cmd.Flags().Bool("test_net", config.BaseConfig.TestNet, "signparam will be set to 29154 if this flag is set")
 	// rpc flags
 	cmd.Flags().StringSlice("rpc.http_modules", config.RPC.HTTPModules, "API's offered over the HTTP-RPC interface")
 	cmd.Flags().String("rpc.http_endpoint", config.RPC.HTTPEndpoint, "RPC listen address. Port required")
@@ -70,6 +70,7 @@ func NewRunNodeCmd(nodeProvider nm.NodeProvider) *cobra.Command {
 			}
 			//set types.IsTestMode
 			types.IsTestMode = config.IsTestMode
+			types.InitSignParam(config.TestNet)
 
 			cfg.WasmGasRate = config.BaseConfig.WasmGasRate
 			// Create & start node

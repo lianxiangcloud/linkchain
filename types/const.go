@@ -54,11 +54,22 @@ func (nodeType NodeType) String() string {
 	return fmt.Sprintf("%s", printType)
 }
 
+const (
+	PubNetSignParam int64 = 29153
+	TestNetSignParam int64 = 29154
+)
+
 // SignParam is const param which used to check transaction's sign is correct or not
 var (
-	SignParam       = big.NewInt(29153)
+	SignParam       = big.NewInt(PubNetSignParam)
 	GlobalSTDSigner = MakeSTDSigner(nil)
 )
+
+func InitSignParam(TestNet bool) {
+	if TestNet {
+		SignParam = big.NewInt(TestNetSignParam)
+	}
+}
 
 func IsNormalTx(tx Tx) bool {
 	return tx.TypeName() == TxNormal
