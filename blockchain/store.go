@@ -53,7 +53,7 @@ func NewBlockStore(db dbm.DB) *BlockStore {
 		height: bsjson.Height,
 		db:     db,
 
-		startDeleteHeight: loadStartDeleteHeight(db),
+		startDeleteHeight: 0,
 	}
 }
 
@@ -83,9 +83,6 @@ func (bs *BlockStore) Height() uint64 {
 // LoadBlock returns the block with the given height.
 // If no block is found for that height, it returns nil.
 func (bs *BlockStore) LoadBlock(height uint64) *types.Block {
-	if height < bs.startDeleteHeight {
-		return nil
-	}
 	var blockMeta = bs.LoadBlockMeta(height)
 	if blockMeta == nil {
 		return nil
@@ -94,6 +91,9 @@ func (bs *BlockStore) LoadBlock(height uint64) *types.Block {
 	buf := []byte{}
 	for i := 0; i < blockMeta.BlockID.PartsHeader.Total; i++ {
 		part := bs.LoadBlockPart(height, i)
+		if part == nil {
+			return nil
+		}
 		buf = append(buf, part.Bytes...)
 	}
 	err := ser.DecodeBytes(buf, block)
@@ -108,9 +108,6 @@ func (bs *BlockStore) LoadBlock(height uint64) *types.Block {
 }
 
 func (bs *BlockStore) LoadBlockAndMeta(height uint64) (*types.Block, *types.BlockMeta) {
-	if height < bs.startDeleteHeight {
-		return nil, nil
-	}
 	var blockMeta = bs.LoadBlockMeta(height)
 	if blockMeta == nil {
 		return nil, nil
@@ -120,6 +117,9 @@ func (bs *BlockStore) LoadBlockAndMeta(height uint64) (*types.Block, *types.Bloc
 	var block = new(types.Block)
 	for i := 0; i < blockMeta.BlockID.PartsHeader.Total; i++ {
 		part := bs.LoadBlockPart(height, i)
+		if part == nil {
+			return nil, blockMeta
+		}
 		buf = append(buf, part.Bytes...)
 	}
 	err := ser.DecodeBytes(buf, block)
@@ -140,14 +140,14 @@ func (bs *BlockStore) LoadBlockByHash(hash common.Hash) *types.Block {
 	if blockMeta == nil {
 		return nil
 	}
-	if blockMeta.Header.Height < bs.startDeleteHeight {
-		return nil
-	}
 
 	var block = new(types.Block)
 	buf := []byte{}
 	for i := 0; i < blockMeta.BlockID.PartsHeader.Total; i++ {
 		part := bs.LoadBlockPart(blockMeta.Header.Height, i)
+		if part == nil {
+			return nil
+		}
 		buf = append(buf, part.Bytes...)
 	}
 	err := ser.DecodeBytes(buf, block)
