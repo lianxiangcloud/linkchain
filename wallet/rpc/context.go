@@ -59,13 +59,13 @@ type Wallet interface {
 	GetAccountInfo(tokenID *common.Address) (*wtypes.GetAccountInfoResult, error)
 	RescanBlockchain() error
 	GetWalletEthAddress() (*common.Address, error)
-	CloseWallet() error
 	Status() *wtypes.StatusResult
 	GetTxKey(hash *common.Hash) (*lkctypes.Key, error)
 	GetMaxOutput(tokenID common.Address) (*hexutil.Uint64, error)
 	GetUTXOTx(hash common.Hash) (*types.UTXOTransaction, error)
 	SelectAddress(addr common.Address) error
 	SetRefreshBlockInterval(interval time.Duration) error
+	LockAccount(addr common.Address) error
 	// CheckTxKey(hash *common.Hash, txKey *lkctypes.Key, destAddr string) (*hexutil.Uint64, *hexutil.Big, error)
 	//
 	GetBlockTransactionCountByNumber(blockNr rpc.BlockNumber) (*hexutil.Uint, error)

@@ -132,7 +132,9 @@ func (la *LinkAccount) OnStop() {
 	la.walletOpen = false
 	la.autoRefresh = false
 
-	la.Logger.Info("Stopping LinkAccount")
+	la.account.ZeroKey()
+
+	la.Logger.Info("la.account.ZeroKey(), and stopping LinkAccount")
 }
 
 func (la *LinkAccount) getEthAddress() common.Address {

@@ -86,14 +86,7 @@ func (s *PrivateAccountAPI) UnlockAccount(addr common.Address, password string, 
 		d = time.Duration(*duration) * time.Second
 	}
 
-	// get wallet curr eth address and lock it
-	// currAddr, err := s.wallet.GetWalletEthAddress()
-	// if err == nil {
-	// 	err = fetchKeystore(s.am).Lock(*currAddr)
-	// 	log.Info("UnlockAccount lock curr addr", "currAddr", currAddr, "err", err)
-	// }
-
-	err := fetchKeystore(s.am).TimedUnlock(accounts.Account{Address: addr}, password, d)
+	err := fetchKeystore(s.am).TimedUnlock(accounts.Account{Address: addr}, password, d, s.wallet.LockAccount)
 	debug.FreeOSMemory()
 
 	if err == nil {
@@ -113,6 +106,6 @@ func (s *PrivateAccountAPI) UnlockAccount(addr common.Address, password string, 
 
 // LockAccount will lock the account associated with the given address when it's unlocked.
 func (s *PrivateAccountAPI) LockAccount(addr common.Address) bool {
-	s.wallet.CloseWallet()
+	s.wallet.LockAccount(addr)
 	return fetchKeystore(s.am).Lock(addr) == nil
 }

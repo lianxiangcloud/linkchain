@@ -214,7 +214,7 @@ func (s *PrivateAccountAPI) UnlockAccount(addr common.Address, password string, 
 	} else {
 		d = time.Duration(*duration) * time.Second
 	}
-	err := fetchKeystore(s.am).TimedUnlock(accounts.Account{Address: addr}, password, d)
+	err := fetchKeystore(s.am).TimedUnlock(accounts.Account{Address: addr}, password, d, nil)
 	return err == nil, err
 }
 

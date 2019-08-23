@@ -340,7 +340,7 @@ func (ks *KeyStore) SignTxWithPassphrase(a accounts.Account, passphrase string, 
 
 // Unlock unlocks the given account indefinitely.
 func (ks *KeyStore) Unlock(a accounts.Account, passphrase string) error {
-	return ks.TimedUnlock(a, passphrase, 0)
+	return ks.TimedUnlock(a, passphrase, 0, nil)
 }
 
 // Lock removes the private key with the given address from memory.
@@ -348,12 +348,14 @@ func (ks *KeyStore) Lock(addr common.Address) error {
 	ks.mu.Lock()
 	if unl, found := ks.unlocked[addr]; found {
 		ks.mu.Unlock()
-		ks.expire(addr, unl, time.Duration(0)*time.Nanosecond)
+		ks.expire(addr, unl, time.Duration(0)*time.Nanosecond, nil)
 	} else {
 		ks.mu.Unlock()
 	}
 	return nil
 }
+
+type UnlockExpireCallback func(addr common.Address) error
 
 // TimedUnlock unlocks the given account with the passphrase. The account
 // stays unlocked for the duration of timeout. A timeout of 0 unlocks the account
@@ -362,7 +364,7 @@ func (ks *KeyStore) Lock(addr common.Address) error {
 // If the account address is already unlocked for a duration, TimedUnlock extends or
 // shortens the active unlock timeout. If the address was previously unlocked
 // indefinitely the timeout is not altered.
-func (ks *KeyStore) TimedUnlock(a accounts.Account, passphrase string, timeout time.Duration) error {
+func (ks *KeyStore) TimedUnlock(a accounts.Account, passphrase string, timeout time.Duration, cb UnlockExpireCallback) error {
 	a, key, err := ks.getDecryptedKey(a, passphrase)
 	if err != nil {
 		return err
@@ -383,7 +385,7 @@ func (ks *KeyStore) TimedUnlock(a accounts.Account, passphrase string, timeout t
 	}
 	if timeout > 0 {
 		u = &unlocked{Key: key, abort: make(chan struct{})}
-		go ks.expire(a.Address, u, timeout)
+		go ks.expire(a.Address, u, timeout, cb)
 	} else {
 		u = &unlocked{Key: key}
 	}
@@ -418,7 +420,7 @@ func (ks *KeyStore) GetCue(a accounts.Account) (string, error) {
 	return cue, err
 }
 
-func (ks *KeyStore) expire(addr common.Address, u *unlocked, timeout time.Duration) {
+func (ks *KeyStore) expire(addr common.Address, u *unlocked, timeout time.Duration, cb UnlockExpireCallback) {
 	t := time.NewTimer(timeout)
 	defer t.Stop()
 	select {
@@ -433,6 +435,9 @@ func (ks *KeyStore) expire(addr common.Address, u *unlocked, timeout time.Durati
 		if ks.unlocked[addr] == u {
 			zeroKey(u.PrivateKey)
 			delete(ks.unlocked, addr)
+			if cb != nil {
+				cb(addr)
+			}
 		}
 		ks.mu.Unlock()
 	}
