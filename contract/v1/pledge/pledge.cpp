@@ -7,8 +7,8 @@
 #define ContractFoundationAddr "0x00000000000000000000466f756e646174696f6e"
 #define RKEY  "right"
 
-#define InitialPledgeAmount "5"
-#define WinOutPledgeAmount "5"
+#define InitialPledgeAmount "500000"
+#define WinOutPledgeAmount "5000000"
 
 enum ElectorStatus {
     DEFAULT,  
@@ -30,7 +30,6 @@ struct PledgeRecord {
     uint64 orderid;
     tc::Address sender;
     tc::BInt amount;
-    uint64 timestamp;
     bool hasWithdraw;
 };
 
@@ -38,7 +37,6 @@ TC_STRUCT(PledgeRecord,
     TC_FIELD_NAME(orderid, "orderid"),
     TC_FIELD_NAME(sender, "sender"),
 	TC_FIELD_NAME(amount, "amount"),
-	TC_FIELD_NAME(timestamp, "timestamp"),
 	TC_FIELD_NAME(hasWithdraw, "hasWithdraw")
 	)
 bool operator <(const PledgeRecord& a, const PledgeRecord& b) {
@@ -159,7 +157,7 @@ void Pledge::participate(const tc::Address& elector, const tc::BInt& amount, con
 
     ElectorsMap.set(elec, elector);
 
-    PledgeRecord pledgeRecord = PledgeRecord{orderid, tc::App::getInstance()->sender(), tc::App::getInstance()->value(), tc::App::getInstance()->now(), false};
+    PledgeRecord pledgeRecord = PledgeRecord{orderid, tc::App::getInstance()->sender(), tc::App::getInstance()->value(), false};
     savePledgeRecord(pledgeRecord, elector);
 
     supportStock.set(supportStock.get(elector, tc::App::getInstance()->sender()) + amount, elector, tc::App::getInstance()->sender());
@@ -180,7 +178,7 @@ void Pledge::deposit(const tc::Address& elector, const tc::BInt& amount, const u
     elec.totalAmount = elec.totalAmount + tc::App::getInstance()->value();
     ElectorsMap.set(elec, elector);
 
-    PledgeRecord pledgeRecord = PledgeRecord{orderid, tc::App::getInstance()->sender(), tc::App::getInstance()->value(), tc::App::getInstance()->now(), false};
+    PledgeRecord pledgeRecord = PledgeRecord{orderid, tc::App::getInstance()->sender(), tc::App::getInstance()->value(), false};
     savePledgeRecord(pledgeRecord, elector);
 
     supportStock.set(supportStock.get(elector, tc::App::getInstance()->sender()) + amount, elector, tc::App::getInstance()->sender());
