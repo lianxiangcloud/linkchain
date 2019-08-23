@@ -2,6 +2,7 @@ package types
 
 const (
 	UTXO_DESTS_MAX_NUM = 16
+	UTXO_ADDR_STR_LEN  = 95
 )
 
 type NetConfig struct {

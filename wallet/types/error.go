@@ -17,4 +17,5 @@ var (
 	ErrArgsInvalid         = errors.New("args invalid")
 	ErrUTXONotSupportToken = errors.New("utxo not support token")
 	ErrUTXODestsOverLimit  = fmt.Errorf("utxo dests over limit, should less than %d", UTXO_DESTS_MAX_NUM)
+	ErrNoNeedToProof       = errors.New("account input utxo trans do not need proof")
 )

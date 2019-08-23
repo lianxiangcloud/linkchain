@@ -874,17 +874,17 @@ func (tx *UTXOTransaction) checkTxSemantic(censor TxCensor) error {
 			}
 			hasOneAccountOutput = true
 
-            censor.LockState()
+			censor.LockState()
 			if censor.State().IsContract(output.To) {
 				contractAddrCount++
 			} else {
 				if output.Amount.Sign() == 0 {
-                    censor.UnlockState()
+					censor.UnlockState()
 					return ErrMoneyInvalid
 				}
 				normalAddrCount++
 			}
-            censor.UnlockState()
+			censor.UnlockState()
 			kind |= Aout
 		default:
 			return ErrOutputTypeNotExpect
@@ -1528,7 +1528,7 @@ func NewUinTransaction(acc *types.AccountKey, keyIndex map[types.PublicKey]uint6
 	if err != nil {
 		return nil, nil, types.KeyV{}, nil, err
 	}
-	additionalKeys, err := GenerateAdditionalKeys(rSecKey, utxoDests)
+	additionalKeys, err := GenerateAllAdditionalKeys(rSecKey, dests)
 	if err != nil {
 		return nil, nil, types.KeyV{}, nil, err
 	}
@@ -1738,6 +1738,37 @@ func GenerateAdditionalKeys(seckey types.Key, dests []*UTXODestEntry) ([]types.P
 		}
 		keys = append(keys, types.PublicKey(pkey))
 		log.Debug("GenerateAdditionalKeys", "key", fmt.Sprintf("%x", keys[len(keys)-1]))
+	}
+	return keys, nil
+}
+
+//GenerateAllAdditionalKeys return random keys for all dests
+func GenerateAllAdditionalKeys(seckey types.Key, dests []DestEntry) ([]types.PublicKey, error) {
+	var (
+		pkey types.PublicKey
+		keys = make([]types.PublicKey, 0)
+	)
+	for i, dest := range dests {
+		if TypeUTXODest == dest.Type() {
+			spubKey := dest.(*UTXODestEntry).Addr.SpendPublicKey
+			key, err := xcrypto.ScalarmultKey(types.Key(spubKey), seckey)
+			if err != nil {
+				return nil, err
+			}
+			pkey = types.PublicKey(key)
+		} else {
+			to := dest.(*AccountDestEntry).To
+			scalar, err := xcrypto.DerivationToScalar(types.KeyDerivation(seckey), i)
+			if err != nil {
+				return nil, err
+			}
+			data := make([]byte, types.COMMONLEN+common.AddressLength)
+			copy(data[0:], scalar[:])
+			copy(data[len(data):], to[:])
+			key := xcrypto.FastHash(data)
+			pkey = types.PublicKey(key)
+		}
+		keys = append(keys, pkey)
 	}
 	return keys, nil
 }

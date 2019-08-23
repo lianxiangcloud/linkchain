@@ -1,6 +1,7 @@
 package wallet
 
 import (
+	"bytes"
 	"fmt"
 	"math/big"
 	"sync"
@@ -408,6 +409,10 @@ func (la *LinkAccount) processNewTransaction(tx *tctypes.UTXOTransaction, height
 			received = new(big.Int).Add(received, uod.Amount)
 			la.updateBalance(tx.TokenID, uod.SubAddrIndex, true, uod.Amount)
 
+		case *tctypes.AccountOutput:
+			if bytes.Equal(ro.To[:], la.account.EthAddress[:]) {
+				needSaveTx = true
+			}
 		default:
 		}
 	}
@@ -434,6 +439,15 @@ func (la *LinkAccount) processNewTransaction(tx *tctypes.UTXOTransaction, height
 				tids = append(tids, iTransfer)
 				la.updateBalance(tx.TokenID, uod.SubAddrIndex, false, amount)
 				la.Logger.Info("processNewTransaction", "utxoTotalBalance", la.utxoTotalBalance, "iTransfer", iTransfer, "amount", amount.String())
+			}
+		case *tctypes.AccountInput:
+			from, err := tx.From()
+			if err != nil {
+				la.Logger.Error("get from address fail", "err", err)
+				continue
+			}
+			if bytes.Equal(from[:], la.account.EthAddress[:]) {
+				needSaveTx = true
 			}
 
 		default:

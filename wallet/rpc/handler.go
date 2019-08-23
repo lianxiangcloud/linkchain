@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"math/big"
 	"time"
 
 	"github.com/lianxiangcloud/linkchain/libs/common"
@@ -49,7 +50,7 @@ func (s *PublicTransactionPoolAPI) signUTXOTransaction(ctx context.Context, args
 	utxoDestsCnt := 0
 	for i := 0; i < destsCnt; i++ {
 		toAddress := args.Dests[i].Addr
-		if len(toAddress) == 95 {
+		if len(toAddress) == wtypes.UTXO_ADDR_STR_LEN {
 			if utxoDestsCnt >= wtypes.UTXO_DESTS_MAX_NUM {
 				return nil, wtypes.ErrUTXODestsOverLimit
 			}
@@ -233,35 +234,66 @@ func (s *PublicTransactionPoolAPI) GetMaxOutput(ctx context.Context, tokenID com
 
 // GetProofKey return proof key
 func (s *PublicTransactionPoolAPI) GetProofKey(ctx context.Context, args wtypes.ProofKeyArgs) (*wtypes.ProofKeyRet, error) {
+	if len(args.Addr) != wtypes.UTXO_ADDR_STR_LEN && len(args.Addr) != common.AddressLength*2 && len(args.Addr) != common.AddressLength*2+2 {
+		return nil, wtypes.ErrArgsInvalid
+	}
 	tx, err := s.wallet.GetUTXOTx(args.Hash)
 	if err != nil {
 		return nil, err
 	}
-	addr, err := wallet.StrToAddress(args.Addr)
-	if err != nil {
-		return nil, err
+	if (tx.UTXOKind() & types.Ain) != types.IllKind {
+		return nil, wtypes.ErrNoNeedToProof
 	}
+	if len(args.Addr) == wtypes.UTXO_ADDR_STR_LEN {
+		addr, err := wallet.StrToAddress(args.Addr)
+		if err != nil {
+			return nil, err
+		}
+		txKey, err := s.wallet.GetTxKey(&args.Hash)
+		if err != nil {
+			return nil, err
+		}
+		derivationKey, err := xcrypto.GenerateKeyDerivation(addr.ViewPublicKey, lkctypes.SecretKey(*txKey))
+		if err != nil {
+			return nil, err
+		}
+		outIdx := 0
+		for _, output := range tx.Outputs {
+			if utxoOutput, ok := output.(*types.UTXOOutput); ok {
+				otAddr, err := xcrypto.DerivePublicKey(derivationKey, outIdx, addr.SpendPublicKey)
+				if err != nil {
+					return nil, err
+				}
+				if bytes.Equal(otAddr[:], utxoOutput.OTAddr[:]) {
+					return &wtypes.ProofKeyRet{
+						ProofKey: fmt.Sprintf("%x", derivationKey[:]),
+					}, nil
+				}
+				outIdx++
+			}
+		}
+		return nil, wtypes.ErrNoTransInTx
+	}
+
+	if !common.IsHexAddress(args.Addr) {
+		return nil, wtypes.ErrArgsInvalid
+	}
+	addr := common.HexToAddress(args.Addr)
 	txKey, err := s.wallet.GetTxKey(&args.Hash)
 	if err != nil {
 		return nil, err
 	}
-	derivationKey, err := xcrypto.GenerateKeyDerivation(addr.ViewPublicKey, lkctypes.SecretKey(*txKey))
-	if err != nil {
-		return nil, err
-	}
-	outIdx := 0
-	for _, output := range tx.Outputs {
-		if utxoOutput, ok := output.(*types.UTXOOutput); ok {
-			otAddr, err := xcrypto.DerivePublicKey(derivationKey, outIdx, addr.SpendPublicKey)
-			if err != nil {
-				return nil, err
-			}
-			if bytes.Equal(otAddr[:], utxoOutput.OTAddr[:]) {
+	for i, output := range tx.Outputs {
+		if accOutput, ok := output.(*types.AccountOutput); ok {
+			if bytes.Equal(addr[:], accOutput.To[:]) {
+				proofKey, err := xcrypto.DerivationToScalar(lkctypes.KeyDerivation(*txKey), i)
+				if err != nil {
+					return nil, err
+				}
 				return &wtypes.ProofKeyRet{
-					ProofKey: fmt.Sprintf("%x", derivationKey[:]),
+					ProofKey: fmt.Sprintf("%x", proofKey[:]),
 				}, nil
 			}
-			outIdx++
 		}
 	}
 	return nil, wtypes.ErrNoTransInTx
@@ -269,13 +301,15 @@ func (s *PublicTransactionPoolAPI) GetProofKey(ctx context.Context, args wtypes.
 
 // CheckProofKey verify proof key
 func (s *PublicTransactionPoolAPI) CheckProofKey(ctx context.Context, args wtypes.VerifyProofKeyArgs) (*wtypes.VerifyProofKeyRet, error) {
+	if len(args.Addr) != wtypes.UTXO_ADDR_STR_LEN && len(args.Addr) != common.AddressLength*2 && len(args.Addr) != common.AddressLength*2+2 {
+		return nil, wtypes.ErrArgsInvalid
+	}
 	tx, err := s.wallet.GetUTXOTx(args.Hash)
 	if err != nil {
 		return nil, err
 	}
-	addr, err := wallet.StrToAddress(args.Addr)
-	if err != nil {
-		return nil, err
+	if (tx.UTXOKind() & types.Ain) != types.IllKind {
+		return nil, wtypes.ErrNoNeedToProof
 	}
 	k, err := hex.DecodeString(args.Key)
 	if err != nil || len(k) != lkctypes.COMMONLEN {
@@ -286,32 +320,64 @@ func (s *PublicTransactionPoolAPI) CheckProofKey(ctx context.Context, args wtype
 	ret := &wtypes.VerifyProofKeyRet{
 		Records: make([]*wtypes.VerifyProofKey, 0),
 	}
-	outIdx := 0
-	for _, output := range tx.Outputs {
-		if utxoOutput, ok := output.(*types.UTXOOutput); ok {
-			otAddr, err := xcrypto.DerivePublicKey(lkctypes.KeyDerivation(key), outIdx, addr.SpendPublicKey)
-			if err != nil {
-				return nil, err
-			}
-			if bytes.Equal(otAddr[:], utxoOutput.OTAddr[:]) {
-				ecdh := &lkctypes.EcdhTuple{
-					Amount: tx.RCTSig.RctSigBase.EcdhInfo[outIdx].Amount,
-				}
-				scalar, err := xcrypto.DerivationToScalar(lkctypes.KeyDerivation(key), outIdx)
+	if len(args.Addr) == wtypes.UTXO_ADDR_STR_LEN {
+		addr, err := wallet.StrToAddress(args.Addr)
+		if err != nil {
+			return nil, err
+		}
+		outIdx := 0
+		for _, output := range tx.Outputs {
+			if utxoOutput, ok := output.(*types.UTXOOutput); ok {
+				otAddr, err := xcrypto.DerivePublicKey(lkctypes.KeyDerivation(key), outIdx, addr.SpendPublicKey)
 				if err != nil {
 					return nil, err
 				}
-				ok := xcrypto.EcdhDecode(ecdh, lkctypes.Key(scalar), false)
-				if !ok {
-					return nil, err
+				if bytes.Equal(otAddr[:], utxoOutput.OTAddr[:]) {
+					ecdh := &lkctypes.EcdhTuple{
+						Amount: tx.RCTSig.RctSigBase.EcdhInfo[outIdx].Amount,
+					}
+					scalar, err := xcrypto.DerivationToScalar(lkctypes.KeyDerivation(key), outIdx)
+					if err != nil {
+						return nil, err
+					}
+					ok := xcrypto.EcdhDecode(ecdh, lkctypes.Key(scalar), false)
+					if !ok {
+						return nil, err
+					}
+					ret.Records = append(ret.Records, &wtypes.VerifyProofKey{
+						Hash:   args.Hash,
+						Addr:   args.Addr,
+						Amount: (*hexutil.Big)(big.NewInt(0).Mul(types.Hash2BigInt(ecdh.Amount), big.NewInt(types.UTXO_COMMITMENT_CHANGE_RATE))),
+					})
 				}
-				ret.Records = append(ret.Records, &wtypes.VerifyProofKey{
-					Hash:   args.Hash,
-					Addr:   args.Addr,
-					Amount: (*hexutil.Big)(types.Hash2BigInt(ecdh.Amount)),
-				})
+				outIdx++
 			}
-			outIdx++
+		}
+		return ret, nil
+	}
+
+	if !common.IsHexAddress(args.Addr) {
+		return nil, wtypes.ErrArgsInvalid
+	}
+	addr := common.HexToAddress(args.Addr)
+	for _, output := range tx.Outputs {
+		if accOutput, ok := output.(*types.AccountOutput); ok {
+			if bytes.Equal(addr[:], accOutput.To[:]) {
+				data := make([]byte, lkctypes.COMMONLEN+common.AddressLength)
+				copy(data[0:], key[:])
+				copy(data[len(data):], addr[:])
+				pkey := xcrypto.FastHash(data)
+				for _, addKey := range tx.AddKeys {
+					if bytes.Equal(pkey[:], addKey[:]) {
+						ret.Records = append(ret.Records, &wtypes.VerifyProofKey{
+							Hash:   args.Hash,
+							Addr:   args.Addr,
+							Amount: (*hexutil.Big)(accOutput.Amount),
+						})
+						break
+					}
+				}
+			}
 		}
 	}
 	return ret, nil
