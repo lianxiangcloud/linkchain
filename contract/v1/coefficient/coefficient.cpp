@@ -92,9 +92,13 @@ public:
         coStore.set(cojson);
     };
 
+	//NUME/DENO
     std::string updateVoteRate(const VoteRate& vr){
         TC_RequireWithMsg(CheckAddrRight(tc::App::getInstance()->sender(), "coefficient"), "Address does not have permission");
 		TC_RequireWithMsg(vr.Deno > 0, "VoteRate.Deno must be greater than 0");
+		TC_RequireWithMsg(vr.Nume > 0, "VoteRate.Nume must be greater than 0");
+		TC_RequireWithMsg(vr.Deno >= vr.Nume, "VoteRate.Deno must be greater than VoteRate.Nume");
+		TC_RequireWithMsg(vr.UpperLimit >= 0, "VoteRate.UpperLimit must be greater than 0");
 
         coefficient co;
         tc::StorValue<std::string> coStore(CKey);
@@ -110,6 +114,9 @@ public:
 
     std::string updateCalRate(const CalRate& cr){
         TC_RequireWithMsg(CheckAddrRight(tc::App::getInstance()->sender(), "coefficient"), "Address does not have permission");
+		TC_RequireWithMsg(cr.Srate >= 0 && cr.Srate <= 100, "CalRate.Srate must be 0~100");
+		TC_RequireWithMsg(cr.Drate >= 0 && cr.Drate <= 100, "CalRate.Drate must be 0~100");
+		TC_RequireWithMsg(cr.Rrate >= 0 && cr.Rrate <= 100, "CalRate.Rrate must be 0~100");
         coefficient co;
         tc::StorValue<std::string> coStore(CKey);
         std::string cojson = coStore.get();
@@ -156,6 +163,7 @@ public:
 
     std::string updateUTXOFee(const tc::BInt& uf){
         TC_RequireWithMsg(CheckAddrRight(tc::App::getInstance()->sender(), "coefficient"), "Address does not have permission");
+		TC_RequireWithMsg(uf > tc::BInt("0"), "MaxScore must be greater than 0");
         coefficient co;
         tc::StorValue<std::string> coStore(CKey);
         std::string cojson = coStore.get();

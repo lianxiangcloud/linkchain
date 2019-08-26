@@ -56,7 +56,6 @@ struct PledgeRecord {
     uint64 orderid;
     tc::Address sender;
     tc::BInt amount;
-    uint64 timestamp;
     bool hasWithdraw;
 };
 
@@ -64,7 +63,6 @@ TC_STRUCT(PledgeRecord,
     TC_FIELD_NAME(orderid, "orderid"),
     TC_FIELD_NAME(sender, "sender"),
 	TC_FIELD_NAME(amount, "amount"),
-	TC_FIELD_NAME(timestamp, "timestamp"),
 	TC_FIELD_NAME(hasWithdraw, "hasWithdraw")
 	)
 
@@ -150,6 +148,9 @@ void GetPledgeRecord(const uint64& index, PledgeRecord& record){
     const tlv::BufferWriter key = Key<uint64>::keyStr(index); 
     uint8_t* tmp = pledgeRecordInfo.getKeyBytes(key); 
     uint8_t* value = TC_ContractStoragePureGet(ContractPledgeAddr, tmp, std::string("pledgeRecordInfo").length() + key.length()); 
+	if(*value == 0){
+		return ;
+	}
     free(tmp);
     tc::tlv::BufferReader buffer(value); 
     unpack(buffer, record); 
