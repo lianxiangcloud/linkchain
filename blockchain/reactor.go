@@ -342,7 +342,6 @@ FOR_LOOP:
 
 				if first.Recover > 0 {
 					status.Validators = types.NewValidatorSet(bcR.appmgr.GetRecoverValidators(first.Height - 1))
-					status.LastRecover = true
 				}
 
 				err := status.Validators.VerifyCommit(chainID, firstID, first.Height, second.LastCommit)
@@ -419,6 +418,11 @@ FOR_LOOP:
 
 				if status.LastHeightValidatorsChanged > oldHeight {
 					bcR.appmgr.SetLastChangedVals(status.LastHeightValidatorsChanged, status.Validators.Copy().Validators)
+				}
+
+				if first.Recover > 0 {
+					bcR.Logger.Warn("BlockchainReactor fast sync recover block")
+					status.LastRecover = true
 				}
 
 				if blocksSynced%100 == 0 {
