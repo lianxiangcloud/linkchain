@@ -571,7 +571,7 @@ func (app *LinkApplication) CommitBlock(block *types.Block, blockParts *types.Pa
 	app.LockState()
 	app.checkTxState = processResult.tmpState.Copy()
 	app.mempool.KeyImageReset()
-	app.lastCoe = GetCoefficient(app.storeState, app.logger)
+	app.lastCoe = GetCoefficient(processResult.tmpState, app.logger)
 	app.logger.Debug("GetCoefficient ", "Coefficient", app.lastCoe)
 	app.UnlockState()
 
@@ -922,17 +922,6 @@ func (app *LinkApplication) getValidators(cans types.CandidateInOrderList) []*ty
 
 func GetCoefficient(statedb types.StateDB, logger log.Logger) *types.Coefficient {
 	if co := statedb.GetCoefficient(logger); co != nil {
-		return co
-	}
-	return types.DefaultCoefficient()
-}
-
-//logger = log.Root()
-
-//Get all Coefficient
-func (app *LinkApplication) getCoefficient() *types.Coefficient {
-	//get lastblock Coefficient
-	if co := app.storeState.GetCoefficient(app.logger); co != nil {
 		return co
 	}
 	return types.DefaultCoefficient()
