@@ -12,6 +12,6 @@ var VersionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Show version info",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("linkchain version: %s, gitCommit:%s \n", version.Version, version.GitCommit)
+		fmt.Printf("linkchain version: %s, gitCommit:%s ,gitBranch:%s\n", version.Version, version.GitCommit, version.GitBranch)
 	},
 }

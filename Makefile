@@ -3,9 +3,11 @@ DEFAULT_GOOS=$(shell go env | grep -o 'GOOS=".*"' | sed -E 's/GOOS="(.*)"/\1/g')
 DEFAULT_GOARCH=$(shell go env | grep -o 'GOARCH=".*"' | sed -E 's/GOARCH="(.*)"/\1/g')
 PACKAGES=$(shell go list ./... | grep -v '/vendor/')
 GIT_VER=$(shell git rev-parse --short=8 HEAD)
+GIT_BRANCH=$(shell git symbolic-ref --short -q HEAD)
 
 #BUILD_TAGS= -tags ''
-BUILD_FLAGS = -ldflags "-X github.com/lianxiangcloud/linkchain/version.GitCommit=$(GIT_VER)"
+BUILD_FLAGS = -ldflags "-X github.com/lianxiangcloud/linkchain/version.GitCommit=$(GIT_VER) -X github.com/lianxiangcloud/linkchain/version.GitBranch=$(GIT_BRANCH)"
+BUILD_WALLET_FLAGS = -ldflags "-X main.GitCommit=$(GIT_VER) -X main.GitBranch=$(GIT_BRANCH)"
 
 all: build
 
@@ -13,7 +15,7 @@ all: build
 ### Build
 define fbuild
 	CGO_ENABLED=1 GOOS=$(1) GOARCH=$(2) go build $(3) $(BUILD_FLAGS) $(BUILD_TAGS) -o bin/lkchain ./cmd/lkchain
-	CGO_ENABLED=1 GOOS=$(1) GOARCH=$(2) go build $(3) $(BUILD_FLAGS) $(BUILD_TAGS) -o bin/wallet ./wallet/cmd
+	CGO_ENABLED=1 GOOS=$(1) GOARCH=$(2) go build $(3) $(BUILD_WALLET_FLAGS) $(BUILD_TAGS) -o bin/wallet ./wallet/cmd
 endef
 
 bench:

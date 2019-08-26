@@ -13,4 +13,6 @@ var (
 
 	// GitCommit is the current HEAD set using ldflags.
 	GitCommit string
+	// GitBranch is the current HEAD set using ldflags.
+	GitBranch string
 )

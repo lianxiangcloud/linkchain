@@ -1,5 +1,4 @@
-BUILD_FLAGS = -ldflags "-X main.GitCommit=`git rev-parse HEAD` "
-#-X main.GitBranch=`git branch --contains HEAD`
+BUILD_FLAGS = -ldflags "-X main.GitCommit=`git rev-parse HEAD` -X main.GitBranch=`git symbolic-ref --short -q HEAD`"
 
 DEFAULT_GOOS=$(shell go env | grep -o 'GOOS=".*"' | sed -E 's/GOOS="(.*)"/\1/g')
 DEFAULT_GOARCH=$(shell go env | grep -o 'GOARCH=".*"' | sed -E 's/GOARCH="(.*)"/\1/g')
