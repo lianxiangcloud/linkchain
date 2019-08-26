@@ -575,7 +575,7 @@ func (app *LinkApplication) CommitBlock(block *types.Block, blockParts *types.Pa
 	app.logger.Debug("GetCoefficient ", "Coefficient", app.lastCoe)
 	app.UnlockState()
 
-	err = app.mempool.Update(app.blockChain.Height(), block.Data.Txs, processResult.txsResult.KeyImages())
+	err = app.mempool.Update(app.blockChain.Height(), block.Data.Txs)
 	app.mempool.Unlock()
 	if err != nil {
 		app.logger.Warn("CommitBlock: update mempool failed", "err", err)

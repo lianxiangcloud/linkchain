@@ -308,7 +308,7 @@ func TestReap(t *testing.T) {
 	txs := mem.Reap(reapsize)
 	fmt.Println(mem.Stats())
 	assert.Equal(t, 500, len(txs))
-	mem.Update(0, txs, nil)
+	mem.Update(0, txs)
 	fmt.Println(mem.Stats())
 }
 

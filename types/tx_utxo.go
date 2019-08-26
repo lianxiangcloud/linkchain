@@ -1082,7 +1082,7 @@ func (tx *UTXOTransaction) checkTxInputKeys(censor TxCensor) error {
 	for i, txin := range tx.Inputs {
 		switch input := txin.(type) {
 		case *UTXOInput:
-			pubkeys[i], ok = getTxInputKeys(censor.BlockChain(), censor.UTXOStore(), input)
+			pubkeys[i], ok = getTxInputKeys(censor.BlockChain(), censor.UTXOStore(), input, tx.TokenID)
 			if !ok {
 				log.Warn("getTxInputKeys failed")
 				return ErrGetInputFromDB
@@ -1098,14 +1098,14 @@ func (tx *UTXOTransaction) checkTxInputKeys(censor TxCensor) error {
 	return nil
 }
 
-func getTxInputKeys(blockchain BlockChain, utxoStore UTXOStore, input *UTXOInput) ([]types.Ctkey, bool) {
+func getTxInputKeys(blockchain BlockChain, utxoStore UTXOStore, input *UTXOInput, tokenID common.Address) ([]types.Ctkey, bool) {
 	if len(input.KeyOffset) <= 0 {
 		return nil, false
 	}
 
 	absoluteOffset := relativeOutputOffsetsToAbsolute(input.KeyOffset)
-	//m_scan_table  TODO cache
-	outputs, err := utxoStore.GetUtxoOutputs(absoluteOffset, common.EmptyAddress)
+	//TODO cache
+	outputs, err := utxoStore.GetUtxoOutputs(absoluteOffset, tokenID)
 	if err != nil {
 		log.Warn("GetUtxoOutputs", "err", err)
 		return nil, false
@@ -1116,8 +1116,12 @@ func getTxInputKeys(blockchain BlockChain, utxoStore UTXOStore, input *UTXOInput
 	}
 
 	outputKeys := make([]types.Ctkey, 0)
-	for _, outputIndex := range outputs {
-		outputKeys = append(outputKeys, types.Ctkey{types.Key(outputIndex.OTAddr), outputIndex.Commit})
+	for _, output := range outputs {
+		if output.TokenID != tokenID {
+			log.Warn("utxo tokenID not match", "output", output, "tokenID", tokenID)
+			return nil, false
+		}
+		outputKeys = append(outputKeys, types.Ctkey{types.Key(output.OTAddr), output.Commit})
 	}
 
 	return outputKeys, true
@@ -1254,11 +1258,15 @@ func (tx *UTXOTransaction) checkState(censor TxCensor) error {
 				return ErrNonceTooHigh
 			}
 			//check balance
-			if state.GetBalance(fromAddr).Cmp(input.Amount) < 0 {
+			if state.GetTokenBalance(fromAddr, tx.TokenID).Cmp(input.Amount) < 0 {
 				return ErrInsufficientFunds
 			}
 			aggInputAmount.Add(aggInputAmount, input.Amount)
-			state.SubBalance(fromAddr, input.Amount)
+			state.SubTokenBalance(fromAddr, tx.TokenID, input.Amount)
+			if !common.IsLKC(tx.TokenID) {
+				state.SubBalance(fromAddr, tx.Fee)
+			}
+
 			state.SetNonce(fromAddr, input.Nonce+1)
 		default:
 		}

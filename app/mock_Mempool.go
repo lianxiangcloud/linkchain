@@ -71,13 +71,13 @@ func (_m *MockMempool) Unlock() {
 	_m.Called()
 }
 
-// Update provides a mock function with given fields: height, txs, keyImages
-func (_m *MockMempool) Update(height uint64, txs types.Txs, keyImages []*lktypes.Key) error {
-	ret := _m.Called(height, txs, keyImages)
+// Update provides a mock function with given fields: height, txs
+func (_m *MockMempool) Update(height uint64, txs types.Txs) error {
+	ret := _m.Called(height, txs)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(uint64, types.Txs, []*lktypes.Key) error); ok {
-		r0 = rf(height, txs, keyImages)
+	if rf, ok := ret.Get(0).(func(uint64, types.Txs) error); ok {
+		r0 = rf(height, txs)
 	} else {
 		r0 = ret.Error(0)
 	}

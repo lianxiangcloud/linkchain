@@ -716,7 +716,7 @@ func (mem *Mempool) collectTxs(txList *clist.CList, maxTxs int) types.Txs {
 // Update informs the mempool that the given txs were committed and can be discarded.
 // NOTE: this should be called *after* block is committed by consensus.
 // NOTE: unsafe; Lock/Unlock must be managed by caller
-func (mem *Mempool) Update(height uint64, txs types.Txs, keyImages []*lktypes.Key) error {
+func (mem *Mempool) Update(height uint64, txs types.Txs) error {
 	// First, create a lookup map of txns in new txs.
 	txsMap := make(map[string]struct{})
 	for _, tx := range txs {

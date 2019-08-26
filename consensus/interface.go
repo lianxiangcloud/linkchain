@@ -2,7 +2,6 @@ package consensus
 
 import (
 	"github.com/lianxiangcloud/linkchain/libs/common"
-	lktypes "github.com/lianxiangcloud/linkchain/libs/cryptonote/types"
 	"github.com/lianxiangcloud/linkchain/types"
 )
 
@@ -18,7 +17,7 @@ type Mempool interface {
 
 	GoodTxsSize() int
 	Reap(int) types.Txs
-	Update(height uint64, txs types.Txs, keyImages []*lktypes.Key) error
+	Update(height uint64, txs types.Txs) error
 
 	SetReceiveP2pTx(on bool)
 
@@ -36,7 +35,7 @@ func (m MockMempool) GoodTxsSize() int { return 0 }
 func (m MockMempool) Reap(n int) types.Txs {
 	return types.Txs{}
 }
-func (m MockMempool) Update(height uint64, txs types.Txs, keyImages []*lktypes.Key) error { return nil }
+func (m MockMempool) Update(height uint64, txs types.Txs) error { return nil }
 func (m MockMempool) Flush()                                                              {}
 func (m MockMempool) FlushAppConn() error                                                 { return nil }
 func (m MockMempool) TxsAvailable() <-chan struct{}                                       { return make(chan struct{}) }

@@ -217,6 +217,10 @@ func (st *StateTransition) UTXOTransitionDb() (ret []byte, usedGas uint64, byteC
 			st.useGas(st.gas)
 			if (msg.UTXOKind() & types.Ain) == types.Ain {
 				st.state.SubTokenBalance(msg.MsgFrom(), msg.TokenAddress(), msg.Value())
+                if !common.IsLKC(msg.TokenAddress()) {
+                    paidFee := big.NewInt(0).Mul(big.NewInt(0).SetUint64(msg.Gas()), big.NewInt(types.ParGasPrice))
+				    st.state.SubBalance(msg.MsgFrom(), paidFee)
+                }
 
 				br := types.GenBalanceRecord(msg.MsgFrom(), common.EmptyAddress, types.AccountAddress, types.PrivateAddress, types.TxTransfer, msg.TokenAddress(), recordAmount)
 				st.vmenv.AddOtx(br)
@@ -235,15 +239,19 @@ func (st *StateTransition) UTXOTransitionDb() (ret []byte, usedGas uint64, byteC
 			st.useGas(st.gas)
 
 			if (msg.UTXOKind() & types.Ain) == types.Ain {
-				log.Debug("acountOutput only transfer value", "from", msg.MsgFrom(), "token", msg.TokenAddress(), "value", msg.Value())
+				log.Debug("acountOutput only transfer value", "from", msg.MsgFrom(), "token", msg.TokenAddress().String(), "value", msg.Value())
 				st.state.SubTokenBalance(msg.MsgFrom(), msg.TokenAddress(), msg.Value())
+				if !common.IsLKC(msg.TokenAddress()) {
+					paidFee := big.NewInt(0).Mul(big.NewInt(0).SetUint64(msg.Gas()), big.NewInt(types.ParGasPrice))
+					st.state.SubBalance(msg.MsgFrom(), paidFee)
+				}
 				br := types.GenBalanceRecord(msg.MsgFrom(), common.EmptyAddress, types.AccountAddress, types.PrivateAddress, types.TxTransfer, msg.TokenAddress(), recordAmount)
 				st.vmenv.AddOtx(br)
 			}
 
 			for _, accountOutput := range accountOutputs {
 				st.state.AddTokenBalance(accountOutput.To, msg.TokenAddress(), accountOutput.Amount)
-				log.Debug("acountOutput only transfer value", "to", accountOutput.To, "token", msg.TokenAddress(), "value", accountOutput.Amount)
+				log.Debug("acountOutput only transfer value", "to", accountOutput.To, "token", msg.TokenAddress().String(), "value", accountOutput.Amount)
 				br := types.GenBalanceRecord(common.EmptyAddress, accountOutput.To, types.PrivateAddress, types.AccountAddress, types.TxTransfer, msg.TokenAddress(), accountOutput.Amount)
 				st.vmenv.AddOtx(br)
 			}
@@ -295,7 +303,7 @@ func (st *StateTransition) UTXOTransitionDb() (ret []byte, usedGas uint64, byteC
 		if (msg.UTXOKind() & types.Ain) == types.Ain {
 			fromBalance := st.state.GetTokenBalance(msg.MsgFrom(), msg.TokenAddress())
 			if fromBalance.Cmp(msg.Value()) < 0 {
-				log.Warn("UTXOTransitionDb insufficient balance", "transfer value", msg.Value(), "from", msg.MsgFrom().String(), "balance", fromBalance)
+				log.Warn("UTXOTransitionDb insufficient balance", "transfer value", msg.Value(), "from", msg.MsgFrom().String(), "token", msg.TokenAddress().String(), "balance", fromBalance)
 				st.useGas(st.gas)
 				vmerr = types.ErrInsufficientFunds
 				break
@@ -303,8 +311,12 @@ func (st *StateTransition) UTXOTransitionDb() (ret []byte, usedGas uint64, byteC
 		}
 
 		if (msg.UTXOKind() & types.Ain) == types.Ain {
-			log.Debug("UTXOTransitionDb sub accountInput's amount", "from", msg.MsgFrom(), "value", msg.Value())
+			log.Debug("UTXOTransitionDb sub accountInput's amount", "from", msg.MsgFrom(), "token", msg.TokenAddress().String(),  "value", msg.Value())
 			st.state.SubTokenBalance(msg.MsgFrom(), msg.TokenAddress(), msg.Value())
+			if !common.IsLKC(msg.TokenAddress()) {
+				paidFee := big.NewInt(0).Mul(big.NewInt(0).SetUint64(msg.Gas()), big.NewInt(types.ParGasPrice))
+				st.state.SubBalance(msg.MsgFrom(), paidFee)
+			}
 			br := types.GenBalanceRecord(msg.MsgFrom(), common.EmptyAddress, types.AccountAddress, types.PrivateAddress, types.TxTransfer, msg.TokenAddress(), recordAmount)
 			st.vmenv.AddOtx(br)
 		}
@@ -335,11 +347,10 @@ func (st *StateTransition) UTXOTransitionDb() (ret []byte, usedGas uint64, byteC
 	//Fee - Gas refunded, so refund ContractValue here.
 	if vmerr != nil {
 		st.state.AddTokenBalance(msg.MsgFrom(), msg.TokenAddress(), contractValue)
-		log.Debug("UTXOTransitionDb vmerr happened, refund spended money to", "from", msg.MsgFrom(), "refundValue", contractValue)
+		log.Debug("UTXOTransitionDb vmerr happened, refund spended money to", "from", msg.MsgFrom(), "token", msg.TokenAddress().String(), "refundValue", contractValue)
 	}
 
-	//st.state.AddBalance(st.vmenv.GetCoinbase(), fee)
-	log.Debug("UTXOTransitionDb addBalance to", "coinBase", st.vmenv.GetCoinbase(), "gasUsed", st.gasUsed(), "initalgas", st.initialGas, "fee", fee.String())
+	log.Debug("UTXOTransitionDb end", "coinBase", st.vmenv.GetCoinbase(), "gasUsed", st.gasUsed(), "initalgas", st.initialGas, "fee", fee.String())
 
 	return ret, st.gasUsed(), byteCodeGas, fee, vmerr, err
 }
