@@ -330,7 +330,6 @@ type RPCBalanceRecord struct {
 	Type            string         `json:"type"`
 	TokenID         common.Address `json:"token_id"`
 	Amount          *hexutil.Big   `json:"amount"`
-	Hash            common.Hash    `json:"hash"`
 }
 
 type RPCTxBalanceRecords struct {
@@ -365,7 +364,6 @@ func NewRPCBlockBalanceRecord(bbr *types.BlockBalanceRecords) *RPCBlockBalanceRe
 				Type:            br.Type,
 				TokenID:         br.TokenID,
 				Amount:          (*hexutil.Big)(br.Amount),
-				Hash:            br.Hash,
 			}
 			records = append(records, record)
 		}

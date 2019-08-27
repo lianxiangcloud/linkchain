@@ -5,12 +5,18 @@ import (
 	"encoding/json"
 
 	"github.com/lianxiangcloud/linkchain/libs/common"
+	"github.com/lianxiangcloud/linkchain/libs/ser"
+	"golang.org/x/crypto/sha3"
 )
 
 const (
 	AccountAddress uint32 = 0
 	PrivateAddress uint32 = 1
 	NoAddress      uint32 = 2
+)
+
+var (
+	SaveBalanceRecord bool = false
 )
 
 type Payload []byte
@@ -42,18 +48,6 @@ type BalanceRecord struct {
 	Type            string         `json:"type"`
 	TokenID         common.Address `json:"token_id"`
 	Amount          *big.Int       `json:"amount"`
-	Hash            common.Hash    `json:"hash"`
-}
-
-type balanceRecordHash struct {
-	From            common.Address `json:from`
-	To              common.Address `json:to`
-	FromAddressType uint32         `json:"from_address_type"`
-	ToAddressType   uint32         `json:"to_address_type"`
-	Type            string         `json:"type"`
-	TokenID         common.Address `json:"token_id"`
-	Amount          *big.Int       `json:"amount"`
-	RandomNum       uint64         `json:"random_num"`
 }
 
 func NewTxBalanceRecords() *TxBalanceRecords {
@@ -61,8 +55,12 @@ func NewTxBalanceRecords() *TxBalanceRecords {
 }
 
 func GenBalanceRecord(from common.Address, to common.Address, fromAddressType uint32, toAddressType uint32, typeStr string, tokenId common.Address, amount *big.Int) BalanceRecord {
+	if !SaveBalanceRecord {
+		return BalanceRecord{}
+	}
 	finnalAmount := big.NewInt(0).Add(big.NewInt(0), amount)
-	brh := balanceRecordHash{
+
+	return BalanceRecord{
 		From:            from,
 		To:              to,
 		FromAddressType: fromAddressType,
@@ -70,19 +68,6 @@ func GenBalanceRecord(from common.Address, to common.Address, fromAddressType ui
 		Type:            typeStr,
 		TokenID:         tokenId,
 		Amount:          finnalAmount,
-		RandomNum:       common.RandUint64(),
-	}
-	hash := rlpHash(brh)
-
-	return BalanceRecord{
-		From:            brh.From,
-		To:              brh.To,
-		FromAddressType: brh.FromAddressType,
-		ToAddressType:   brh.ToAddressType,
-		Type:            brh.Type,
-		TokenID:         brh.TokenID,
-		Amount:          brh.Amount,
-		Hash:            hash,
 	}
 }
 
@@ -135,4 +120,11 @@ func (t *TxBalanceRecords) AddBalanceRecord(br BalanceRecord) {
 
 func (t *TxBalanceRecords) ClearBalanceRecord() {
 	t.Records = make([]BalanceRecord, 0)
+}
+
+func RlpHash(x interface{}) (h common.Hash) {
+	hw := sha3.NewLegacyKeccak256()
+	ser.Encode(hw, x)
+	hw.Sum(h[:0])
+	return h
 }

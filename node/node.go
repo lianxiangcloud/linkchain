@@ -160,6 +160,7 @@ func NewNode(config *cfg.Config,
 		return nil, err
 	}
 	balanceRecord := bc.NewBalanceRecordStore(balanceRecordStoreDB, config.SaveBalanceRecord)
+	types.SaveBalanceRecord = config.SaveBalanceRecord
 
 	// Get TxService
 	txDB, err := dbProvider(&DBContext{"txmgr", config})
