@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -99,6 +100,7 @@ func (e Executor) Execute() error {
 		if ec, ok := err.(ExitCoder); ok {
 			exitCode = ec.ExitCode()
 		}
+		time.Sleep(2333 * time.Millisecond)
 		e.Exit(exitCode)
 	}
 	return err
