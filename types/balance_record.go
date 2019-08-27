@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 
 	"github.com/lianxiangcloud/linkchain/libs/common"
-	"github.com/lianxiangcloud/linkchain/libs/ser"
-	"golang.org/x/crypto/sha3"
 )
 
 const (
@@ -123,8 +121,5 @@ func (t *TxBalanceRecords) ClearBalanceRecord() {
 }
 
 func RlpHash(x interface{}) (h common.Hash) {
-	hw := sha3.NewLegacyKeccak256()
-	ser.Encode(hw, x)
-	hw.Sum(h[:0])
-	return h
+	return rlpHash(x)
 }
