@@ -97,8 +97,8 @@ public:
         TC_RequireWithMsg(CheckAddrRight(tc::App::getInstance()->sender(), "coefficient"), "Address does not have permission");
 		TC_RequireWithMsg(vr.Deno > 0, "VoteRate.Deno must be greater than 0");
 		TC_RequireWithMsg(vr.Nume > 0, "VoteRate.Nume must be greater than 0");
-		TC_RequireWithMsg(vr.Deno >= vr.Nume, "VoteRate.Deno must be greater than VoteRate.Nume");
-		TC_RequireWithMsg(vr.UpperLimit >= 0, "VoteRate.UpperLimit must be greater than 0");
+		TC_RequireWithMsg(vr.Deno >= vr.Nume, "VoteRate.Deno must be greater than or equal to VoteRate.Nume");
+		TC_RequireWithMsg(vr.UpperLimit >= 0, "VoteRate.UpperLimit must be greater than or equal to zero 0");
 
         coefficient co;
         tc::StorValue<std::string> coStore(CKey);
