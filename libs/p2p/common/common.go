@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/lianxiangcloud/linkchain/libs/crypto"
+	"github.com/lianxiangcloud/linkchain/libs/hexutil"
 	"github.com/lianxiangcloud/linkchain/libs/p2p/netutil"
 )
 
@@ -43,9 +44,13 @@ func (n NodeID) Bytes() []byte {
 	return n[:]
 }
 
+func (n *NodeID) Copy(buffer []byte) {
+	copy(n[:], buffer)
+}
+
 // ID prints as a long hexadecimal number.
 func (n NodeID) String() string {
-	return fmt.Sprintf("0x%x", n[:])
+	return hexutil.Encode(n[:])
 }
 
 func (n NodeID) MarshalJSON() ([]byte, error) {
@@ -135,4 +140,24 @@ type Config struct {
 type ReadPacket struct {
 	Data []byte
 	Addr *net.UDPAddr
+}
+
+func TransPubKeyToStringID(pubKey crypto.PubKey) string {
+	return hex.EncodeToString(crypto.Keccak256Hash(pubKey.Bytes()).Bytes())
+}
+
+func TransPubKeyToNodeID(pubKey crypto.PubKey) NodeID {
+	var id = &NodeID{}
+	id.Copy(crypto.Keccak256Hash(pubKey.Bytes()).Bytes())
+	return *id
+}
+
+func TransPkbyteToNodeID(pubKey []byte) NodeID {
+	var id = &NodeID{}
+	id.Copy(crypto.Keccak256Hash(pubKey).Bytes())
+	return *id
+}
+
+func TransNodeIDToString(nodeID NodeID) string {
+	return hex.EncodeToString(nodeID.Bytes())
 }

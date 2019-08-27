@@ -6,10 +6,7 @@ import (
 
 	"github.com/lianxiangcloud/linkchain/bootcli"
 	"github.com/lianxiangcloud/linkchain/libs/p2p/common"
-	disc "github.com/lianxiangcloud/linkchain/libs/p2p/discover"
 	"github.com/lianxiangcloud/linkchain/types"
-
-	"encoding/hex"
 
 	"github.com/lianxiangcloud/linkchain/libs/log"
 )
@@ -110,7 +107,7 @@ func (conma *ConManager) dialRandNodesFromCache(needDynDials int) int {
 		if ok {
 			continue
 		}
-		if conma.addDial(conma.randomNodesFromCache[i]) {
+		if conma.sw.AddDial(conma.randomNodesFromCache[i]) {
 			isDialingMap[nodeid] = true
 			needDynDials--
 		}
@@ -143,7 +140,7 @@ func (conma *ConManager) dialNodesFromNetLoop() {
 				if ok {
 					continue
 				}
-				if conma.addDial(lookupNodes[i]) {
+				if conma.sw.AddDial(lookupNodes[i]) {
 					isDialingMap[nodeid] = true
 					needDynDials--
 				}
@@ -152,53 +149,6 @@ func (conma *ConManager) dialNodesFromNetLoop() {
 			return
 		}
 	}
-}
-
-func (conma *ConManager) addDial(node *common.Node) bool {
-	if node == nil {
-		return false
-	}
-	try := &NetAddress{IP: node.IP, Port: node.TCP_Port}
-	if conma.sw.whitelist != nil && !conma.sw.whitelist.Contains(node.IP) {
-		conma.logger.Debug("addDial", "dial ip", node.IP.String(), "is in whitelist", conma.sw.whitelist.MarshalTOML())
-		return false
-	}
-	if conma.sw.blacklist != nil && conma.sw.blacklist.Contains(node.IP) {
-		conma.logger.Debug("addDial", "dial ip", node.IP.String(), "is in blacklist", conma.sw.blacklist.MarshalTOML())
-		return false
-	}
-	if dialling := conma.sw.IsDialing(try); dialling {
-		conma.logger.Trace("IsDialing", "id", node.ID.String())
-		return true
-	}
-	connected := conma.sw.Peers().HasIP(try.String()) || conma.sw.Peers().HasID(hex.EncodeToString(node.ID.Bytes()))
-	if connected {
-		peer := conma.sw.Peers().GetByID(hex.EncodeToString(node.ID.Bytes()))
-		if peer != nil {
-			if peer.IsOutbound() { //Indicates that you have actively connected, skipped this node, and tried to select another node
-				return false
-			}
-		}
-		return true //Indicates that it is active connection node
-	}
-	err := conma.dial(try)
-	if err != nil {
-		return false
-	}
-	return true
-}
-
-func (conma *ConManager) dial(address *NetAddress) error {
-	err := conma.sw.DialPeerWithAddress(address, false)
-	if err != nil {
-		switch err.(type) {
-		case ErrSwitchConnectToSelf, ErrSwitchDuplicatePeerID:
-			conma.logger.Debug("Error dialing peer", "err", err)
-		default:
-			conma.logger.Error("Error dialing peer", "err", err)
-		}
-	}
-	return err
 }
 
 func (conma *ConManager) typeChangeProbeLoop() {
@@ -252,12 +202,13 @@ func (conma *ConManager) tryToSwitchNetWork(candidates []*types.CandidateState) 
 			} else {
 				conma.logger.Debug("ntab.Stop()", "myType", myType)
 				conma.sw.ntab.Stop()
-				cfg := common.Config{PrivateKey: conma.sw.nodeKey, SeedNodes: make([]*common.Node, len(seeds))}
-				copy(cfg.SeedNodes, seeds)
-				httpLogger := conma.sw.Logger.With("module", "httpTable")
-				conma.sw.ntab, err = disc.NewHTTPTable(cfg, conma.sw.bootnodeAddr, getType, httpLogger)
+				needDht := false
+				if getType == types.NodePeer {
+					needDht = true
+				}
+				err := conma.sw.DefaultNewTable(seeds, needDht)
 				if err != nil {
-					conma.logger.Info("NewTable", "sw.ntab err", err)
+					conma.logger.Info("DefaultNewTable", "sw.ntab err", err)
 					return
 				}
 				conma.sw.ntab.Start()
@@ -285,7 +236,7 @@ func (conma *ConManager) waitConToNewSeeds(newSeeds []*common.Node, getType type
 		if ok {
 			continue
 		}
-		if conma.addDial(newSeeds[i]) {
+		if conma.sw.AddDial(newSeeds[i]) {
 			isDialingMap[nodeid] = true
 		}
 	}

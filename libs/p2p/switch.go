@@ -6,6 +6,9 @@ import (
 	"sync"
 	"time"
 
+	"encoding/hex"
+
+	"github.com/lianxiangcloud/linkchain/bootcli"
 	"github.com/lianxiangcloud/linkchain/config"
 	cmn "github.com/lianxiangcloud/linkchain/libs/common"
 	"github.com/lianxiangcloud/linkchain/libs/crypto"
@@ -42,6 +45,7 @@ const (
 
 const (
 	blackListTimeout = (60 * time.Second)
+	defaultDialRatio = 3
 )
 
 var (
@@ -76,7 +80,9 @@ type Switch struct {
 	bootnodeAddr   string
 	ntab           common.DiscoverTable //cache node from nodeserver or dht network
 	manager        *ConManager          //manager the all connections with myself
+	db             dbm.DB
 	dm             common.P2pDBManager
+	udpCon         *net.UDPConn
 	inboundHistory expHeap //record inbound ip in inboundThrottleTime
 	inboundLock    sync.Mutex
 	inboundMap     map[string]int //record connection num for single ip,only record public ip  key:ip
@@ -107,6 +113,7 @@ func NewP2pManager(logger log.Logger, bootnodeAddr string, myPrivKey crypto.Priv
 		peers:        NewPeerSet(),
 		dialing:      cmn.NewCMap(),
 		blackListMap: make(map[string]bool),
+		db:           db,
 		rng:          cmn.NewRand(), // Ensure we have a completely undeterministic PRNG.
 		bootnodeAddr: bootnodeAddr,
 		inboundMap:   make(map[string]int),
@@ -123,8 +130,7 @@ func NewP2pManager(logger log.Logger, bootnodeAddr string, myPrivKey crypto.Priv
 	sw.BaseService = *cmn.NewBaseService(nil, "P2P Switch", sw)
 	sw.nodeKey = myPrivKey
 	var listener Listener
-	var udpCon *net.UDPConn
-	listener, udpCon = NewDefaultListener(localNodeInfo.Type, cfg.ListenAddress, cfg.ExternalAddress, logger)
+	listener, sw.udpCon = NewDefaultListener(localNodeInfo.Type, cfg.ListenAddress, cfg.ExternalAddress, logger)
 	if listener != nil {
 		sw.AddListener(listener)
 		p2pHost := listener.ExternalAddressHost()
@@ -138,7 +144,7 @@ func NewP2pManager(logger log.Logger, bootnodeAddr string, myPrivKey crypto.Priv
 	sw.SetNodeInfo(localNodeInfo)
 	sw.SetLogger(logger)
 	var err error
-	sw.ntab, err = DefaultNewTableFunc(sw, seeds, udpCon, listener, db)
+	err = DefaultNewTableFunc(sw, seeds)
 	if err != nil {
 		return nil, err
 	}
@@ -179,36 +185,77 @@ func (sw *Switch) blackListHasID(nodeid string) bool {
 	return false
 }
 
-func (sw *Switch) SetDm(dm common.P2pDBManager) {
-	sw.dm = dm
+func (sw *Switch) newDm(db dbm.DB) {
+	if sw.dm == nil && bootcli.GetLocalNodeType() == types.NodePeer {
+		dbLogger := sw.Logger.With("module", "P2pDBManager")
+		sw.dm = disc.NewDBManager(db, dbLogger)
+	}
 }
 
 func (sw *Switch) NodeKey() crypto.PrivKey {
 	return sw.nodeKey
 }
 
-func (sw *Switch) MyType() types.NodeType {
-	return sw.localNodeInfo.Type
-}
-
 func (sw *Switch) DBManager() common.P2pDBManager {
 	return sw.dm
+}
+
+func (sw *Switch) GetTable() common.DiscoverTable {
+	return sw.ntab
 }
 
 func (sw *Switch) BootNodeAddr() string {
 	return sw.bootnodeAddr
 }
 
-func defaultNewTable(sw *Switch, seeds []*common.Node, udpListencon *net.UDPConn, listener Listener, db dbm.DB) (ntab common.DiscoverTable, err error) {
-	cfg := common.Config{PrivateKey: sw.NodeKey(), SeedNodes: make([]*common.Node, len(seeds))}
-	copy(cfg.SeedNodes, seeds)
-	httpLogger := sw.Logger.With("module", "httpTable")
-	ntab, err = disc.NewHTTPTable(cfg, sw.BootNodeAddr(), sw.MyType(), httpLogger)
-	if err != nil {
-		sw.Logger.Info("NewTable", "sw.ntab err", err)
-		return
+func (sw *Switch) UdpCon() *net.UDPConn {
+	return sw.udpCon
+}
+
+func defaultNewTable(sw *Switch, seeds []*common.Node) error {
+	needDht := false
+	if bootcli.GetLocalNodeType() == types.NodePeer {
+		needDht = true
 	}
-	return
+	return sw.DefaultNewTable(seeds, needDht)
+}
+
+func (sw *Switch) DefaultNewTable(seeds []*common.Node, needDht bool) error {
+	var err error
+	cfg := common.Config{PrivateKey: sw.nodeKey, SeedNodes: make([]*common.Node, len(seeds))}
+	copy(cfg.SeedNodes, seeds)
+	if needDht {
+		sw.newDm(sw.db)
+		dhtLogger := sw.Logger.With("module", "dhtTable")
+		var conf = sw.GetConfig()
+		var maxDhtDialOutNums int
+		listeners := sw.Listeners()
+		if len(listeners) > 0 {
+			listener := listeners[0]
+			selfnode := &common.Node{
+				IP:       listener.ExternalAddress().IP,
+				UDP_Port: listener.ExternalAddress().Port,
+				TCP_Port: listener.ExternalAddress().Port,
+				ID:       common.NodeID(crypto.Keccak256Hash(sw.NodeKey().PubKey().Bytes())),
+			} //接收端收到本端的ping包后，会将selfnode信息保存到kbucket
+			selfInfo := &disc.SlefInfo{
+				NodeType:  bootcli.GetLocalNodeType(),
+				Self:      selfnode,
+				ListenCon: sw.UdpCon(),
+			}
+
+			if conf.MaxNumPeers/defaultDialRatio >= 1 {
+				maxDhtDialOutNums = conf.MaxNumPeers / defaultDialRatio
+			} else {
+				maxDhtDialOutNums = conf.MaxNumPeers
+			}
+			sw.ntab, err = disc.NewDhtTable(maxDhtDialOutNums, sw.BootNodeAddr(), selfInfo, sw.DBManager(), cfg, dhtLogger)
+		}
+	} else {
+		httpLogger := sw.Logger.With("module", "httpTable")
+		sw.ntab, err = disc.NewHTTPTable(cfg, sw.BootNodeAddr(), bootcli.GetLocalNodeType(), httpLogger)
+	}
+	return err
 }
 
 func (sw *Switch) newConManager() {
@@ -357,11 +404,14 @@ func (sw *Switch) OnStop() {
 	if sw.ntab != nil {
 		sw.ntab.Stop()
 	}
-	if sw.ntab != nil {
+	if sw.manager != nil {
 		sw.manager.Stop()
 	}
 	if sw.dm != nil {
 		sw.dm.Close()
+	}
+	if sw.udpCon != nil {
+		sw.udpCon.Close()
 	}
 
 }
@@ -464,7 +514,7 @@ func (sw *Switch) stopAndRemovePeer(peer Peer, reason interface{}) {
 		return
 	}
 	if !peer.IsOutbound() {
-		remoteIP := netutil.AddrIP(peer.RemoteAddr())
+		remoteIP, _ := netutil.AddrIP(peer.RemoteAddr())
 		sw.subInboundCon(remoteIP)
 	}
 	for _, reactor := range sw.reactors {
@@ -526,6 +576,54 @@ func (sw *Switch) DialPeerWithAddress(addr *NetAddress, persistent bool) error {
 	return err
 }
 
+func (sw *Switch) AddDial(node *common.Node) bool {
+	if node == nil {
+		return false
+	}
+	try := &NetAddress{IP: node.IP, Port: node.TCP_Port}
+	if sw.whitelist != nil && !sw.whitelist.Contains(node.IP) {
+		sw.Logger.Debug("addDial", "dial ip", node.IP.String(), "is in whitelist", sw.whitelist.MarshalTOML())
+		return false
+	}
+	if sw.blacklist != nil && sw.blacklist.Contains(node.IP) {
+		sw.Logger.Debug("addDial", "dial ip", node.IP.String(), "is in blacklist", sw.blacklist.MarshalTOML())
+		return false
+	}
+	if dialling := sw.IsDialing(try); dialling {
+		sw.Logger.Trace("IsDialing", "id", node.ID.String())
+		return true
+	}
+
+	connected := sw.Peers().HasIP(try.String()) || sw.Peers().HasID(common.TransNodeIDToString(node.ID))
+	if connected {
+		peer := sw.Peers().GetByID(hex.EncodeToString(node.ID.Bytes()))
+		if peer != nil {
+			if peer.IsOutbound() { //Indicates that you have actively connected, skipped this node, and tried to select another node
+				return false
+			}
+		}
+		return true //Indicates that it is active connection node
+	}
+	err := sw.dial(try)
+	if err != nil {
+		return false
+	}
+	return true
+}
+
+func (sw *Switch) dial(address *NetAddress) error {
+	err := sw.DialPeerWithAddress(address, false)
+	if err != nil {
+		switch err.(type) {
+		case ErrSwitchConnectToSelf, ErrSwitchDuplicatePeerID:
+			sw.Logger.Debug("Error dialing peer", "err", err)
+		default:
+			sw.Logger.Error("Error dialing peer", "err", err)
+		}
+	}
+	return err
+}
+
 // sleep for interval plus some random amount of ms on [0, dialRandomizerIntervalMilliseconds]
 func (sw *Switch) randomSleep(interval time.Duration) {
 	r := time.Duration(sw.rng.Int63n(dialRandomizerIntervalMilliseconds)) * time.Millisecond
@@ -574,7 +672,7 @@ func (sw *Switch) listenerRoutine(l Listener) {
 		}
 		sw.Logger.Info("listenerRoutine", "recv new con from", inConn.RemoteAddr())
 		//check income connection
-		remoteIP := netutil.AddrIP(inConn.RemoteAddr())
+		remoteIP, _ := netutil.AddrIP(inConn.RemoteAddr())
 		err := sw.checkInboundConn(remoteIP)
 		if err != nil {
 			sw.Logger.Info("Ignoring inbound connection: already have enough peers", "err", err)
@@ -737,7 +835,7 @@ func (sw *Switch) addPeer(pc peerConn, isInCon bool) error {
 		return err
 	}
 	if isInCon {
-		remoteIP := netutil.AddrIP(pc.conn.RemoteAddr())
+		remoteIP, _ := netutil.AddrIP(pc.conn.RemoteAddr())
 		sw.addInboundCon(remoteIP)
 	}
 

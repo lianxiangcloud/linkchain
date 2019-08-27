@@ -5,7 +5,7 @@ import "net"
 // Endpoint network endpoint
 type Endpoint struct {
 	IP   []string       `json:"ip"`
-	Port map[string]int `json:"port"`
+	Port map[string]int `json:"port"` //key:protocol(udp or tcp or http)
 }
 
 // NewLocalEndpoint create network endpoint with local IPv4 address

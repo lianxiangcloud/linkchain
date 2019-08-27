@@ -1,12 +1,12 @@
 package p2p
 
 import (
-	"encoding/hex"
 	"fmt"
 	"strings"
 
 	cmn "github.com/lianxiangcloud/linkchain/libs/common"
 	"github.com/lianxiangcloud/linkchain/libs/crypto"
+	"github.com/lianxiangcloud/linkchain/libs/p2p/common"
 	"github.com/lianxiangcloud/linkchain/types"
 )
 
@@ -160,8 +160,7 @@ func (info NodeInfo) String() string {
 
 // ID returns the peer's Uniquely identifies
 func (info NodeInfo) ID() string {
-	//return hex.EncodeToString(info.PubKey.Address())
-	return hex.EncodeToString(crypto.Keccak256Hash(info.PubKey.Bytes()).Bytes())
+	return common.TransPubKeyToStringID(info.PubKey)
 }
 
 func splitVersion(version string) (string, string, string, error) {

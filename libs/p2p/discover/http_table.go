@@ -47,9 +47,10 @@ func (tab *HTTPTable) setFallbackNodes(nodes []*common.Node) error {
 	var splitedNodes []*common.Node
 	seedsNum := 0
 	seedsMap := make(map[string]bool)
+	myID := common.TransPubKeyToNodeID(tab.priv.PubKey())
 	for _, n := range nodes { //Get the number of real seed nodes according to ID
 		tab.logger.Info("HTTPTable setFallbackNodes", "id", n.ID.String(), "ip", n.IP.String(), "tcpPort", n.TCP_Port)
-		if n.ID == common.NodeID(crypto.Keccak256Hash(tab.priv.PubKey().Bytes())) { //it is my self,skip
+		if n.ID == myID { //it is my self,skip
 			tab.logger.Debug("it is my self", "n.ID", n.ID.String())
 			continue
 		}
@@ -84,8 +85,9 @@ func (tab *HTTPTable) LookupRandom() []*common.Node {
 	if len(seedNodes) > 0 {
 		seedsNum := 0
 		seedsMap := make(map[string]bool)
+		myID := common.TransPubKeyToNodeID(tab.priv.PubKey())
 		for i := 0; i < len(seedNodes); i++ {
-			if seedNodes[i].ID == common.NodeID(crypto.Keccak256Hash(tab.priv.PubKey().Bytes())) { //it is my self,skip
+			if seedNodes[i].ID == myID { //it is my self,skip
 				continue
 			}
 			splitedNodes = append(splitedNodes, seedNodes[i])

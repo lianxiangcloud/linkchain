@@ -23,7 +23,7 @@ import (
 
 var (
 	LocalNodeType  types.NodeType
-	nodeTypeLocker sync.RWMutex //Just for unit test
+	nodeTypeLocker sync.RWMutex 
 )
 
 const (
@@ -31,13 +31,14 @@ const (
 )
 
 const (
-	UDP           = "udp"
-	TCP           = "tcp"
-	RouteGetSeeds = "api/bootnode"
+	UDP            = "udp"
+	TCP            = "tcp"
+	RouteGetSeeds  = "api/bootnode"
+	RouteGetHeight = "api/height"
 )
 
 type Rnode struct {
-	PubKey   string   `json:"pubkey"`
+	ID       string   `json:"id"`
 	Endpoint Endpoint `json:"endpoint"`
 }
 
@@ -54,8 +55,18 @@ type GeetSeedsResp struct {
 	Seeds   []Rnode `json:"nodes"`
 }
 
+type GeetHeightResp struct {
+	Code    int    `json:"code"` //0:success，other:failed
+	Message string `json:"message"`
+	Height  uint64 `json:"height"`
+}
+
 func buildGetSeedsURL(url string) string {
 	return fmt.Sprintf("%s/%s", url, RouteGetSeeds)
+}
+
+func buildGetCurrentHeight(url string) string {
+	return fmt.Sprintf("%s/%s", url, RouteGetHeight)
 }
 
 func GetSeeds(bootSouce string, priv crypto.PrivKey, logger log.Logger) (nodes []*common.Node, localNodeType types.NodeType, err error) {
@@ -117,7 +128,6 @@ func GetSeedsFromBootSvr(bootSvr string, priv crypto.PrivKey, logger log.Logger)
 		respBytes, err = HttpPost(buildGetSeedsURL(bootSvr), postContent)
 		if err != nil {
 			logger.Error("GetSeedsFromBootSvr", "retry", retry, "HttpPost err", err)
-
 			retry++
 			if retry > 3 {
 				return
@@ -146,21 +156,20 @@ func GetSeedsFromBootSvr(bootSvr string, priv crypto.PrivKey, logger log.Logger)
 
 func RapNodes(seeds []Rnode, logger log.Logger) (nodes []*common.Node) {
 	logger.Debug("RapNodes", "len(seeds)", len(seeds))
+	var id = &common.NodeID{}
 	for i := 0; i < len(seeds); i++ {
-		pubkey, err := hexutil.Decode(seeds[i].PubKey)
+		decodeID, err := hexutil.Decode(seeds[i].ID)
 		if err != nil {
-			logger.Error("GetSeedsFromBootSvr", "Decode err", err)
 			continue
 		}
-		nodeID := common.NodeID(crypto.Keccak256Hash(pubkey))
-
+		id.Copy(decodeID)
 		if len(seeds[i].Endpoint.IP) == 0 {
-			tmpNode := &common.Node{ID: nodeID}
+			tmpNode := &common.Node{ID: *id}
 			nodes = append(nodes, tmpNode)
 		} else {
 			for j := 0; j < len(seeds[i].Endpoint.IP); j++ {
 				tmpip := net.ParseIP(seeds[i].Endpoint.IP[j])
-				tmpNode := &common.Node{IP: tmpip, ID: nodeID}
+				tmpNode := &common.Node{IP: tmpip, ID: *id}
 				for k, v := range seeds[i].Endpoint.Port {
 					switch k {
 					case UDP:
@@ -173,6 +182,36 @@ func RapNodes(seeds []Rnode, logger log.Logger) (nodes []*common.Node) {
 			}
 		}
 	}
+	return
+}
+
+func GetCurrentHeightOfChain(bootSvr string, logger log.Logger) (height uint64, err error) {
+	var respBytes []byte
+	var retry int
+	for {
+		respBytes, err = HttpGet(buildGetCurrentHeight(bootSvr))
+		if err != nil {
+			logger.Error("GetCurrentHeightOfChain", "retry", retry, "HttpPost err", err)
+			retry++
+			if retry > 3 {
+				return
+			}
+			time.Sleep(time.Second * time.Duration(3*retry))
+			continue
+		}
+		break
+	}
+
+	var resp GeetHeightResp
+	err = json.Unmarshal(respBytes, &resp)
+	if err != nil {
+		logger.Error("GetCurrentHeightOfChain", "Unmarshal err", err)
+		return
+	}
+	if resp.Code != Succ {
+		err = fmt.Errorf("GetCurrentHeightOfChain code:%v != success,Retmsg:%v", resp.Code, resp.Message)
+	}
+	height = resp.Height
 	return
 }
 

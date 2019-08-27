@@ -88,4 +88,6 @@ const (
 	LogIdFastSyncBlockTimeOut   LogId = 70010 //No need
 	LogIdSpecTxCheckError       LogId = 70019
 	LogIdTooManyRetransTx       LogId = 70020
+	LogIdBootNodeFail           LogId = 70021
+	LogIdSyncBlockFail          LogId = 70022
 )

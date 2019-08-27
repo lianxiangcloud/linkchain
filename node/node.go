@@ -22,6 +22,7 @@ import (
 	"github.com/lianxiangcloud/linkchain/libs/log"
 	"github.com/lianxiangcloud/linkchain/libs/p2p"
 	p2pcmn "github.com/lianxiangcloud/linkchain/libs/p2p/common"
+	"github.com/lianxiangcloud/linkchain/libs/p2p/sync"
 	"github.com/lianxiangcloud/linkchain/libs/txmgr"
 	mempl "github.com/lianxiangcloud/linkchain/mempool"
 	"github.com/lianxiangcloud/linkchain/metrics"
@@ -91,7 +92,7 @@ type Node struct {
 	privValidator types.PrivValidator // local node's validator key
 
 	// network
-	p2pmanager p2p.P2PManager // p2p connections
+	p2pmanager *p2p.Switch // p2p connections
 
 	// accounts manager
 	accountManager *accounts.Manager
@@ -105,7 +106,7 @@ type Node struct {
 	consensusState   *cs.ConsensusState     // latest consensus state
 	consensusReactor *cs.ConsensusReactor   // for participating in the consensus
 	evidencePool     *evidence.EvidencePool // tracking evidence
-
+	syncManager      *sync.SyncHeightManager
 	// rpc
 	//rpcContext *service.Context
 	rpcService *service.Service
@@ -305,7 +306,9 @@ func NewNode(config *cfg.Config,
 		logger.Warn("NewP2pManager failed")
 		return nil, err
 	}
-
+	//
+	syncLogger := logger.With("module", "syncheight")
+	syncManager := sync.NewSyncHeightManager(p2pmanager, appHandle, config.Consensus.EmptyBlocksInterval(), syncLogger)
 	//
 	evidenceReactor.SetP2PManager(p2pmanager)
 	// Make MempoolReactor
@@ -431,6 +434,7 @@ func NewNode(config *cfg.Config,
 		evidencePool:     evidencePool,
 		eventBus:         eventBus,
 		rpcService:       rpcService,
+		syncManager:      syncManager,
 	}
 
 	node.BaseService = *cmn.NewBaseService(logger, "Node", node)
@@ -454,7 +458,7 @@ func (n *Node) OnStart() error {
 	if err != nil {
 		return err
 	}
-
+	n.syncManager.Start()
 	if n.config.KeepLatestBlocks > 0 {
 		go n.ClearHistoricalData()
 	}
@@ -474,6 +478,7 @@ func (n *Node) OnStop() {
 	// second stop the reactors
 	// TODO: gracefully disconnect from peers.
 	n.p2pmanager.Stop()
+	n.syncManager.Stop()
 
 	n.rpcService.Stop()
 }
@@ -487,7 +492,7 @@ func (n *Node) RunForever() {
 }
 
 // Switch returns the Node's Switch.
-func (n *Node) P2PManager() p2p.P2PManager {
+func (n *Node) P2PManager() *p2p.Switch {
 	return n.p2pmanager
 }
 

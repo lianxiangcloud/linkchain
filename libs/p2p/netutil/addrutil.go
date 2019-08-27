@@ -19,15 +19,15 @@ package netutil
 import "net"
 
 // AddrIP gets the IP address contained in addr. It returns nil if no address is present.
-func AddrIP(addr net.Addr) net.IP {
+func AddrIP(addr net.Addr) (net.IP, int) {
 	switch a := addr.(type) {
 	case *net.IPAddr:
-		return a.IP
+		return a.IP, 0
 	case *net.TCPAddr:
-		return a.IP
+		return a.IP, a.Port
 	case *net.UDPAddr:
-		return a.IP
+		return a.IP, a.Port
 	default:
-		return nil
+		return nil, 0
 	}
 }
