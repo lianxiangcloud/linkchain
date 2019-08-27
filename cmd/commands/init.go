@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/lianxiangcloud/linkchain/accounts/keystore"
+	"github.com/lianxiangcloud/linkchain/app"
 	bc "github.com/lianxiangcloud/linkchain/blockchain"
 	cfg "github.com/lianxiangcloud/linkchain/config"
 	cs "github.com/lianxiangcloud/linkchain/consensus"
@@ -17,6 +18,8 @@ import (
 	"github.com/lianxiangcloud/linkchain/libs/log"
 	"github.com/lianxiangcloud/linkchain/state"
 	"github.com/lianxiangcloud/linkchain/types"
+	"github.com/lianxiangcloud/linkchain/vm/evm"
+	"github.com/lianxiangcloud/linkchain/vm/wasm"
 	"github.com/spf13/cobra"
 	"github.com/xunleichain/tc-wasm/vm"
 )
@@ -240,7 +243,6 @@ func createGenesisBlock(config *cfg.Config, genDoc *types.GenesisDoc) ([]*types.
 		return nil, err
 	}
 
-	stateHash := storeState.IntermediateRoot(false)
 	block := &types.Block{
 		Header: &types.Header{
 			ChainID:    config.ChainID,
@@ -256,6 +258,26 @@ func createGenesisBlock(config *cfg.Config, genDoc *types.GenesisDoc) ([]*types.
 		Data:       &types.Data{},
 		LastCommit: &types.Commit{},
 	}
+
+	if len(contractData) > 0 {
+		contextWasm := wasm.NewWASMContext(types.CopyHeader(block.Header), blockStore, nil, config.WasmGasRate)
+		wasm := wasm.NewWASM(contextWasm, storeState, evm.Config{EnablePreimageRecording: false})
+		for _, cData := range contractData {
+			sender, contractAddr := common.HexToAddress(cData.sender), common.HexToAddress(cData.contractAddr)
+			amount, ok := big.NewInt(0).SetString(cData.amount, 0)
+			if !ok {
+				return nil, fmt.Errorf("convert big Int fail %s", cData.amount)
+			}
+			if _, err := app.CallWasmContract(wasm, sender, contractAddr, amount, []byte(cData.input), logger); err != nil {
+				return nil, err
+			}
+		}
+		fmt.Println("contract data init!")
+	} else {
+		fmt.Println("contract data is nil when init!")
+	}
+
+	stateHash := storeState.IntermediateRoot(false)
 
 	trieRoot, _ := storeState.Commit(false, block.Height)
 	storeState.Database().TrieDB().Commit(trieRoot, false)
