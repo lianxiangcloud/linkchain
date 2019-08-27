@@ -835,9 +835,13 @@ func opCall(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Sta
 	if value.Sign() != 0 {
 		gas += cfg.CallStipend
 	}
+	// get start index of otxs
+	startTxRecordsIndex := len(evm.otxs)
 	ret, returnGas, byteCodeGas, err := evm.Call(contract, toAddr, common.EmptyAddress, args, gas, value)
 	if err != nil {
 		stack.push(evm.interpreter.intPool.getZero())
+		// remove transaction records
+		evm.otxs = evm.otxs[:startTxRecordsIndex]
 	} else {
 		stack.push(evm.interpreter.intPool.get().SetUint64(1))
 	}

@@ -55,6 +55,7 @@ func init() {
 	env.RegisterFunc("TC_TokenAddress", &TCTokenAddress{})
 	env.RegisterFunc("TC_GetMsgValue", &TCGetMsgValue{})
 	env.RegisterFunc("TC_GetMsgTokenValue", &TCGetMsgTokenValue{})
+	env.RegisterFunc("TC_CallContract", new(TCCallContract))
 }
 
 type TCNotify struct{}
@@ -1340,4 +1341,113 @@ func tcEcrecover(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 	ret := fmt.Sprintf("0x%x", crypto.Keccak256(pubKey[1:])[12:])
 	eng.Logger().Debug("tcEcrecover", "ret", ret)
 	return vmem.SetBytes([]byte(ret))
+}
+
+type TCCallContract struct{}
+
+func (t *TCCallContract) Call(index int64, ops interface{}, args []uint64) (uint64, error) {
+	eng := ops.(*vm.Engine)
+	return tcCallContract(eng, index, args)
+}
+func (t *TCCallContract) Gas(index int64, ops interface{}, args []uint64) (uint64, error) {
+	eng := ops.(*vm.Engine)
+	return gasCallContract(eng, index, args)
+}
+
+// char * TC_CallContract(char *app, char *action. char *arg)
+func tcCallContract(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
+	if len(args) < 2 {
+		return 0, vm.ErrAppInput
+	}
+
+	runningFrame, _ := eng.RunningAppFrame()
+	if runningFrame == nil {
+		return 0, vm.ErrEmptyFrame
+	}
+
+	vmem := runningFrame.VM.VMemory()
+	appName, err := vmem.GetString(args[0])
+	if err != nil {
+		return 0, err
+	}
+	action, err := vmem.GetString(args[1])
+	if err != nil {
+		return 0, err
+	}
+
+	var params []byte
+	if len(args) == 3 {
+		params, err = vmem.GetString(args[2])
+		if err != nil {
+			return 0, err
+		}
+	}
+
+	toFrame, err := eng.NewApp(string(appName), nil, false)
+	if err != nil {
+		return 0, err
+	}
+	preContract := eng.Contract
+	//callContract not support transfer
+	eng.Contract = vm.NewContractInner(preContract, vm.AccountRef(common.HexToAddress(string(appName))), big.NewInt(0), eng.Gas())
+	eng.Contract.Input = make([]byte, len(action)+len(params)+1)
+	copy(eng.Contract.Input[0:], action)
+	copy(eng.Contract.Input[len(action):], []byte{'|'})
+	copy(eng.Contract.Input[1+len(action):], params)
+	eng.Logger().Debug("[Engine] TC_CallContract", "app", string(appName), "action", string(action), "params", string(params))
+
+	// get start index of otxs
+	mWasm, ok := eng.Ctx.(*WASM)
+	if !ok {
+		eng.Logger().Error("TC_Transfer get WASM failed")
+	}
+	startTxRecordsIndex := len(mWasm.otxs)
+	retPointer, err := eng.Run(toFrame, eng.Contract.Input)
+	if err != nil {
+		// remove transaction records
+		mWasm.otxs = mWasm.otxs[:startTxRecordsIndex]
+		return 0, err
+	}
+	eng.Contract = preContract
+
+	if retPointer != 0 {
+		ret, err := toFrame.VM.VMemory().GetString(uint64(retPointer))
+		if err != nil {
+			return 0, err
+		}
+
+		_ret, err := vmem.SetBytes(ret)
+		if err != nil {
+			return 0, err
+		}
+		retPointer = uint64(_ret)
+	}
+
+	return retPointer, nil
+}
+
+func gasCallContract(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
+	app, _ := eng.RunningAppFrame()
+	vmem := app.VM.VMemory()
+	actionLen, err := vmem.Strlen(args[1])
+	if err != nil {
+		return 0, err
+	}
+	paramLen := 0
+	if len(args) == 3 {
+		paramLen, err = vmem.Strlen(args[2])
+		if err != nil {
+			return 0, err
+		}
+	}
+	dataLen := actionLen + paramLen
+	gas := vm.GasTableEIP158.Calls + vm.GasExtStep*2
+	wordGas, overflow := vm.SafeMul(vm.ToWordSize(uint64(dataLen)), vm.CopyGas)
+	if overflow {
+		return 0, vm.ErrGasOverflow
+	}
+	if gas, overflow = vm.SafeAdd(gas, wordGas); overflow {
+		return 0, vm.ErrGasOverflow
+	}
+	return gas, nil
 }
