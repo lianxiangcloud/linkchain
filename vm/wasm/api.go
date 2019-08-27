@@ -779,8 +779,14 @@ func tcSelfDestruct(eng *vm.Engine, index int64, args []uint64) (uint64, error) 
 	to := common.HexToAddress(string(toTmp))
 	tv := mState.GetTokenBalances(addr)
 
+	mWasm, ok := eng.Ctx.(*WASM)
+	if !ok {
+		eng.Logger().Error("TC_Transfer get WASM failed")
+	}
 	for i := 0; i < len(tv); i++ {
 		mState.AddTokenBalance(to, tv[i].TokenAddr, tv[i].Value)
+		mWasm.otxs = append(mWasm.otxs,
+			types.GenBalanceRecord(addr, to, types.AccountAddress, types.AccountAddress, types.TxSuicide, tv[i].TokenAddr, tv[i].Value))
 	}
 
 	//suicideToken(eng, addr, to)
