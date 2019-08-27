@@ -237,14 +237,14 @@ func (st *StateTransition) UTXOTransitionDb() (ret []byte, usedGas uint64, byteC
 			if (msg.UTXOKind() & types.Ain) == types.Ain {
 				log.Debug("acountOutput only transfer value", "from", msg.MsgFrom(), "token", msg.TokenAddress(), "value", msg.Value())
 				st.state.SubTokenBalance(msg.MsgFrom(), msg.TokenAddress(), msg.Value())
-				br := types.GenBalanceRecord(msg.MsgFrom(), common.EmptyAddress, types.AccountAddress, types.NoAddress, types.TxTransfer, msg.TokenAddress(), recordAmount)
+				br := types.GenBalanceRecord(msg.MsgFrom(), common.EmptyAddress, types.AccountAddress, types.PrivateAddress, types.TxTransfer, msg.TokenAddress(), recordAmount)
 				st.vmenv.AddOtx(br)
 			}
 
 			for _, accountOutput := range accountOutputs {
 				st.state.AddTokenBalance(accountOutput.To, msg.TokenAddress(), accountOutput.Amount)
 				log.Debug("acountOutput only transfer value", "to", accountOutput.To, "token", msg.TokenAddress(), "value", accountOutput.Amount)
-				br := types.GenBalanceRecord(common.EmptyAddress, accountOutput.To, types.NoAddress, types.AccountAddress, types.TxTransfer, msg.TokenAddress(), accountOutput.Amount)
+				br := types.GenBalanceRecord(common.EmptyAddress, accountOutput.To, types.PrivateAddress, types.AccountAddress, types.TxTransfer, msg.TokenAddress(), accountOutput.Amount)
 				st.vmenv.AddOtx(br)
 			}
 
@@ -305,7 +305,7 @@ func (st *StateTransition) UTXOTransitionDb() (ret []byte, usedGas uint64, byteC
 		if (msg.UTXOKind() & types.Ain) == types.Ain {
 			log.Debug("UTXOTransitionDb sub accountInput's amount", "from", msg.MsgFrom(), "value", msg.Value())
 			st.state.SubTokenBalance(msg.MsgFrom(), msg.TokenAddress(), msg.Value())
-			br := types.GenBalanceRecord(msg.MsgFrom(), common.EmptyAddress, types.AccountAddress, types.NoAddress, types.TxTransfer, msg.TokenAddress(), recordAmount)
+			br := types.GenBalanceRecord(msg.MsgFrom(), common.EmptyAddress, types.AccountAddress, types.PrivateAddress, types.TxTransfer, msg.TokenAddress(), recordAmount)
 			st.vmenv.AddOtx(br)
 		}
 
