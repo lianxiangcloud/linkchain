@@ -310,7 +310,7 @@ func (wasm *WASM) UTXOCall(c types.ContractRef, addr, token common.Address, inpu
 	}
 	if err != nil {
 		wasm.StateDB.RevertToSnapshot(snapshot)
-		if err != types.ExecutionReverted {
+		if err != vm.ErrExecutionReverted {
 			contract.UseGas(contract.Gas)
 		}
 	}
@@ -369,7 +369,7 @@ func (wasm *WASM) Call(c types.ContractRef, addr, token common.Address, input []
 	}
 	if err != nil {
 		wasm.StateDB.RevertToSnapshot(snapshot)
-		if err != types.ExecutionReverted {
+		if err != vm.ErrExecutionReverted {
 			contract.UseGas(contract.Gas)
 		}
 	}
@@ -417,7 +417,7 @@ func (wasm *WASM) CallCode(c types.ContractRef, addr common.Address, input []byt
 	}
 	if err != nil {
 		wasm.StateDB.RevertToSnapshot(snapshot)
-		if err != types.ExecutionReverted {
+		if err != vm.ErrExecutionReverted {
 			contract.UseGas(contract.Gas)
 		}
 	}
@@ -457,7 +457,7 @@ func (wasm *WASM) DelegateCall(c types.ContractRef, addr common.Address, input [
 	}
 	if err != nil {
 		wasm.StateDB.RevertToSnapshot(snapshot)
-		if err != types.ExecutionReverted {
+		if err != vm.ErrExecutionReverted {
 			contract.UseGas(contract.Gas)
 		}
 	}
@@ -507,7 +507,7 @@ func (wasm *WASM) StaticCall(c types.ContractRef, addr common.Address, input []b
 	}
 	if err != nil {
 		wasm.StateDB.RevertToSnapshot(snapshot)
-		if err != types.ExecutionReverted {
+		if err != vm.ErrExecutionReverted {
 			contract.UseGas(contract.Gas)
 		}
 	}
@@ -595,7 +595,7 @@ func (wasm *WASM) Create(c types.ContractRef, data []byte, gas uint64, value *bi
 	// when we're in homestead this also counts for code storage gas errors.
 	if maxCodeSizeExceeded || err != nil {
 		wasm.StateDB.RevertToSnapshot(snapshot)
-		if err != types.ExecutionReverted {
+		if err != vm.ErrExecutionReverted {
 			contract.UseGas(contract.Gas)
 		}
 	}
