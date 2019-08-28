@@ -182,8 +182,9 @@ func (s *PrivateAccountAPI) DeriveAccount(url string, path string, pin *bool) (a
 
 // NewAccount will create a new account and returns the address for the new account.
 func (s *PrivateAccountAPI) NewAccount(password string, cue string) (common.Address, error) {
-	if len(password) == 0 {
-		return common.EmptyAddress, fmt.Errorf("password is empty")
+	passLen := len(password)
+	if passLen < 6 || passLen > 64 {
+		return common.EmptyAddress, fmt.Errorf("password must be 6 to 64 in length")
 	}
 	if len(cue) > maxCue {
 		return common.EmptyAddress, fmt.Errorf("cue is too long")
