@@ -800,6 +800,7 @@ func (tx *UTXOTransaction) checkTxSemantic(censor TxCensor) error {
 	}
 	utxoInNum := 0
 	utxoOutNum := 0
+	accountInNum := 0
 
 	var kind UTXOKind
 	ki := make(map[types.Key]bool)
@@ -843,6 +844,7 @@ func (tx *UTXOTransaction) checkTxSemantic(censor TxCensor) error {
 			}
 
 			kind |= Ain
+			accountInNum++
 		default:
 			return ErrInputTypeNotExpect
 		}
@@ -891,8 +893,12 @@ func (tx *UTXOTransaction) checkTxSemantic(censor TxCensor) error {
 		}
 	}
 
-	if (normalAddrCount > 0 && contractAddrCount > 0) || contractAddrCount > 1 { // multi account output only support normal address
+	if (normalAddrCount > 0 && contractAddrCount > 0) || contractAddrCount >= 1 { // multi account output only support normal address
 		return ErrCheckAccountOutputsIllegal
+	}
+	if accountInNum > 0 && (hasOneAccountOutput || utxoInNum > 0) {
+		//not support
+		return ErrInputTypeNotExpect
 	}
 
 	if (kind&Uin) == Uin && mixin != 10 {

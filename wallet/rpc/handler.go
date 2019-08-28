@@ -80,6 +80,9 @@ func (s *PublicTransactionPoolAPI) signUTXOTransaction(ctx context.Context, args
 		}
 
 	}
+	if args.From != common.EmptyAddress && hasOneAccountOutput {
+		return nil, fmt.Errorf("not support tx type,input and output both has account address")
+	}
 
 	txs, err := s.wallet.CreateUTXOTransaction(args.From, uint64(*args.Nonce), args.SubAddrs, dests, *args.TokenID, args.From, nil)
 	if err != nil {

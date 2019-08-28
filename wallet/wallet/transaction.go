@@ -29,6 +29,7 @@ var (
 	ErrAccountNotFound          = errors.New("account not found")
 	ErrTransNotSupport          = errors.New("pure private trans only support link token")
 	ErrMixInputNotSupport       = errors.New("mix input not support")
+	ErrNotSupportContractTx     = errors.New("not support contract tx")
 )
 
 const (
@@ -859,33 +860,36 @@ func (wallet *Wallet) checkDest(dests []types.DestEntry, tokenID common.Address,
 				return big.NewInt(0), hasContract, ErrOutputMoneyInvalid
 			}
 			if isContract {
-				hasContract = true
-				nonce, err := EthGetTransactionCount(wallet.currAccount.getEthAddress())
-				if err != nil {
-					return big.NewInt(0), hasContract, err
-				}
-				var kind types.UTXOKind
-				switch mode {
-				case AccountInputMode:
-					kind |= types.Ain
-				case UTXOInputMode:
-					kind |= types.Uin
-				case MixInputMode:
-					kind |= types.Ain
-					kind |= types.Uin
-				}
-				kind |= types.Aout
-				fee, err := EstimateGas(wallet.currAccount.account.EthAddress, *nonce, dests[i].(*types.AccountDestEntry), kind, tokenID)
-				if err != nil {
-					return big.NewInt(0), hasContract, err
-				}
-				// vm run cost gasfee
-				if dests[i].GetAmount().Sign() > 0 {
-					fee.Sub(fee, wallet.estimateTxFee(dests[i].GetAmount()))
-				}
-				// needMoney add only vm cost fee
-				needMoney.Add(needMoney, fee)
+				return big.NewInt(0), hasContract, ErrNotSupportContractTx
 			}
+			// if isContract {
+			// 	hasContract = true
+			// 	nonce, err := EthGetTransactionCount(wallet.currAccount.getEthAddress())
+			// 	if err != nil {
+			// 		return big.NewInt(0), hasContract, err
+			// 	}
+			// 	var kind types.UTXOKind
+			// 	switch mode {
+			// 	case AccountInputMode:
+			// 		kind |= types.Ain
+			// 	case UTXOInputMode:
+			// 		kind |= types.Uin
+			// 	case MixInputMode:
+			// 		kind |= types.Ain
+			// 		kind |= types.Uin
+			// 	}
+			// 	kind |= types.Aout
+			// 	fee, err := EstimateGas(wallet.currAccount.account.EthAddress, *nonce, dests[i].(*types.AccountDestEntry), kind, tokenID)
+			// 	if err != nil {
+			// 		return big.NewInt(0), hasContract, err
+			// 	}
+			// 	// vm run cost gasfee
+			// 	if dests[i].GetAmount().Sign() > 0 {
+			// 		fee.Sub(fee, wallet.estimateTxFee(dests[i].GetAmount()))
+			// 	}
+			// 	// needMoney add only vm cost fee
+			// 	needMoney.Add(needMoney, fee)
+			// }
 		}
 		transferMoney.Add(transferMoney, dests[i].GetAmount())
 	}
