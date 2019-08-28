@@ -137,6 +137,7 @@ func (u *UtxoStore)saveTokenUtxoOutputSeq(tokenSeqMap map[string]int64) error {
 		val := []byte(strconv.FormatInt(seq, positionalNotation))
 		err := u.utxoDB.Put(genTokenMaxSeqKey(tokenId), val)
 		if err != nil {
+			u.mapMutex.Unlock()
 			return err
 		}
 		initBlockSeq, ok := u.maxUtxoOutputSeqTokenMap[tokenId]
