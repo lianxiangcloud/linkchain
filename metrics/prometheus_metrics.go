@@ -2,12 +2,9 @@ package metrics
 
 import (
 	"fmt"
-	"net"
 	"os"
 	"sync"
 	"time"
-
-	"github.com/pkg/errors"
 
 	"github.com/lianxiangcloud/linkchain/config"
 	"github.com/lianxiangcloud/linkchain/libs/crypto"
@@ -64,32 +61,8 @@ func (p *prometheusMetric) initCommon() error {
 		return err
 	}
 
-	ipAddr := ""
-	addrs, err := net.InterfaceAddrs()
-	if err != nil {
-		p.logger.Error("get ip adddress failed.", "err", err.Error())
-		return err
-	}
-	for _, address := range addrs {
-		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
-			if ipnet.IP.To4() != nil {
-				if ipnet.IP.To4()[0] != 10 &&
-					ipnet.IP.To4()[0] != 172 &&
-					ipnet.IP.To4()[0] != 192 {
-					ipAddr = ipnet.IP.String()
-					break
-				}
-
-			}
-		}
-	}
-	if len(ipAddr) == 0 {
-		p.logger.Error("get ext ip address failed.")
-		return errors.New("no ext ip address.")
-	}
-
 	p.hostname = hostname
-	p.httpEndpoint = ipAddr + p.cfg.RPC.HTTPEndpoint
+	p.httpEndpoint = p.cfg.RPC.HTTPEndpoint
 
 	return nil
 }
