@@ -213,10 +213,10 @@ func (ps *PubsubApi) ReceiptsSubscribe(ctx context.Context) (*rpc.Subscription, 
 }
 
 // GetBlock query block
-func (ps *PubsubApi) GetBlock(num *big.Int) (*rtypes.WholeBlock, error) {
-	block, err := ps.backend().BlockByNumber(context.Background(), rpc.BlockNumber(num.Int64()))
+func (ps *PubsubApi) GetBlock(blockNr rpc.BlockNumber) (*rtypes.WholeBlock, error) {
+	block, err := ps.backend().BlockByNumber(context.Background(), blockNr)
 	if err != nil {
-		log.Warn("rpc GetBlock: BlockByNumber fail", "err", err, "number", num.String())
+		log.Warn("rpc GetBlock: BlockByNumber fail", "err", err, "number", blockNr)
 		return nil, err
 	}
 
