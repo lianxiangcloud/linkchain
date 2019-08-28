@@ -89,6 +89,8 @@ var (
 	ContractPledgeAddr = common.BytesToAddress([]byte("Pledge"))
 	//ContractValidatorsAddr 0x0000000000000000000056616c696461746f7273
 	ContractValidatorsAddr = common.BytesToAddress([]byte("Validators"))
+	//ContractBlacklistAddr 0x0000000000000000000000426c61636b6c697374
+	ContractBlacklistAddr = common.BytesToAddress([]byte("Blacklist"))
 )
 
 var (

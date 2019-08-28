@@ -354,6 +354,11 @@ func (app *LinkApplication) verifyTxsOnProcess(block *types.Block) error {
 				hash := txs[index].Hash()
 				switch tx := txs[index].(type) {
 				case *types.Transaction:
+					err := checkBlacklistAddress(tx)
+					if err != nil {
+						errRets[coIndex] = &err
+						return
+					}
 					addr, _ := app.mempool.VerifyTxFromCache(hash)
 					if addr != nil {
 						tx.StoreFrom(addr)
@@ -361,9 +366,15 @@ func (app *LinkApplication) verifyTxsOnProcess(block *types.Block) error {
 						_, err := tx.From()
 						if err != nil {
 							errRets[coIndex] = &err
+							return
 						}
 					}
 				case *types.TokenTransaction:
+					err := checkBlacklistAddress(tx)
+					if err != nil {
+						errRets[coIndex] = &err
+						return
+					}
 					addr, _ := app.mempool.VerifyTxFromCache(hash)
 					if addr != nil {
 						tx.StoreFrom(addr)
@@ -371,9 +382,32 @@ func (app *LinkApplication) verifyTxsOnProcess(block *types.Block) error {
 						_, err := tx.From()
 						if err != nil {
 							errRets[coIndex] = &err
+							return
 						}
 					}
 				case *types.UTXOTransaction:
+					// blacklist check
+					if (tx.UTXOKind() & types.Aout) == types.Aout {
+						for _, out := range tx.Outputs {
+							switch aOutput := out.(type) {
+							case *types.AccountOutput:
+								if types.BlacklistInstance().IsBlackAddress(common.EmptyAddress, aOutput.To) {
+									errRets[coIndex] = &types.ErrBlacklistAddress
+									return
+								}
+							}
+						}
+					}
+					if (tx.UTXOKind() & types.Ain) == types.Ain {
+						fromAddr, err := tx.From()
+						if err != nil {
+							fromAddr = common.EmptyAddress
+						}
+						if types.BlacklistInstance().IsBlackAddress(fromAddr, common.EmptyAddress) {
+							errRets[coIndex] = &types.ErrBlacklistAddress
+							return
+						}
+					}
 					if _, verified := app.mempool.VerifyTxFromCache(hash); !verified {
 						err := app.CheckTx(tx, true) //UTXO CheckBasic
 						if err == nil {
@@ -381,7 +415,14 @@ func (app *LinkApplication) verifyTxsOnProcess(block *types.Block) error {
 						}
 						if err != nil {
 							errRets[coIndex] = &err
+							return
 						}
+					}
+				case *types.ContractCreateTx, *types.ContractUpgradeTx, *types.MultiSignAccountTx:
+					err := checkBlacklistAddress(tx)
+					if err != nil {
+						errRets[coIndex] = &err
+						return
 					}
 				default:
 				}
@@ -394,6 +435,23 @@ func (app *LinkApplication) verifyTxsOnProcess(block *types.Block) error {
 		if err != nil {
 			return *err
 		}
+	}
+	return nil
+}
+
+func checkBlacklistAddress(tx types.Tx) error {
+	var fromAddr, toAddr common.Address
+	fromAddr, err := tx.From()
+	if err != nil {
+		fromAddr = common.EmptyAddress
+	}
+	if tx.To() != nil {
+		toAddr = *tx.To()
+	} else {
+		toAddr = common.EmptyAddress
+	}
+	if types.BlacklistInstance().IsBlackAddress(fromAddr, toAddr) {
+		return types.ErrBlacklistAddress
 	}
 	return nil
 }
@@ -545,6 +603,10 @@ func (app *LinkApplication) CommitBlock(block *types.Block, blockParts *types.Pa
 
 	processResult.tmpState.Database().TrieDB().Commit(trieRoot, false)
 	processResult.tmpState.Reset(trieRoot)
+
+	// update blacklist
+	types.BlacklistInstance().SetBlackAddrs(processResult.tmpState.GetBlacklist())
+
 	processResult.txsResult.TrieRoot = trieRoot
 	processResult.tbrBlock.SetBlockHash(block.Hash())
 	processResult.tbrBlock.SetBlockTime(block.Time())

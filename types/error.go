@@ -96,4 +96,6 @@ var (
 	ErrUtxoTxInvalidInput  = errors.New("invalid input")
 	ErrUtxoTxInvalidOutput = errors.New("invalid output")
 	ErrUtxoTxDoubleSpend   = errors.New("double spend")
+
+	ErrBlacklistAddress    = errors.New("blacklist address")
 )

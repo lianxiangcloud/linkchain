@@ -20,7 +20,7 @@ const (
 	TxTransfer       = "transfer"
 	TxContract       = "contract"
 	TxCreateContract = "create_contract"
-	TxSuicide        = "sucicide"
+	TxSuicide        = "suicide"
 	TxFee            = "fee"
 
 	//----UTXO input/output type

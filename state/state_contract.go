@@ -136,6 +136,11 @@ func (st *StateDB) GetAllCandidates(logger log.Logger) []*types.CandidateState {
 	return cans
 }
 
+func (st *StateDB) GetBlacklist() []common.Address {
+	buff := st.GetState(config.ContractBlacklistAddr, crypto.Keccak256Hash([]byte("blacklist")))
+	return readAddressV(buff)
+}
+
 //OP indicate the operation to score
 const (
 	OPZERO  int = iota
@@ -279,4 +284,30 @@ func packStringkey(key1, key2 string) []byte {
 	key = append(key, key2...)
 
 	return key[:]
+}
+
+func readAddressV(val []byte) []common.Address {
+	var addrSlice []common.Address
+	var pos uint64
+	if val == nil {
+		return addrSlice
+	}
+	tag := readTag(val, &pos)
+	if tag != TagArray {
+		return addrSlice
+	}
+	vectorSize := readSize(val, &pos)
+	addrSlice = make([]common.Address, 0)
+	for loop := vectorSize; loop > 0; loop = loop - 1 {
+		tag := readTag(val, &pos)
+		if tag == TagString {
+			str := readString(val, &pos)
+			str = str[:len(str)-1]
+			addrSlice = append(addrSlice, common.HexToAddress(str))
+		}
+	}
+	if len(addrSlice) != int(vectorSize) {
+		addrSlice = nil
+	}
+	return addrSlice
 }

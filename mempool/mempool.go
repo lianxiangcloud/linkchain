@@ -373,10 +373,63 @@ func (mem *Mempool) AddTx(peerID string, tx types.Tx) (err error) {
 
 	switch tx.(type) {
 	case *types.UTXOTransaction:
+		// blacklist check
+		txUtxo := tx.(*types.UTXOTransaction)
+		if (txUtxo.UTXOKind() & types.Aout) == types.Aout {
+			for _, out := range txUtxo.Outputs {
+				switch aOutput := out.(type) {
+				case *types.AccountOutput:
+					if types.BlacklistInstance().IsBlackAddress(common.EmptyAddress, aOutput.To) {
+						mem.cache.Remove(tx)
+						return types.ErrBlacklistAddress
+					}
+				}
+			}
+		}
+		if (txUtxo.UTXOKind() & types.Ain) == types.Ain {
+			fromAddr, err := txUtxo.From()
+			if err != nil {
+				fromAddr = common.EmptyAddress
+			}
+			if types.BlacklistInstance().IsBlackAddress(fromAddr, common.EmptyAddress) {
+				mem.cache.Remove(tx)
+				return types.ErrBlacklistAddress
+			}
+		}
 		err = mem.addUTXOTx(tx)
 	case *types.Transaction, *types.TokenTransaction, *types.ContractCreateTx, *types.ContractUpgradeTx:
+		// blacklist check
+		var fromAddr, toAddr common.Address
+		fromAddr, err := tx.From()
+		if err != nil {
+			fromAddr = common.EmptyAddress
+		}
+		if tx.To() != nil {
+			toAddr = *tx.To()
+		} else {
+			toAddr = common.EmptyAddress
+		}
+		if types.BlacklistInstance().IsBlackAddress(fromAddr, toAddr) {
+			mem.cache.Remove(tx)
+			return types.ErrBlacklistAddress
+		}
 		err = mem.addLocalTx(tx)
 	case *types.MultiSignAccountTx:
+		// blacklist check
+		var fromAddr, toAddr common.Address
+		fromAddr, err := tx.From()
+		if err != nil {
+			fromAddr = common.EmptyAddress
+		}
+		if tx.To() != nil {
+			toAddr = *tx.To()
+		} else {
+			toAddr = common.EmptyAddress
+		}
+		if types.BlacklistInstance().IsBlackAddress(fromAddr, toAddr) {
+			mem.cache.Remove(tx)
+			return types.ErrBlacklistAddress
+		}
 		err = mem.addLocalSpecTx(tx)
 	default:
 		mem.logger.Error("AddTx fail,Invaild tx type")

@@ -365,6 +365,14 @@ func deployOriginalContract(st *state.StateDB) ([]*types.Validator, error) {
 		return st.GetWhiteValidators(logger), nil
 	}
 
+	if len(cc.BlacklistCode) == 0 {
+		fmt.Println("blacklist contract code nil!!!")
+	} else {
+		if err := initWasmContract(st, cfg.ContractBlacklistAddr, cc.BlacklistCode, logger); err != nil {
+			return nil, fmt.Errorf("deploy blacklist Contract error:%v", err)
+		}
+	}
+
 	return nil, nil
 }
 

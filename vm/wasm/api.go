@@ -1348,6 +1348,7 @@ func (t *TCCallContract) Call(index int64, ops interface{}, args []uint64) (uint
 	eng := ops.(*vm.Engine)
 	return tcCallContract(eng, index, args)
 }
+
 func (t *TCCallContract) Gas(index int64, ops interface{}, args []uint64) (uint64, error) {
 	eng := ops.(*vm.Engine)
 	return gasCallContract(eng, index, args)

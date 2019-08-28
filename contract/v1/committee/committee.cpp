@@ -103,6 +103,7 @@ void Committee::Init() {
 	rights.set(test_address, "candidates");
 	rights.set(test_address, "coefficient");
 	rights.set(test_address, "pledge");
+	rights.set(test_address, "blacklist");
 
 	memberList.set(mem);
 }

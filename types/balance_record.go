@@ -101,15 +101,15 @@ func (b *BlockBalanceRecords) SetBlockTime(blockTime uint64) {
 
 func (t *TxBalanceRecords) SetOptions(hash common.Hash, typenane string, payloads []Payload, nonce uint64,
 	gasLimit uint64, gasPrice *big.Int, from common.Address, to common.Address, tokenId common.Address) {
-		t.Hash     = hash
-		t.Type     = typenane
-		t.Payloads = payloads
-		t.Nonce    = nonce
-		t.GasLimit = gasLimit
-		t.GasPrice = gasPrice
-		t.From     = from
-		t.To       = to
-		t.TokenId  = tokenId
+	t.Hash     = hash
+	t.Type     = typenane
+	t.Payloads = payloads
+	t.Nonce    = nonce
+	t.GasLimit = gasLimit
+	t.GasPrice = gasPrice
+	t.From     = from
+	t.To       = to
+	t.TokenId  = tokenId
 }
 
 func (t *TxBalanceRecords) AddBalanceRecord(br BalanceRecord) {
