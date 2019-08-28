@@ -75,8 +75,8 @@ type SendUTXOTransactionResult struct {
 }
 
 type BlockHeightResult struct {
-	LocalHeight  hexutil.Uint64 `json:"local_height"`
-	RemoteHeight hexutil.Uint64 `json:"remote_height"`
+	LocalHeight  *hexutil.Big `json:"local_height"`
+	RemoteHeight *hexutil.Big `json:"remote_height"`
 }
 
 type BalanceArgs struct {
@@ -110,8 +110,8 @@ type GetAccountInfoResult struct {
 }
 
 type StatusResult struct {
-	RemoteHeight         hexutil.Uint64 `json:"remote_height"`
-	LocalHeight          hexutil.Uint64 `json:"local_height"`
+	RemoteHeight         *hexutil.Big   `json:"remote_height"`
+	LocalHeight          *hexutil.Big   `json:"local_height"`
 	WalletOpen           bool           `json:"wallet_open"`
 	AutoRefresh          bool           `json:"auto_refresh"`
 	WalletVersion        string         `json:"wallet_version"`

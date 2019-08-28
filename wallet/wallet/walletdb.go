@@ -3,6 +3,7 @@ package wallet
 import (
 	"encoding/json"
 	"fmt"
+	"math/big"
 
 	"github.com/lianxiangcloud/linkchain/libs/common"
 	lkctypes "github.com/lianxiangcloud/linkchain/libs/cryptonote/types"
@@ -22,15 +23,17 @@ const (
 	keyAccountSubCnt    = "accountSubCnt"
 	keyTxKeys           = "txKeys"
 	keyUTXOTx           = "utxoTx"
+	keyBlockHash        = "blockHash"
 )
 
-func (la *LinkAccount) save(ids []int) error {
+func (la *LinkAccount) save(ids []int, blockHash common.Hash) error {
 	batch := la.walletDB.NewBatch()
 
 	if la.saveLocalHeight(batch) != nil ||
 		la.saveGOutIndex(batch) != nil ||
 		la.saveAccountSubCnt(batch) != nil ||
-		(len(ids) > 0 && la.saveTransfers(batch, ids) != nil) {
+		(len(ids) > 0 && la.saveTransfers(batch, ids) != nil) ||
+		la.saveBlockHash(batch, la.localHeight, blockHash) != nil {
 		la.Logger.Error("Refresh batchSave fail", "height", la.localHeight)
 		return fmt.Errorf("save fail")
 	}
@@ -56,6 +59,8 @@ func (la *LinkAccount) loadLocalHeight() error {
 			la.Logger.Error("loadLocalHeight DecodeBytes fail", "val", string(val), "err", err)
 			return err
 		}
+		// set next height
+		la.localHeight.Add(la.localHeight, big.NewInt(1))
 	}
 	la.Logger.Debug("loadLocalHeight", "la.localHeight", la.localHeight)
 	return nil
@@ -286,4 +291,36 @@ func (la *LinkAccount) saveUTXOTx(utxoTx *tctypes.UTXOTransaction) error {
 	batch := la.walletDB.NewBatch()
 	batch.Set(key, val)
 	return batch.Commit()
+}
+
+// block hash
+func (la *LinkAccount) getBlockHashKey(height *big.Int) []byte {
+	return []byte(fmt.Sprintf("%s_%s", la.addPrefixDBkey(keyBlockHash), height.String()))
+}
+
+func (la *LinkAccount) loadBlockHash(height *big.Int) (*common.Hash, error) {
+	if height.Sign() < 0 {
+		return &common.EmptyHash, nil
+	}
+	key := la.getBlockHashKey(height)
+	val := la.walletDB.Get(key[:])
+	if len(val) == 0 {
+		return nil, types.ErrBlockHashNotFound
+	}
+	var hash common.Hash
+	if err := ser.DecodeBytes(val, &hash); err != nil {
+		la.Logger.Error("loadBlockHash DecodeBytes fail", "val", string(val), "err", err)
+		return nil, err
+	}
+	return &hash, nil
+}
+func (la *LinkAccount) saveBlockHash(b dbm.Batch, height *big.Int, hash common.Hash) error {
+	key := la.getBlockHashKey(height)
+	val, err := ser.EncodeToBytes(hash)
+	if err != nil {
+		la.Logger.Error("saveBlockHash EncodeToBytes fail", "err", err)
+		return err
+	}
+	b.Set(key, val)
+	return nil
 }

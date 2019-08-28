@@ -147,7 +147,7 @@ func (s *PublicTransactionPoolAPI) SendUTXOTransactionSplit(ctx context.Context,
 func (s *PublicTransactionPoolAPI) BlockHeight(ctx context.Context) (*wtypes.BlockHeightResult, error) {
 	localHeight, remoteHeight := s.wallet.GetHeight()
 
-	return &wtypes.BlockHeightResult{LocalHeight: hexutil.Uint64(localHeight), RemoteHeight: hexutil.Uint64(remoteHeight)}, nil
+	return &wtypes.BlockHeightResult{LocalHeight: (*hexutil.Big)(localHeight), RemoteHeight: (*hexutil.Big)(remoteHeight)}, nil
 }
 
 // Balance get account Balance

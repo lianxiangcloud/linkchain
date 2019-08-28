@@ -389,10 +389,10 @@ func GetChainVersion() (string, error) {
 	return peerVersion, nil
 }
 
-func GetBlockUTXOsByNumber(height uint64) (*rtypes.RPCBlock, error) {
+func GetBlockUTXOsByNumber(height *big.Int) (*rtypes.RPCBlock, error) {
 	// w.Logger.Debug("getBlockUTXOsByNumber")
 	p := make([]interface{}, 2)
-	p[0] = fmt.Sprintf("0x%x", height)
+	p[0] = hexutil.EncodeBig(height)
 	p[1] = true
 	body, err := daemon.CallJSONRPC("eth_getBlockUTXOsByNumber", p)
 	if err != nil || body == nil || len(body) == 0 {

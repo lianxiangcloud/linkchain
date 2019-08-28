@@ -175,7 +175,7 @@ curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"l
       "utxo_accounts" : [
          {
             "balance" : "0x1f78f21ce1c600",
-            "address" : "9x7envctz6N8oPwtstBddpgLoMvT2YmeU79z2A8ZMbf4hxvV2GFUrwPKmT6ko4YgTwMWEmNT1tFDg3DcTSNydftUHLnzj66",
+            "address" : "B82MtaMMExz8oPwtstBddpgLoMvT2YmeU79z2A8ZMbf4hxvV2GFUrwPKmT6ko4YgTwMWEmNT1tFDg3DcTSNydftUHKxmEUt",
             "index" : "0x0"
          },
          {
@@ -310,7 +310,7 @@ curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"l
 ```json
 //转账目标为utxo
 {
-	"addr": "9x7envctz6N8oPwtstBddpgLoMvT2YmeU79z2A8ZMbf4hxvV2GFUrwPKmT6ko4YgTwMWEmNT1tFDg3DcTSNydftUHLnzj66",
+	"addr": "B82MtaMMExz8oPwtstBddpgLoMvT2YmeU79z2A8ZMbf4hxvV2GFUrwPKmT6ko4YgTwMWEmNT1tFDg3DcTSNydftUHKxmEUt",
 	"amount": "0x56bc75e2d63100000", //十六进制字符串
 	"remark": "0x9900000009" //附加交易留言，可选，最多32字节有效
 },
@@ -333,7 +333,7 @@ curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"l
 
 ```shell
 #account 转 单utxo
-curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"ltk_signUTXOTransaction","params":[{"from":"0xa73810e519e1075010678d706533486d8ecc8000","nonce":"0x0","dests":[{"addr":"9x7envctz6N8oPwtstBddpgLoMvT2YmeU79z2A8ZMbf4hxvV2GFUrwPKmT6ko4YgTwMWEmNT1tFDg3DcTSNydftUHLnzj66","amount":"0x21e19e0c9bab2400000","remark":"0xa73810e519e1075010678d706533486d8ecc8000"}]}]}' -H 'Content-Type: application/json'|json_pp
+curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"ltk_signUTXOTransaction","params":[{"from":"0xa73810e519e1075010678d706533486d8ecc8000","nonce":"0x0","dests":[{"addr":"B82MtaMMExz8oPwtstBddpgLoMvT2YmeU79z2A8ZMbf4hxvV2GFUrwPKmT6ko4YgTwMWEmNT1tFDg3DcTSNydftUHKxmEUt","amount":"0x21e19e0c9bab2400000","remark":"0xa73810e519e1075010678d706533486d8ecc8000"}]}]}' -H 'Content-Type: application/json'|json_pp
 
 {
    "jsonrpc" : "2.0",
@@ -350,16 +350,10 @@ curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"l
 }
 
 #account 转 多utxo
-curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"ltk_signUTXOTransaction","params":[{"from":"0xa73810e519e1075010678d706533486d8ecc8000","nonce":"0x1","dests":[{"addr":"9x7envctz6N8oPwtstBddpgLoMvT2YmeU79z2A8ZMbf4hxvV2GFUrwPKmT6ko4YgTwMWEmNT1tFDg3DcTSNydftUHLnzj66","amount":"0x21e19e0c9bab2400000"},{"addr":"BgURGSDabvhCyrjungujZLVkf74FRxVaDccSXZY47TwQLpg9GPAdfiKZet5uuWyToZW4cJYKHuyXBZCjgB48qAkAKmW4B8g","amount":"0x21e19e0c9bab2400000","remark":"0x9900000009"}]}]}' -H 'Content-Type: application/json'|json_pp
-
-#account 单account
-curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"ltk_signUTXOTransaction","params":[{"from":"0xa73810e519e1075010678d706533486d8ecc8000","nonce":"0x2","dests":[{"addr":"0xe50ab035b1cc691b84e415ff0931867f6a71b091","amount":"0x21e19e0c9bab2400000","data":"0x123344"}]}]}' -H 'Content-Type: application/json'|json_pp
-
-#account 单account+utxo
-curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"ltk_signUTXOTransaction","params":[{"from":"0xa73810e519e1075010678d706533486d8ecc8000","nonce":"0x3","dests":[{"addr":"9x7envctz6N8oPwtstBddpgLoMvT2YmeU79z2A8ZMbf4hxvV2GFUrwPKmT6ko4YgTwMWEmNT1tFDg3DcTSNydftUHLnzj66","amount":"0x21e19e0c9bab2400000"},{"addr":"0xe50ab035b1cc691b84e415ff0931867f6a71b091","amount":"0x21e19e0c9bab2400000","data":"0x123344"}]}]}' -H 'Content-Type: application/json'|json_pp
+curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"ltk_signUTXOTransaction","params":[{"from":"0xa73810e519e1075010678d706533486d8ecc8000","nonce":"0x1","dests":[{"addr":"B82MtaMMExz8oPwtstBddpgLoMvT2YmeU79z2A8ZMbf4hxvV2GFUrwPKmT6ko4YgTwMWEmNT1tFDg3DcTSNydftUHKxmEUt","amount":"0x21e19e0c9bab2400000"},{"addr":"ESuckthZTpjTsqVobB1Yg7SkbU1QUGFThPko8hkFP9VnQZ8WaVaLe4siM1r7tdKkrnFWXkHxZKPuj2gVjd6KZeoo1kWqvG4","amount":"0x21e19e0c9bab2400000","remark":"0x9900000009"}]}]}' -H 'Content-Type: application/json'|json_pp
 
 #utxo账户转单utxo账户
-curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"ltk_signUTXOTransaction","params":[{"subaddrs":[0],"dests":[{"addr":"9x7envctz6N8oPwtstBddpgLoMvT2YmeU79z2A8ZMbf4hxvV2GFUrwPKmT6ko4YgTwMWEmNT1tFDg3DcTSNydftUHLnzj66","amount":"0x4563918244f40000"}]}]}' -H 'Content-Type: application/json'|json_pp
+curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"ltk_signUTXOTransaction","params":[{"subaddrs":[0],"dests":[{"addr":"ESuckthZTpjTsqVobB1Yg7SkbU1QUGFThPko8hkFP9VnQZ8WaVaLe4siM1r7tdKkrnFWXkHxZKPuj2gVjd6KZeoo1kWqvG4","amount":"0x4563918244f40000"}]}]}' -H 'Content-Type: application/json'|json_pp
 {
    "jsonrpc" : "2.0",
    "id" : "0",
@@ -377,16 +371,16 @@ curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"l
 }
 
 #utxo 转 utxo
-curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"ltk_signUTXOTransaction","params":[{"subaddrs":[0],"dests":[{"addr":"9x7envctz6N8oPwtstBddpgLoMvT2YmeU79z2A8ZMbf4hxvV2GFUrwPKmT6ko4YgTwMWEmNT1tFDg3DcTSNydftUHLnzj66","amount":"0x4563918244f40000"}]}]}' -H 'Content-Type: application/json'|json_pp
+curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"ltk_signUTXOTransaction","params":[{"subaddrs":[0],"dests":[{"addr":"ESuckthZTpjTsqVobB1Yg7SkbU1QUGFThPko8hkFP9VnQZ8WaVaLe4siM1r7tdKkrnFWXkHxZKPuj2gVjd6KZeoo1kWqvG4","amount":"0x4563918244f40000"}]}]}' -H 'Content-Type: application/json'|json_pp
 
 #utxo 转 单account
 curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"ltk_signUTXOTransaction","params":[{"subaddrs":[0],"dests":[{"addr":"0xe50ab035b1cc691b84e415ff0931867f6a71b091","amount":"0x4563918244f40000","data":"0x123344"}]}]}' -H 'Content-Type: application/json'|json_pp
 
 #utxo 转 单account+utxo
-curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"ltk_signUTXOTransaction","params":[{"subaddrs":[0],"dests":[{"addr":"9x7envctz6N8oPwtstBddpgLoMvT2YmeU79z2A8ZMbf4hxvV2GFUrwPKmT6ko4YgTwMWEmNT1tFDg3DcTSNydftUHLnzj66","amount":"0x4563918244f40000"},{"addr":"0xe50ab035b1cc691b84e415ff0931867f6a71b091","amount":"0x4563918244f40000","data":"0x123344"}]}]}' -H 'Content-Type: application/json'|json_pp
+curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"ltk_signUTXOTransaction","params":[{"subaddrs":[0],"dests":[{"addr":"ESuckthZTpjTsqVobB1Yg7SkbU1QUGFThPko8hkFP9VnQZ8WaVaLe4siM1r7tdKkrnFWXkHxZKPuj2gVjd6KZeoo1kWqvG4","amount":"0x4563918244f40000"},{"addr":"0xe50ab035b1cc691b84e415ff0931867f6a71b091","amount":"0x4563918244f40000","data":"0x123344"}]}]}' -H 'Content-Type: application/json'|json_pp
 
 #utxo 转 多utxo
-curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"ltk_signUTXOTransaction","params":[{"subaddrs":[0],"dests":[{"addr":"9x7envctz6N8oPwtstBddpgLoMvT2YmeU79z2A8ZMbf4hxvV2GFUrwPKmT6ko4YgTwMWEmNT1tFDg3DcTSNydftUHLnzj66","amount":"0x4563918244f40000"},{"addr":"BbzBXAnB8GwTsqVobB1Yg7SkbU1QUGFThPko8hkFP9VnQZ8WaVaLe4siM1r7tdKkrnFWXkHxZKPuj2gVjd6KZeoo1kyXwbu","amount":"0x4563918244f40000"}]}]}' -H 'Content-Type: application/json'|json_pp
+curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"ltk_signUTXOTransaction","params":[{"subaddrs":[0],"dests":[{"addr":"ESuckthZTpjTsqVobB1Yg7SkbU1QUGFThPko8hkFP9VnQZ8WaVaLe4siM1r7tdKkrnFWXkHxZKPuj2gVjd6KZeoo1kWqvG4","amount":"0x4563918244f40000"},{"addr":"B82MtaMMExz8oPwtstBddpgLoMvT2YmeU79z2A8ZMbf4hxvV2GFUrwPKmT6ko4YgTwMWEmNT1tFDg3DcTSNydftUHKxmEUt","amount":"0x4563918244f40000"}]}]}' -H 'Content-Type: application/json'|json_pp
 ```
 
 ### ltk_sendUTXOTransaction
@@ -401,7 +395,7 @@ curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"l
 示例：  
 
 ```shell
-curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"ltk_sendUTXOTransaction","params":[{"subaddrs":[0],"dests":[{"addr":"9xdUJ5cXrD3f4V7EzwgUrE5Uiku6VERRcP9xsMYpKjk5REmA8fL8AvpWaznNpL7WuwXGqdoPoDhSyW5oQjyiZNQEQsVYZLx","amount":"0x9900000009"}]}]}' -H 'Content-Type: application/json'|json_pp
+curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"ltk_sendUTXOTransaction","params":[{"subaddrs":[0],"dests":[{"addr":"B82MtaMMExz8oPwtstBddpgLoMvT2YmeU79z2A8ZMbf4hxvV2GFUrwPKmT6ko4YgTwMWEmNT1tFDg3DcTSNydftUHKxmEUt","amount":"0x9900000009"}]}]}' -H 'Content-Type: application/json'|json_pp
 {
    "id" : "0",
    "jsonrpc" : "2.0",
@@ -430,7 +424,7 @@ curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"l
 示例：  
 
 ```shell
-curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"ltk_sendUTXOTransactionSplit","params":[{"subaddrs":[0],"dests":[{"addr":"9x7envctz6N8oPwtstBddpgLoMvT2YmeU79z2A8ZMbf4hxvV2GFUrwPKmT6ko4YgTwMWEmNT1tFDg3DcTSNydftUHLnzj66","amount":"0x9900000009"}]}]}' -H 'Content-Type: application/json'|json_pp
+curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"ltk_sendUTXOTransactionSplit","params":[{"subaddrs":[0],"dests":[{"addr":"B82MtaMMExz8oPwtstBddpgLoMvT2YmeU79z2A8ZMbf4hxvV2GFUrwPKmT6ko4YgTwMWEmNT1tFDg3DcTSNydftUHKxmEUt","amount":"0x9900000009"}]}]}' -H 'Content-Type: application/json'|json_pp
 {
    "jsonrpc" : "2.0",
    "result" : {

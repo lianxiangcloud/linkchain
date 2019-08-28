@@ -50,7 +50,7 @@ type Wallet interface {
 	CreateUTXOTransaction(from common.Address, nonce uint64, subaddrs []uint64, dests []types.DestEntry,
 		tokenID common.Address, refundAddr common.Address, extra []byte) ([]*types.UTXOTransaction, error)
 	GetBalance(index uint64, token *common.Address) (*big.Int, error)
-	GetHeight() (localHeight uint64, remoteHeight uint64)
+	GetHeight() (localHeight *big.Int, remoteHeight *big.Int)
 	GetAddress(index uint64) (string, error)
 	Transfer(txs []string) (ret []wtypes.SendTxRet)
 	OpenWallet(walletfile string, password string) error

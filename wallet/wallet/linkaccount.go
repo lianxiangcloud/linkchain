@@ -34,8 +34,8 @@ type balanceMap map[uint64]*big.Int //subaddr index,value balance
 type LinkAccount struct {
 	// cmn.BaseService
 	Logger               log.Logger
-	remoteHeight         uint64
-	localHeight          uint64
+	remoteHeight         *big.Int
+	localHeight          *big.Int
 	lock                 sync.Mutex
 	utxoTotalBalance     map[common.Address]*big.Int   //key:tokenid
 	AccBalance           map[common.Address]balanceMap //key:tokenid
@@ -55,8 +55,8 @@ type LinkAccount struct {
 // NewLinkAccount return a LinkAccount
 func NewLinkAccount(walletDB dbm.DB, logger log.Logger, keystoreFile string, password string) (*LinkAccount, error) {
 	la := &LinkAccount{
-		remoteHeight:         0,
-		localHeight:          0,
+		remoteHeight:         big.NewInt(0),
+		localHeight:          big.NewInt(0),
 		utxoTotalBalance:     make(map[common.Address]*big.Int),
 		AccBalance:           make(map[common.Address]balanceMap),
 		gOutIndex:            make(map[common.Address]uint64),
@@ -214,8 +214,8 @@ func (la *LinkAccount) refreshLoop() {
 				refreshMaxBlock.Reset(la.refreshBlockInterval)
 				continue
 			}
-			if h.Uint64() > la.remoteHeight {
-				la.remoteHeight = h.Uint64()
+			if h.Cmp(la.remoteHeight) > 0 {
+				la.remoteHeight = h
 			}
 			la.printBalance()
 			la.Refresh(true)
@@ -228,20 +228,41 @@ func (la *LinkAccount) refreshLoop() {
 	}
 }
 
+// checkBlock check block parent hash with local block hash
+func (la *LinkAccount) checkBlock(block *rtypes.RPCBlock) error {
+	height := (*big.Int)(block.Height)
+	parentHash := block.ParentHash
+	parentHeight := new(big.Int).Sub(height, big.NewInt(1))
+	localParentHash, err := la.loadBlockHash(parentHeight)
+	if err != nil {
+		return err
+	}
+	if *localParentHash != parentHash {
+		return types.ErrBlockParentHash
+	}
+	return nil
+}
+
 // Refresh wallet
 func (la *LinkAccount) Refresh(trustedDaemon bool) {
 	la.lock.Lock()
 	defer la.lock.Unlock()
 
-	if la.walletOpen && la.autoRefresh && la.localHeight <= la.remoteHeight {
-		for la.localHeight <= la.remoteHeight {
+	if la.walletOpen && la.autoRefresh && la.localHeight.Cmp(la.remoteHeight) <= 0 {
+		for la.localHeight.Cmp(la.remoteHeight) <= 0 {
 			la.Logger.Debug("Refresh", "localHeight", la.localHeight, "remoteHeight", la.remoteHeight)
 			block, err := GetBlockUTXOsByNumber(la.localHeight)
 			if err != nil {
 				la.Logger.Error("Refresh getBlockUTXOsByNumber fail", "height", la.localHeight, "err", err)
 				return
 			}
-			// TODO check block
+
+			// check block parent hash
+			err = la.checkBlock(block)
+			if err != nil {
+				la.Logger.Error("Refresh CheckBlock fail", "height", la.localHeight, "err", err)
+				return
+			}
 
 			ids, err := la.processBlock(block)
 			if err != nil {
@@ -249,14 +270,12 @@ func (la *LinkAccount) Refresh(trustedDaemon bool) {
 				return
 			}
 
-			la.localHeight++
-
-			err = la.save(ids)
+			err = la.save(ids, *block.Hash)
 			if err != nil {
 				la.Logger.Error("Refresh la.save fail", "height", la.localHeight, "err", err)
 				return
 			}
-
+			la.localHeight.Add(la.localHeight, big.NewInt(1))
 		}
 	}
 }
@@ -498,11 +517,11 @@ func (la *LinkAccount) GetAddress(index uint64) (string, error) {
 }
 
 // GetHeight rpc get height
-func (la *LinkAccount) GetHeight() (localHeight uint64, remoteHeight uint64) {
-	if la.localHeight == 0 {
+func (la *LinkAccount) GetHeight() (localHeight *big.Int, remoteHeight *big.Int) {
+	if la.localHeight.Sign() == 0 {
 		return la.localHeight, la.remoteHeight
 	}
-	return la.localHeight - 1, la.remoteHeight
+	return new(big.Int).Sub(la.localHeight, big.NewInt(1)), la.remoteHeight
 }
 
 // CreateSubAccount return new sub address and sub index
@@ -593,7 +612,7 @@ func (la *LinkAccount) RescanBlockchain() error {
 		la.AccBalance = make(map[common.Address]balanceMap)
 	}
 
-	la.localHeight = 0
+	la.localHeight.SetInt64(0)
 	la.utxoTotalBalance = make(map[common.Address]*big.Int)
 	la.gOutIndex = make(map[common.Address]uint64)
 	la.keyImages = make(map[lkctypes.Key]int)
@@ -628,8 +647,8 @@ func (la *LinkAccount) Status() *types.StatusResult {
 	refreshBlockInterval := la.refreshBlockInterval / time.Second
 
 	return &types.StatusResult{
-		LocalHeight:          hexutil.Uint64(lh),
-		RemoteHeight:         hexutil.Uint64(rh),
+		LocalHeight:          (*hexutil.Big)(lh),
+		RemoteHeight:         (*hexutil.Big)(rh),
 		WalletOpen:           la.walletOpen,
 		AutoRefresh:          la.autoRefresh,
 		WalletVersion:        WalletVersion,

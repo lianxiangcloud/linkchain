@@ -158,14 +158,14 @@ func (w *Wallet) GetAddress(index uint64) (string, error) {
 }
 
 // GetHeight rpc get height
-func (w *Wallet) GetHeight() (localHeight uint64, remoteHeight uint64) {
+func (w *Wallet) GetHeight() (localHeight *big.Int, remoteHeight *big.Int) {
 	if w.IsWalletClosed() {
 		rh, err := RefreshMaxBlock()
 		if err != nil {
 			w.Logger.Error("GetHeight,RefreshMaxBlock fail", "err", err)
-			return 0, 0
+			return big.NewInt(0), big.NewInt(0)
 		}
-		return 0, rh.Uint64()
+		return big.NewInt(0), rh
 	}
 	return w.currAccount.GetHeight()
 }
@@ -260,8 +260,9 @@ func (w *Wallet) Status() *types.StatusResult {
 			w.Logger.Error("Status getChainVersion fail", "err", err)
 			chainVersion = "0.0.0"
 		}
-		return &types.StatusResult{RemoteHeight: hexutil.Uint64(rh.Uint64()),
-			LocalHeight:          hexutil.Uint64(0),
+		return &types.StatusResult{
+			RemoteHeight:         (*hexutil.Big)(rh),
+			LocalHeight:          (*hexutil.Big)(big.NewInt(0)),
 			WalletOpen:           false,
 			AutoRefresh:          false,
 			WalletVersion:        WalletVersion,
