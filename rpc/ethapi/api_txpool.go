@@ -323,31 +323,6 @@ func signHash(d []byte) []byte {
 	return d
 }
 
-// Sign calculates an ECDSA signature for:
-// keccack256("\x19Ethereum Signed Message:\n" + len(message) + message).
-//
-// Note, the produced signature conforms to the secp256k1 curve R, S and V values,
-// where the V value will be 27 or 28 for legacy reasons.
-//
-// The account associated with addr must be unlocked.
-//
-// https://github.com/ethereum/wiki/wiki/JSON-RPC#eth_sign
-func (s *PublicTransactionPoolAPI) Sign(addr common.Address, data hexutil.Bytes) (hexutil.Bytes, error) {
-	// Look up the wallet containing the requested signer
-	account := accounts.Account{Address: addr}
-
-	wallet, err := s.b.AccountManager().Find(account)
-	if err != nil {
-		return nil, err
-	}
-	// Sign the requested hash with the wallet
-	signature, err := wallet.SignHash(account, signHash(data))
-	if err == nil {
-		signature[64] += 27 // Transform V from 0/1 to 27/28 according to the yellow paper
-	}
-	return signature, err
-}
-
 // SignTransaction will sign the given transaction with the from account.
 // The node needs to have the private key of the account corresponding with
 // the given from address and it needs to be unlocked.
