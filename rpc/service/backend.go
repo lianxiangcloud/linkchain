@@ -10,6 +10,7 @@ import (
 	"github.com/lianxiangcloud/linkchain/libs/bloombits"
 
 	"github.com/lianxiangcloud/linkchain/accounts"
+	"github.com/lianxiangcloud/linkchain/bootcli"
 	"github.com/lianxiangcloud/linkchain/config"
 	cs "github.com/lianxiangcloud/linkchain/consensus"
 	"github.com/lianxiangcloud/linkchain/libs/common"
@@ -160,10 +161,31 @@ func (b *ApiBackend) NetInfo() (*rtypes.ResultNetInfo, error) {
 	// TODO: Should we include PersistentPeers and Seeds in here?
 	// PRO: useful info
 	// CON: privacy
+	dhtpeers := b.context().p2pSwitch.DHTPeers()
+	dhtnodes := make([]rtypes.Node, len(dhtpeers))
+	for i := 0; i < len(dhtpeers); i++ {
+		dhtnodes[i].IP = dhtpeers[i].IP.String()
+		dhtnodes[i].UDP_Port = dhtpeers[i].UDP_Port
+		dhtnodes[i].TCP_Port = dhtpeers[i].TCP_Port
+		dhtnodes[i].ID = dhtpeers[i].ID
+	}
 	return &rtypes.ResultNetInfo{
-		NPeers: len(peers),
-		Peers:  peers,
+		NPeers:   len(peers),
+		Peers:    peers,
+		DHTPeers: dhtnodes,
 	}, nil
+}
+
+func (b *ApiBackend) GetSeeds() []rtypes.Node {
+	nodes, _, _ := bootcli.GetSeeds(b.context().p2pSwitch.BootNodeAddr(), b.context().p2pSwitch.NodeKey(), b.context().p2pSwitch.Logger)
+	returnNodes := make([]rtypes.Node, len(nodes))
+	for i := 0; i < len(returnNodes); i++ {
+		returnNodes[i].IP = nodes[i].IP.String()
+		returnNodes[i].UDP_Port = nodes[i].UDP_Port
+		returnNodes[i].TCP_Port = nodes[i].TCP_Port
+		returnNodes[i].ID = nodes[i].ID
+	}
+	return returnNodes
 }
 
 func (b *ApiBackend) Status() (*rtypes.ResultStatus, error) {

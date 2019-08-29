@@ -165,7 +165,6 @@ func newDhtTable(maxDialOutNums int, bootSvr string, self *SlefInfo, db common.P
 		}
 	}
 	tab.seedRand()
-	tab.loadSeedNodes()
 	return tab, nil
 }
 
@@ -263,6 +262,10 @@ func (tab *DhtTable) getRandSeedsFromBootSvr() []*common.Node {
 	return splitedNodes
 }
 
+func (tab *DhtTable) IsDhtTable() bool {
+	return true
+}
+
 // ReadRandomNodes fills the given slice with random nodes from the table. The results
 // are guaranteed to be unique for a single invocation, no node will appear twice.
 func (tab *DhtTable) ReadRandomNodes(buf []*common.Node) (nodeNum int) {
@@ -285,6 +288,15 @@ func (tab *DhtTable) ReadRandomNodes(buf []*common.Node) (nodeNum int) {
 		}
 	}
 
+	return
+}
+
+func (tab *DhtTable) ReadNodesFromKbucket(buf []*common.Node) (nodeNum int) {
+	if !tab.isInitDone() {
+		tab.log.Info("isInitDone not done")
+		return 0
+	}
+	nodeNum = tab.readNodesFromBucket(buf)
 	return
 }
 
@@ -354,7 +366,8 @@ func (tab *DhtTable) setFallbackNodes(nodes []*common.Node) error {
 	myID := common.TransPubKeyToNodeID(tab.priv.PubKey())
 	for _, n := range nodes {
 		if err := n.ValidateComplete(); err != nil {
-			return fmt.Errorf("bad bootstrap node %q: %v", n, err)
+			log.Debug("bad bootstrap node", "err", err, "n.ip", n.IP.String(), "n.ID", n.ID, "n.UDP_Port", n.UDP_Port)
+			continue
 		}
 
 		if n.ID == myID { //it is my self,skip
@@ -423,7 +436,6 @@ func (tab *DhtTable) loop() {
 
 	// Start initial refresh.
 	go tab.doRefresh(refreshDone)
-
 loop:
 	for {
 		select {
@@ -602,8 +614,10 @@ func (tab *DhtTable) loadSeedNodes() {
 		}
 		err, _ := tab.ping(&seed.Node)
 		if err != nil {
+			tab.log.Debug("ping failed", "id", seed.ID, "addr", seed.addr(), "tcpPort", seed.TCP_Port, "udpPort", seed.UDP_Port)
 			continue
 		}
+		tab.log.Trace("ping success", "id", seed.ID, "addr", seed.addr(), "tcpPort", seed.TCP_Port, "udpPort", seed.UDP_Port)
 		tab.addSeenNode(seed) //only add the seeds that we can ping success
 	}
 }
@@ -775,11 +789,6 @@ func (tab *DhtTable) isInbucket(n *node) bool {
 	b := tab.bucket(n.ID)
 	if contains(b.entries, n.ID) {
 		// Already in bucket, don't add.
-		return true
-	}
-	if !tab.addIP(b, n.IP) {
-		tab.log.Info("Can't add: IP limit reached", "n.IP", n.IP.String())
-		// Can't add: IP limit reached.
 		return true
 	}
 	return false

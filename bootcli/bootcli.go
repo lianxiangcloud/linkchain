@@ -23,7 +23,7 @@ import (
 
 var (
 	LocalNodeType  types.NodeType
-	nodeTypeLocker sync.RWMutex 
+	nodeTypeLocker sync.RWMutex //Just for unit test
 )
 
 const (
@@ -38,8 +38,8 @@ const (
 )
 
 type Rnode struct {
-	ID       string   `json:"id"`
-	Endpoint Endpoint `json:"endpoint"`
+	ID       common.NodeID `json:"id"` //TransPubKeyToNodeID
+	Endpoint *Endpoint     `json:"endpoint,omitempty"`
 }
 
 type GeetSeedsReq struct {
@@ -150,26 +150,24 @@ func GetSeedsFromBootSvr(bootSvr string, priv crypto.PrivKey, logger log.Logger)
 		return
 	}
 	nodes = RapNodes(resp.Seeds, logger)
+	log.Debug("GetSeedsFromBootSvr", "len(nodes)", len(nodes))
 	localNodeType = types.NodeType(resp.Type)
 	return
 }
 
 func RapNodes(seeds []Rnode, logger log.Logger) (nodes []*common.Node) {
 	logger.Debug("RapNodes", "len(seeds)", len(seeds))
-	var id = &common.NodeID{}
 	for i := 0; i < len(seeds); i++ {
-		decodeID, err := hexutil.Decode(seeds[i].ID)
-		if err != nil {
+		if seeds[i].Endpoint == nil {
 			continue
 		}
-		id.Copy(decodeID)
 		if len(seeds[i].Endpoint.IP) == 0 {
-			tmpNode := &common.Node{ID: *id}
+			tmpNode := &common.Node{ID: seeds[i].ID}
 			nodes = append(nodes, tmpNode)
 		} else {
 			for j := 0; j < len(seeds[i].Endpoint.IP); j++ {
 				tmpip := net.ParseIP(seeds[i].Endpoint.IP[j])
-				tmpNode := &common.Node{IP: tmpip, ID: *id}
+				tmpNode := &common.Node{IP: tmpip, ID: seeds[i].ID}
 				for k, v := range seeds[i].Endpoint.Port {
 					switch k {
 					case UDP:
@@ -189,7 +187,7 @@ func GetCurrentHeightOfChain(bootSvr string, logger log.Logger) (height uint64, 
 	var respBytes []byte
 	var retry int
 	for {
-		respBytes, err = HttpGet(buildGetCurrentHeight(bootSvr))
+		respBytes, err = HttpPost(buildGetCurrentHeight(bootSvr), "")
 		if err != nil {
 			logger.Error("GetCurrentHeightOfChain", "retry", retry, "HttpPost err", err)
 			retry++

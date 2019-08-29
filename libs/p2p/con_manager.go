@@ -206,7 +206,7 @@ func (conma *ConManager) tryToSwitchNetWork(candidates []*types.CandidateState) 
 				if getType == types.NodePeer {
 					needDht = true
 				}
-				err := conma.sw.DefaultNewTable(seeds, needDht)
+				err := conma.sw.DefaultNewTable(seeds, needDht, true)
 				if err != nil {
 					conma.logger.Info("DefaultNewTable", "sw.ntab err", err)
 					return
@@ -216,7 +216,7 @@ func (conma *ConManager) tryToSwitchNetWork(candidates []*types.CandidateState) 
 				return
 			}
 		}
-		conma.logger.Report("typeChange failed", "bootcli not refreshed", "myType", myType)
+		conma.logger.Report("typeChange failed,bootcli not refreshed", "logID", types.LogIdBootNodeFail, "myType", myType)
 	}
 }
 

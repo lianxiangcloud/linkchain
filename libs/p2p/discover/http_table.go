@@ -78,6 +78,10 @@ func (tab *HTTPTable) seedRand() {
 func (tab *HTTPTable) Start() {}
 func (tab *HTTPTable) Stop()  {}
 
+func (tab *HTTPTable) IsDhtTable() bool {
+	return false
+}
+
 //LookupRandom get seeds from bootnode server
 func (tab *HTTPTable) LookupRandom() []*common.Node {
 	seedNodes, _, _ := bootcli.GetSeeds(tab.bootSvr, tab.priv, tab.logger)

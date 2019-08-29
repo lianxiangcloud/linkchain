@@ -76,7 +76,7 @@ type Backend interface {
 
 	// NetAPI
 	NetInfo() (*rtypes.ResultNetInfo, error)
-
+	GetSeeds() []rtypes.Node
 	PrometheusMetrics() string
 }
 

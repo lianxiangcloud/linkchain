@@ -44,7 +44,7 @@ const (
 )
 
 const (
-	blackListTimeout = (60 * time.Second)
+	blackListTimeout = (600 * time.Second)
 	defaultDialRatio = 3
 )
 
@@ -157,7 +157,7 @@ func (sw *Switch) GetConManager() *ConManager {
 }
 
 func (sw *Switch) MarkBadNode(nodeInfo NodeInfo) {
-	sw.Logger.Report("MarkBadNode", "nodeInfo.PubKey", nodeInfo.PubKey.String(), "id", nodeInfo.ID())
+	sw.Logger.Info("MarkBadNode", "nodeInfo.PubKey", nodeInfo.PubKey.String(), "id", nodeInfo.ID())
 	sw.blackListLock.Lock()
 	sw.blackListMap[nodeInfo.ID()] = true
 	sw.blackListLock.Unlock()
@@ -185,8 +185,8 @@ func (sw *Switch) blackListHasID(nodeid string) bool {
 	return false
 }
 
-func (sw *Switch) newDm(db dbm.DB) {
-	if sw.dm == nil && bootcli.GetLocalNodeType() == types.NodePeer {
+func (sw *Switch) newDm(db dbm.DB, needDht bool) {
+	if sw.dm == nil && needDht {
 		dbLogger := sw.Logger.With("module", "P2pDBManager")
 		sw.dm = disc.NewDBManager(db, dbLogger)
 	}
@@ -217,27 +217,38 @@ func defaultNewTable(sw *Switch, seeds []*common.Node) error {
 	if bootcli.GetLocalNodeType() == types.NodePeer {
 		needDht = true
 	}
-	return sw.DefaultNewTable(seeds, needDht)
+	return sw.DefaultNewTable(seeds, needDht, false)
 }
 
-func (sw *Switch) DefaultNewTable(seeds []*common.Node, needDht bool) error {
+func (sw *Switch) DefaultNewTable(seeds []*common.Node, needDht bool, needReNewUdpCon bool) error {
 	var err error
 	cfg := common.Config{PrivateKey: sw.nodeKey, SeedNodes: make([]*common.Node, len(seeds))}
 	copy(cfg.SeedNodes, seeds)
 	if needDht {
-		sw.newDm(sw.db)
+		sw.newDm(sw.db, needDht)
 		dhtLogger := sw.Logger.With("module", "dhtTable")
 		var conf = sw.GetConfig()
 		var maxDhtDialOutNums int
 		listeners := sw.Listeners()
 		if len(listeners) > 0 {
 			listener := listeners[0]
-			selfnode := &common.Node{
+			selfnode := &common.Node{ //接收端收到本端的ping包后，会将selfnode信息保存到kbucket
 				IP:       listener.ExternalAddress().IP,
 				UDP_Port: listener.ExternalAddress().Port,
 				TCP_Port: listener.ExternalAddress().Port,
 				ID:       common.NodeID(crypto.Keccak256Hash(sw.NodeKey().PubKey().Bytes())),
-			} //接收端收到本端的ping包后，会将selfnode信息保存到kbucket
+			}
+			if needReNewUdpCon == true {
+				addr, err := net.ResolveUDPAddr("udp", listener.ExternalAddress().String())
+				if err != nil {
+					sw.Logger.Error("NewDefaultListener", "ResolveUDPAddr err", err, "addr", addr)
+				} else {
+					sw.udpCon, err = net.ListenUDP("udp", addr)
+					if err != nil {
+						sw.Logger.Error("NewDefaultListener", "ListenUDP err", err, "addr", addr)
+					}
+				}
+			}
 			selfInfo := &disc.SlefInfo{
 				NodeType:  bootcli.GetLocalNodeType(),
 				Self:      selfnode,
@@ -410,10 +421,6 @@ func (sw *Switch) OnStop() {
 	if sw.dm != nil {
 		sw.dm.Close()
 	}
-	if sw.udpCon != nil {
-		sw.udpCon.Close()
-	}
-
 }
 
 //---------------------------------------------------------------------
@@ -492,6 +499,20 @@ func (sw *Switch) NumPeers() (outbound, inbound, dialing int) {
 // Peers returns the set of peers that are connected to the switch.
 func (sw *Switch) Peers() IPeerSet {
 	return sw.peers
+}
+
+func (sw *Switch) DHTPeers() []*common.Node {
+	if sw.ntab.IsDhtTable() {
+		buffer := make([]*common.Node, 17*16)
+		table, ok := sw.ntab.(*disc.DhtTable)
+		if ok {
+			n := table.ReadNodesFromKbucket(buffer)
+			return buffer[:n]
+		}
+		return nil
+	} else {
+		return nil
+	}
 }
 
 //LocalNodeInfo return the localnode info

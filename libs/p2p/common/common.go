@@ -19,6 +19,7 @@ package common
 import (
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"net"
 	"time"
 
@@ -52,11 +53,28 @@ func (n NodeID) String() string {
 	return hexutil.Encode(n[:])
 }
 
+func (n NodeID) MarshalJSON() ([]byte, error) {
+	return []byte(fmt.Sprintf(`"0x%x"`, n[:])), nil
+}
+
+func (n *NodeID) UnmarshalJSON(data []byte) error {
+	if len(data) < 4 {
+		return fmt.Errorf("%s is not a hex string", data)
+	}
+	data = data[3 : len(data)-1]
+	dec := make([]byte, len(data)/2)
+	if _, err := hex.Decode(dec, data); err != nil {
+		return err
+	}
+	n.Copy(dec[:])
+	return nil
+}
+
 type Node struct {
-	IP       net.IP `mapstructure:"ip"`       // len 4 for IPv4 or 16 for IPv6
-	UDP_Port uint16 `mapstructure:"udp_port"` // port numbers
-	TCP_Port uint16 `mapstructure:"tcp_port"` // port numbers
-	ID       NodeID `mapstructure:"id"`       // the node's public key
+	IP       net.IP `json:"ip"`       // len 4 for IPv4 or 16 for IPv6
+	UDP_Port uint16 `json:"udp_port"` // port numbers
+	TCP_Port uint16 `json:"tcp_port"` // port numbers
+	ID       NodeID `json:"id"`       // the node's public key
 }
 
 // Incomplete returns true for nodes with no IP address.
@@ -94,6 +112,7 @@ type DiscoverTable interface {
 	GetMaxConNumFromCache() int  //Get the maximum number of nodes from cache
 	LookupRandom() []*Node       //Get some nodes in real time from the network
 	ReadRandomNodes([]*Node) int //Get some random nodes from local memory
+	IsDhtTable() bool
 }
 
 type P2pDBManager interface {

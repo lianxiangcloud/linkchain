@@ -382,6 +382,10 @@ func (s *PublicNetAPI) Info() (*rtypes.ResultNetInfo, error) {
 	return s.b.NetInfo()
 }
 
+func (s *PublicNetAPI) GetSeeds() []rtypes.Node {
+	return s.b.GetSeeds()
+}
+
 // Version returns the current ethereum protocol version.
 func (s *PublicNetAPI) Version() string {
 	return fmt.Sprintf("%d", s.networkVersion)

@@ -8,12 +8,13 @@ import (
 	"strings"
 	"time"
 
-	cptypes "github.com/lianxiangcloud/linkchain/libs/cryptonote/types"
 	"github.com/lianxiangcloud/linkchain/libs/common"
 	cmn "github.com/lianxiangcloud/linkchain/libs/common"
 	"github.com/lianxiangcloud/linkchain/libs/crypto"
+	cptypes "github.com/lianxiangcloud/linkchain/libs/cryptonote/types"
 	"github.com/lianxiangcloud/linkchain/libs/hexutil"
 	"github.com/lianxiangcloud/linkchain/libs/p2p"
+	pcomm "github.com/lianxiangcloud/linkchain/libs/p2p/common"
 	"github.com/lianxiangcloud/linkchain/libs/ser"
 	"github.com/lianxiangcloud/linkchain/types"
 )
@@ -134,12 +135,20 @@ type Peer struct {
 	ConnectionStatus p2p.ConnectionStatus `json:"connection_status"`
 }
 
+type Node struct {
+	IP       string       `json:"ip"`       // len 4 for IPv4 or 16 for IPv6
+	UDP_Port uint16       `json:"udp_port"` // port numbers
+	TCP_Port uint16       `json:"tcp_port"` // port numbers
+	ID       pcomm.NodeID `json:"id"`       // the node's public key
+}
+
 // Info about peer connections
 type ResultNetInfo struct {
 	Listening bool     `json:"listening"`
 	Listeners []string `json:"listeners"`
 	NPeers    int      `json:"n_peers"`
 	Peers     []Peer   `json:"peers"`
+	DHTPeers  []Node   `json:"dht_peers"`
 }
 
 func (r ResultNetInfo) MarshalJSON() ([]byte, error) {

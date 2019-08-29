@@ -232,11 +232,13 @@ func (t *udp) start() {
 // Close shuts down the socket and aborts any running queries.
 func (t *udp) close() {
 	close(t.closing)
+	t.conn.Close()
 	t.wg.Wait()
 }
 
 // readLoop runs in its own goroutine. it handles incoming UDP packets.
 func (t *udp) readLoop() {
+	t.log.Debug("readLoop")
 	defer t.wg.Done()
 
 	buf := make([]byte, maxPacketSize)

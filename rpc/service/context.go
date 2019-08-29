@@ -76,7 +76,7 @@ type Context struct {
 	utxo       UtxoStore
 
 	pubKey    crypto.PubKey
-	p2pSwitch p2p.P2PManager
+	p2pSwitch *p2p.Switch
 
 	consensusState   Consensus
 	consensusReactor *cs.ConsensusReactor
@@ -107,7 +107,7 @@ func (c *Context) SetPubKey(pk crypto.PubKey) {
 	c.pubKey = pk
 }
 
-func (c *Context) SetSwitch(sw p2p.P2PManager) {
+func (c *Context) SetSwitch(sw *p2p.Switch) {
 	c.p2pSwitch = sw
 }
 

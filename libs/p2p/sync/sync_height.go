@@ -70,9 +70,10 @@ func (sm *SyncHeightManager) heightProbe() {
 		case <-sm.stopChan:
 			return
 		case <-timer.C:
+			sm.logger.Trace("SyncHeightManager timeout", "sameHeightCount", sameHeightCount)
 			if sameHeightCount >= maxSameHeightCount {
 				if bootcli.GetLocalNodeType() != types.NodePeer {
-					sm.logger.Report("ApplyMessage", "logID", types.LogIdSyncBlockFail, "type", bootcli.GetLocalNodeType())
+					sm.logger.Report("SyncHeightManager", "logID", types.LogIdSyncBlockFail, "type", bootcli.GetLocalNodeType(), "height", sm.app.Height())
 				}
 				myCurrentHeight = sm.app.Height()
 				if myCurrentHeight > myLastHeight { //maybe the block is syning,but it is just very slowly
@@ -85,17 +86,21 @@ func (sm *SyncHeightManager) heightProbe() {
 
 				lkchainHeight, err := bootcli.GetCurrentHeightOfChain(sm.sw.BootNodeAddr(), sm.logger)
 				if err != nil {
-					sm.logger.Report("ApplyMessage", "logID", types.LogIdBootNodeFail, "getCurrentHeightOfChain err", err, "bootnodeAddr", sm.sw.BootNodeAddr())
+					sm.logger.Report("SyncHeightManager", "logID", types.LogIdBootNodeFail, "getCurrentHeightOfChain err", err, "bootnodeAddr", sm.sw.BootNodeAddr())
+					timer.Reset(minCheckInterval)
 					continue
 				}
 				if lkchainHeight >= (myCurrentHeight + uint64(maxSameHeightCount)) { //we should 	get the seed node agian and change the nodes we have connected
 					seeds, getType, err := bootcli.GetSeeds(sm.sw.BootNodeAddr(), sm.sw.NodeKey(), sm.logger)
 					if err != nil {
-						sm.logger.Report("ApplyMessage", "logID", types.LogIdBootNodeFail, "GetSeeds err", err, "bootnodeAddr", sm.sw.BootNodeAddr())
+						sm.logger.Report("SyncHeightManager", "logID", types.LogIdBootNodeFail, "GetSeeds err", err, "bootnodeAddr", sm.sw.BootNodeAddr())
 						timer.Reset(minCheckInterval)
 						continue
 					}
-					sm.logger.Info("heightProbe get the seeds again", "lkchainHeight", lkchainHeight, "myCurrentHeight", myCurrentHeight, "seeds", seeds)
+					sm.logger.Info("SyncHeightManager heightProbe get the seeds again", "lkchainHeight", lkchainHeight, "myCurrentHeight", myCurrentHeight)
+					for i := 0; i < len(seeds); i++ {
+						sm.logger.Info("GetSeedsFromBootSvr", " seeds i", i, "ip", seeds[i].IP.String(), "UDP_Port", seeds[i].UDP_Port, "TCP_Port", seeds[i].TCP_Port)
+					}
 					sm.sw.GetTable().Stop()
 					//try to connect to new seeds and renew dht table
 					sm.connectToNewSeeds(seeds)
@@ -103,7 +108,7 @@ func (sm *SyncHeightManager) heightProbe() {
 					if getType == types.NodePeer {
 						needDht = true
 					}
-					err = sm.sw.DefaultNewTable(seeds, needDht)
+					err = sm.sw.DefaultNewTable(seeds, needDht, true)
 					if err != nil {
 						sm.logger.Info("DefaultNewTable", "sw.ntab err", err)
 						return
