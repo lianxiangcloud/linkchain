@@ -618,7 +618,7 @@ func (cs *ConsensusState) updateRoundStep(round int, step cstypes.RoundStepType)
 func (cs *ConsensusState) scheduleRound0(rs *cstypes.RoundState) {
 	//cs.Logger.Info("scheduleRound0", "now", time.Now(), "startTime", cs.StartTime)
 	sleepDuration := rs.StartTime.Sub(time.Now()) // nolint: gotype, gosimple
-	cs.scheduleTimeout(sleepDuration, rs.Height, 0, cstypes.RoundStepNewHeight)
+	cs.scheduleTimeout(sleepDuration, rs.Height, rs.Round, rs.Step)
 }
 
 // Attempt to schedule a timeout (by sending timeoutInfo on the tickChan)
