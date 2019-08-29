@@ -1,10 +1,9 @@
 #include "tctpl.hpp"
-#include <set>
 #include <string>
 
 #define ContractCommitteeAddr "0x0000000000000000000000436f6d6d6974746565"
-#define RKEY "right"
-#define BLACKLIST "blacklist"
+#define RKEY                  "right"
+#define AddressLength         42
 
 const tc::Address GetRightAccount(const std::string& right) {
 	tc::Address addr;
@@ -31,29 +30,33 @@ bool IsSenderNotBlackAddr(const tc::Address& sender, const tc::Address& blackAdd
 
 class Blacklist : public TCBaseContract {
 public:
-    void Init() {
-        tc::StorValue<std::set<tc::Address>> blacklist(BLACKLIST);
-        auto addrs = blacklist.get();
-        blacklist.set(addrs);
+    std::string CheckAddBlackAddress(std::string strBlackAddress) {
+        TC_RequireWithMsg(CheckAddrRight(tc::App::getInstance()->sender(), "blacklist"), "Address does not have permission");
+        TC_RequireWithMsg((strBlackAddress.length()%AddressLength == 0), "balck address arg illegal");
+        std::string addStr = "addBlackAddress";
+        for (int index = 0; index < strBlackAddress.length(); index = index+AddressLength) {
+            std::string strAddr = strBlackAddress.substr(index, index+AddressLength);
+            tc::Address addr    = tc::Address(strAddr.c_str());
+            if (!IsSenderNotBlackAddr(tc::App::getInstance()->sender(), addr)) {
+                return "";
+            }
+        }
+        return addStr+strBlackAddress;
     }
 
-    void AddBlackAddress(tc::Address blackAddress) {
+    std::string CheckDelBlackAddress(std::string strBlackAddress) {
         TC_RequireWithMsg(CheckAddrRight(tc::App::getInstance()->sender(), "blacklist"), "Address does not have permission");
-        TC_RequireWithMsg(IsSenderNotBlackAddr(tc::App::getInstance()->sender(), blackAddress), "blackAddress can not be sender");
-        tc::StorValue<std::set<tc::Address>> blacklist(BLACKLIST);
-        auto addrs = blacklist.get();
-        addrs.insert(blackAddress);
-        blacklist.set(addrs);
-    }
-
-    void DelBlackAddress(tc::Address blackAddress) {
-        TC_RequireWithMsg(CheckAddrRight(tc::App::getInstance()->sender(), "blacklist"), "Address does not have permission");
-        TC_RequireWithMsg(IsSenderNotBlackAddr(tc::App::getInstance()->sender(), blackAddress), "blackAddress can not be sender");
-        tc::StorValue<std::set<tc::Address>> blacklist(BLACKLIST);
-        auto addrs = blacklist.get();
-        addrs.erase(blackAddress);
-        blacklist.set(addrs);
+        TC_RequireWithMsg((strBlackAddress.length()%AddressLength == 0), "balck address arg illegal");
+        std::string delString = "delBlackAddress";
+        for (int index = 0; index < strBlackAddress.length(); index = index+AddressLength) {
+            std::string strAddr = strBlackAddress.substr(index, index+AddressLength);
+            tc::Address addr    = tc::Address(strAddr.c_str());
+            if (!IsSenderNotBlackAddr(tc::App::getInstance()->sender(), addr)) {
+                return "";
+            }
+        }
+        return delString+strBlackAddress;
     }
 };
 
-TC_ABI(Blacklist, (AddBlackAddress)(DelBlackAddress))
+TC_ABI(Blacklist, (CheckAddBlackAddress)(CheckDelBlackAddress))

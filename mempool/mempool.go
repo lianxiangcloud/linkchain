@@ -411,7 +411,7 @@ func (mem *Mempool) AddTx(peerID string, tx types.Tx) (err error) {
 			for _, out := range txUtxo.Outputs {
 				switch aOutput := out.(type) {
 				case *types.AccountOutput:
-					if types.BlacklistInstance().IsBlackAddress(common.EmptyAddress, aOutput.To) {
+					if types.BlacklistInstance().IsBlackAddress(common.EmptyAddress, aOutput.To, txUtxo.TokenID) {
 						mem.cache.Delete(tx.Hash())
 						return types.ErrBlacklistAddress
 					}
@@ -423,7 +423,7 @@ func (mem *Mempool) AddTx(peerID string, tx types.Tx) (err error) {
 			if err != nil {
 				fromAddr = common.EmptyAddress
 			}
-			if types.BlacklistInstance().IsBlackAddress(fromAddr, common.EmptyAddress) {
+			if types.BlacklistInstance().IsBlackAddress(fromAddr, common.EmptyAddress, txUtxo.TokenID) {
 				mem.cache.Delete(tx.Hash())
 				return types.ErrBlacklistAddress
 			}
@@ -441,7 +441,7 @@ func (mem *Mempool) AddTx(peerID string, tx types.Tx) (err error) {
 		} else {
 			toAddr = common.EmptyAddress
 		}
-		if types.BlacklistInstance().IsBlackAddress(fromAddr, toAddr) {
+		if types.BlacklistInstance().IsBlackAddress(fromAddr, toAddr, tx.(types.RegularTx).TokenAddress()) {
 			mem.cache.Delete(tx.Hash())
 			return types.ErrBlacklistAddress
 		}
@@ -458,7 +458,7 @@ func (mem *Mempool) AddTx(peerID string, tx types.Tx) (err error) {
 		} else {
 			toAddr = common.EmptyAddress
 		}
-		if types.BlacklistInstance().IsBlackAddress(fromAddr, toAddr) {
+		if types.BlacklistInstance().IsBlackAddress(fromAddr, toAddr, tx.(types.RegularTx).TokenAddress()) {
 			mem.cache.Delete(tx.Hash())
 			return types.ErrBlacklistAddress
 		}

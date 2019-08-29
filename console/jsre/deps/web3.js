@@ -5676,6 +5676,10 @@ var properties = function () {
             name: 'prometheusMetrics',
             getter: 'eth_prometheusMetrics'
         }),
+        new Property({
+            name: 'blacklist',
+            getter: 'eth_blacklist'
+        }),
     ];
 };
 

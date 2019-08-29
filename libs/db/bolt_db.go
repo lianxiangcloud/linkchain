@@ -598,6 +598,6 @@ func (itr *boltIterator) Close() {
 
 func (itr *boltIterator) assertIteratorValid() {
 	if !itr.Valid() {
-		panic("goLevelDBIterator is invalid")
+		panic("boltDBIterator is invalid")
 	}
 }

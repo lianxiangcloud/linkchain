@@ -69,6 +69,11 @@ func (s *PublicBlockChainAPI) BlockNumber() *big.Int {
 	return big.NewInt(int64(header.Height))
 }
 
+// Get current black list
+func (s *PublicBlockChainAPI) Blacklist() []common.Address {
+	return types.BlacklistInstance().GetBlackAddrs()
+}
+
 // GetBalance returns the amount of wei for the given address in the state of the
 // given block number. The rpc.LatestBlockNumber and rpc.PendingBlockNumber meta
 // block numbers are also allowed.

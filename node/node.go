@@ -232,6 +232,9 @@ func NewNode(config *cfg.Config,
 	evidenceReactor := evidence.NewEvidenceReactor(evidencePool)
 	evidenceReactor.SetLogger(evidenceLogger)
 
+	// blacklist use evidence db
+	types.BlacklistInstance().Init(evidenceDB)
+
 	// Create Utxo DB
 	utxoDB, err := dbProvider(&DBContext{"utxo", config})
 	if err != nil {
