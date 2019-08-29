@@ -10,12 +10,14 @@ replace (
 )
 
 require (
+	bou.ke/monkey v1.0.1
 	github.com/BurntSushi/toml v0.3.1
 	github.com/NebulousLabs/fastrand v1.2.3 // indirect
 	github.com/NebulousLabs/go-upnp v1.2.3
 	github.com/VividCortex/gohistogram v1.0.0 // indirect
 	github.com/aristanetworks/goarista v0.0.0-20190704150520-f44d68189fd7
 	github.com/boltdb/bolt v1.3.1
+	github.com/bouk/monkey v1.0.1
 	github.com/btcsuite/btcd v0.0.0-20190629003639-c26ffa870fd8
 	github.com/btcsuite/btcutil v0.0.0-20190425235716-9e5f4b9a998d
 	github.com/cespare/cp v1.1.1
@@ -37,10 +39,12 @@ require (
 	github.com/pborman/uuid v1.2.0
 	github.com/peterh/liner v1.1.0
 	github.com/pkg/errors v0.8.1
+	github.com/prashantv/gostub v1.0.0
 	github.com/prometheus/client_golang v1.0.0
 	github.com/rjeczalik/notify v0.9.2
 	github.com/robertkrimen/otto v0.0.0-20180617131154-15f95af6e78d
 	github.com/rs/cors v1.6.0
+	github.com/smartystreets/goconvey v0.0.0-20190731233626-505e41936337
 	github.com/spaolacci/murmur3 v1.1.0
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/viper v1.4.0
@@ -54,6 +58,7 @@ require (
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
 	gopkg.in/fatih/set.v0 v0.1.0
+	gopkg.in/h2non/gock.v1 v1.0.15
 	gopkg.in/karalabe/cookiejar.v2 v2.0.0-20150724131613-8dcd6a7f4951
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce
 	gopkg.in/sourcemap.v1 v1.0.0-00010101000000-000000000000 // indirect

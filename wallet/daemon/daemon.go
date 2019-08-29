@@ -15,19 +15,19 @@ import (
 	"github.com/lianxiangcloud/linkchain/wallet/config"
 )
 
-type HttpMethod string
+// type HttpMethod string
 
-const (
-	GET  HttpMethod = "GET"
-	POST HttpMethod = "POST"
-)
+// const (
+// 	GET  HttpMethod = "GET"
+// 	POST HttpMethod = "POST"
+// )
 
 type DaemonClient struct {
-	Addr  string
-	Login string
+	Addr string
+	// Login string
 
-	Trusted bool
-	Testnet bool
+	// Trusted bool
+	// Testnet bool
 
 	HttpClient *http.Client
 }
@@ -41,10 +41,10 @@ const (
 
 func InitDaemonClient(daemonConfig *config.DaemonConfig) {
 	gDaemonClient = &DaemonClient{
-		Addr:    daemonConfig.PeerRPC,
-		Login:   daemonConfig.Login,
-		Trusted: daemonConfig.Trusted,
-		Testnet: daemonConfig.Testnet,
+		Addr: daemonConfig.PeerRPC,
+		// Login:   daemonConfig.Login,
+		// Trusted: daemonConfig.Trusted,
+		// Testnet: daemonConfig.Testnet,
 	}
 
 	transport := &http.Transport{
@@ -85,7 +85,6 @@ func CallJSONRPC(method string, params interface{}) ([]byte, error) {
 		return nil, err
 	}
 	log.Debug("CallJSONRPC", "url", url, "data", string(data))
-	// fmt.Println("CallJSONRPC", "method", method, "data", data)
 	req, err := http.NewRequest("POST", url, bytes.NewReader(data))
 	if err != nil {
 		return nil, fmt.Errorf("NewRequest: err=%v", err)
@@ -94,17 +93,19 @@ func CallJSONRPC(method string, params interface{}) ([]byte, error) {
 	req = req.WithContext(context.Background())
 	resp, err := client.Do(req)
 	if err != nil {
+		// log.Error("CallJSONRPC client.Do", "err", err)
 		return nil, fmt.Errorf("client.Do: %v", err)
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("StatusCode %d", resp.StatusCode)
+	}
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("read response body: %v", err)
 	}
-	// log.Trace("HTTPPost", "url", url, "req", string(data), "resp", string(body))
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("StatusCode %d, Resp %s", resp.StatusCode, string(body))
-	}
+
 	return body, nil
 }

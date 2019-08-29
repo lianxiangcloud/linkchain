@@ -174,11 +174,11 @@ func (mr *MockWalletMockRecorder) GetBlockTransactionCountByNumber(arg0 interfac
 }
 
 // GetHeight mocks base method
-func (m *MockWallet) GetHeight() (uint64, uint64) {
+func (m *MockWallet) GetHeight() (*big.Int, *big.Int) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetHeight")
-	ret0, _ := ret[0].(uint64)
-	ret1, _ := ret[1].(uint64)
+	ret0, _ := ret[0].(*big.Int)
+	ret1, _ := ret[1].(*big.Int)
 	return ret0, ret1
 }
 

@@ -1,57 +1,169 @@
+//go test -gcflags=-l -v
+
 package daemon
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
+	"net/http"
+	"reflect"
+	"strings"
 	"testing"
 
+	. "github.com/bouk/monkey"
+	"github.com/lianxiangcloud/linkchain/libs/log"
 	cfg "github.com/lianxiangcloud/linkchain/wallet/config"
+	. "github.com/smartystreets/goconvey/convey"
+	"gopkg.in/h2non/gock.v1"
 )
 
-func init() {
+func TestCallJSONRPC(t *testing.T) {
+	defer gock.Off()
 	config := cfg.DefaultConfig()
-	config.Daemon.DaemonHost = "127.0.0.1"
-	config.Daemon.DaemonPort = 18081
+	config.Daemon.PeerRPC = "http://127.0.0.1:15000"
 
 	InitDaemonClient(config.Daemon)
-}
+	log.ParseLogLevel("*:error", log.Root(), "info")
 
-type gethashes struct {
-	BlockIDs    []string `json:"block_ids"`
-	StartHeight uint64   `json:"start_height"`
-}
-type getblocks struct {
-	BlockIDs    []string `json:"block_ids"`
-	StartHeight uint64   `json:"start_height"`
-	Prune       bool     `json:"prune"`
-	NoMinerTx   bool     `json:"no_miner_tx"`
-}
+	host := "http://127.0.0.1:15000"
+	matchType := "application/json"
+	bodyOK := `{"jsonrpc":"2.0","id":"0","method":"eth_blockNumber","params":[]}`
+	replyOK := 200
+	replyServerErr := 500
+	replyNotFound := 404
+	bodyReturnOK := `{"jsonrpc":"2.0","id":"0","result":"0xc0b"}`
 
-func getTestData() (t map[string]interface{}) {
-	t = make(map[string]interface{})
-	t["get_height"] = nil
-	p := make([]interface{}, 2)
-	p[0] = "1"
-	p[1] = true
-	t["get_block_by_height"] = p
-	// t["get_info"] = nil
-	// t["gethashes"] = gethashes{BlockIDs: []string{"f28646b8ffd004fe405db1f304f3174c8bda9f1b8cbd1f87edd0c3ee1fc59cdb"}, StartHeight: uint64(0)}
-	// t["getblocks"] = getblocks{
-	// 	BlockIDs:    []string{"f28646b8ffd004fe405db1f304f3174c8bda9f1b8cbd1f87edd0c3ee1fc59cdb"},
-	// 	StartHeight: uint64(0),
-	// 	Prune:       false,
-	// 	NoMinerTx:   false,
-	// }
+	Convey("test daemon.CallJSONRPC", t, func() {
+		Convey("http status 200", func() {
+			gock.New(host).
+				// Post("").
+				MatchType(matchType).
+				BodyString(bodyOK).
+				Reply(replyOK).
+				BodyString(bodyReturnOK)
 
-	return
-}
+			gock.InterceptClient(gDaemonClient.HttpClient)
 
-func TestCallJSONRPC(t *testing.T) {
-	testdata := getTestData()
-	for method, param := range testdata {
-		body, err := CallJSONRPC(method, param)
-		if err != nil {
-			t.Fatal("method:", method, ",param:", param, ",err:", err)
-		}
-		fmt.Printf("method:%s,param:%v,res body:%s\n", method, param, string(body))
-	}
+			p := make([]interface{}, 0)
+			body, err := CallJSONRPC("eth_blockNumber", p)
+			//several So assert
+			So(strings.Compare(string(body), bodyReturnOK) == 0 && err == nil, ShouldBeTrue)
+		})
+
+		Convey("http status 500", func() {
+			gock.New(host).
+				// Post("").
+				MatchType(matchType).
+				BodyString(bodyOK).
+				Reply(replyServerErr).
+				BodyString(bodyReturnOK)
+
+			gock.InterceptClient(gDaemonClient.HttpClient)
+
+			p := make([]interface{}, 0)
+			_, err := CallJSONRPC("eth_blockNumber", p)
+			So(err != nil, ShouldBeTrue)
+		})
+		Convey("http status 404", func() {
+			gock.New(host).
+				// Post("").
+				MatchType(matchType).
+				BodyString(bodyOK).
+				Reply(replyNotFound).
+				BodyString(bodyReturnOK)
+
+			gock.InterceptClient(gDaemonClient.HttpClient)
+
+			p := make([]interface{}, 0)
+			_, err := CallJSONRPC("eth_blockNumber", p)
+			So(err != nil, ShouldBeTrue)
+		})
+		Convey("client.Do err", func() {
+			gock.New(host).
+				// Post("").
+				MatchType(matchType).
+				BodyString(bodyOK).
+				Reply(replyOK).
+				BodyString(bodyReturnOK)
+
+			client := gDaemonClient.HttpClient
+
+			guard := PatchInstanceMethod(reflect.TypeOf(client), "Do", func(*http.Client, *http.Request) (*http.Response, error) {
+				return nil, fmt.Errorf("client do err")
+			})
+			defer guard.Unpatch()
+
+			gock.InterceptClient(client)
+
+			p := make([]interface{}, 0)
+			_, err := CallJSONRPC("eth_blockNumber", p)
+			So(err != nil, ShouldBeTrue)
+		})
+		Convey("ioutil.ReadAll err", func() {
+			gock.New(host).
+				// Post("").
+				MatchType(matchType).
+				BodyString(bodyOK).
+				Reply(replyOK).
+				BodyString(bodyReturnOK)
+
+			client := gDaemonClient.HttpClient
+
+			guard := Patch(ioutil.ReadAll, func(r io.Reader) ([]byte, error) {
+				return nil, fmt.Errorf("ioutil.ReadAll err")
+			})
+			defer guard.Unpatch()
+
+			gock.InterceptClient(client)
+
+			p := make([]interface{}, 0)
+			_, err := CallJSONRPC("eth_blockNumber", p)
+			So(err != nil, ShouldBeTrue)
+		})
+		Convey("http.NewRequest err", func() {
+			gock.New(host).
+				// Post("").
+				MatchType(matchType).
+				BodyString(bodyOK).
+				Reply(replyOK).
+				BodyString(bodyReturnOK)
+
+			client := gDaemonClient.HttpClient
+
+			guard := Patch(http.NewRequest, func(method, url string, body io.Reader) (*http.Request, error) {
+				return nil, fmt.Errorf("http.NewRequest err")
+			})
+			defer guard.Unpatch()
+
+			gock.InterceptClient(client)
+
+			p := make([]interface{}, 0)
+			_, err := CallJSONRPC("eth_blockNumber", p)
+			So(err != nil, ShouldBeTrue)
+		})
+
+		Convey("json.Marshal err", func() {
+			gock.New(host).
+				// Post("").
+				MatchType(matchType).
+				BodyString(bodyOK).
+				Reply(replyOK).
+				BodyString(bodyReturnOK)
+
+			client := gDaemonClient.HttpClient
+
+			guard := Patch(json.Marshal, func(v interface{}) ([]byte, error) {
+				return nil, fmt.Errorf("json.Marshal err")
+			})
+			defer guard.Unpatch()
+
+			gock.InterceptClient(client)
+
+			p := make([]interface{}, 0)
+			_, err := CallJSONRPC("eth_blockNumber", p)
+			So(err != nil, ShouldBeTrue)
+		})
+	})
 }
