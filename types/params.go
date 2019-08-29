@@ -206,7 +206,7 @@ func DefaultCoefficient() *Coefficient {
 		DefaultVoteRate(),
 		DefaultCalRate(),
 		500,
-		big.NewInt(500000), //0.05
+		big.NewInt(500000000), //0.05
 	}
 }
 

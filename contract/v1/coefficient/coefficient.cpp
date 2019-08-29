@@ -84,7 +84,7 @@ public:
         co.calRate.Drate =4;
         co.calRate.Rrate =2;
         co.MaxScore =500;
-        co.UTXOFee = tc::BInt("500000");
+        co.UTXOFee = tc::BInt("500000000");
 
         std::string cojson = tc::json::Marshal(co);
 
