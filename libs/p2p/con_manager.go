@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	dialOutInterval = (10 * time.Second)
+	dialOutInterval = (20 * time.Second)
 )
 
 //ConManager is the con manager of P2P
@@ -99,7 +99,7 @@ func (conma *ConManager) dialRandNodesFromCache(needDynDials int) int {
 	n := conma.sw.ntab.ReadRandomNodes(conma.randomNodesFromCache)
 	isDialingMap := make(map[string]bool)
 	var nodeid string
-	for i := 0; i < n && needDynDials > 0; i++ {
+	for i := 0; i < n && i < len(conma.randomNodesFromCache) && needDynDials > 0; i++ {
 		nodeid = conma.randomNodesFromCache[i].ID.String()
 		conma.logger.Debug("dialRandNodesFromCache", "i", i, "nodeid", nodeid, "IP",
 			conma.randomNodesFromCache[i].IP.String(), "tcpPort", conma.randomNodesFromCache[i].TCP_Port)

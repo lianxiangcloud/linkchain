@@ -6,6 +6,7 @@ import (
 
 	upnpc "github.com/NebulousLabs/go-upnp"
 	"github.com/lianxiangcloud/linkchain/libs/log"
+	"github.com/lianxiangcloud/linkchain/libs/p2p/netutil"
 )
 
 type ExtAddr struct {
@@ -46,7 +47,7 @@ func (b *Proxy) loop() {
 
 	for _, address := range addrs {
 		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
-			if !IsLAN(ipnet.IP) {
+			if !netutil.IsLAN(ipnet.IP) {
 				b.logger.Info("loop", "public address", ipnet.IP)
 				return
 			}
@@ -64,7 +65,7 @@ func (b *Proxy) loop() {
 		b.logger.Info("get external IP failed", "err", err)
 		return
 	} else {
-		if IsLAN(net.ParseIP(extIP)) {
+		if netutil.IsLAN(net.ParseIP(extIP)) {
 			b.logger.Info("loop", "external IP is a local IP", extIP)
 			return
 		}
@@ -79,7 +80,7 @@ func (b *Proxy) forward(port uint16) {
 	if err == nil {
 		extIP, err := b.igd.ExternalIP()
 		if err == nil {
-			if len(extIP) == 0 || IsLAN(net.ParseIP(extIP)) {
+			if len(extIP) == 0 || netutil.IsLAN(net.ParseIP(extIP)) {
 				b.logger.Info("external IP is a local IP or is nil", "extIP", extIP)
 				return
 			} else {

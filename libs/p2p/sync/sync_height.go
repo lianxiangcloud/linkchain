@@ -70,7 +70,6 @@ func (sm *SyncHeightManager) heightProbe() {
 		case <-sm.stopChan:
 			return
 		case <-timer.C:
-			sm.logger.Trace("SyncHeightManager timeout", "sameHeightCount", sameHeightCount)
 			if sameHeightCount >= maxSameHeightCount {
 				if bootcli.GetLocalNodeType() != types.NodePeer {
 					sm.logger.Report("SyncHeightManager", "logID", types.LogIdSyncBlockFail, "type", bootcli.GetLocalNodeType(), "height", sm.app.Height())

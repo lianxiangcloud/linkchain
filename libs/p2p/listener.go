@@ -10,6 +10,7 @@ import (
 
 	cmn "github.com/lianxiangcloud/linkchain/libs/common"
 	"github.com/lianxiangcloud/linkchain/libs/log"
+	"github.com/lianxiangcloud/linkchain/libs/p2p/netutil"
 	"github.com/lianxiangcloud/linkchain/libs/p2p/upnp"
 	"github.com/lianxiangcloud/linkchain/types"
 )
@@ -68,7 +69,7 @@ func SplitHostPort(addr string) (host string, port int) {
 // DefaultBindListener creates a new DefaultListener on lAddr, optionally trying
 // to determine external address using UPnP.
 
-func DefaultBindListener(nodeType types.NodeType, fullListenAddrString string, externalAddrString string, logger log.Logger) (tcpListener net.Listener, extAddr *NetAddress, udpConn *net.UDPConn) {
+func DefaultBindListener(nodeType types.NodeType, fullListenAddrString string, externalAddrString string, logger log.Logger) (tcpListener net.Listener, extAddr *NetAddress, udpConn *net.UDPConn, isUpnpSuccess bool) {
 	var listenTcpAddr string
 	var isDHTNet = false
 	if nodeType == types.NodePeer {
@@ -87,7 +88,7 @@ func DefaultBindListener(nodeType types.NodeType, fullListenAddrString string, e
 	// Create listener
 	tcpListener = listenFreePort(lAddrPort, lAddrIP, protocol, logger)
 	if tcpListener == nil { //bind port from lAddrPort to
-		return nil, nil, nil
+		return nil, nil, nil, false
 	}
 	if externalAddrString != "" {
 		var err error
@@ -103,7 +104,10 @@ func DefaultBindListener(nodeType types.NodeType, fullListenAddrString string, e
 			var tmpExtAddr *NetAddress
 			tcpListener, tmpExtAddr = StartUpnpLoop(tcpListener, logger)
 			if tcpListener == nil {
-				return nil, nil, nil
+				return nil, nil, nil, false
+			}
+			if tmpExtAddr != nil {
+				isUpnpSuccess = true
 			}
 			extAddr = tmpExtAddr
 		}
@@ -141,15 +145,15 @@ func NewDefaultListener(
 	nodeType types.NodeType,
 	fullListenAddrString string,
 	externalAddrString string,
-	logger log.Logger) (Listener, *net.UDPConn) {
+	logger log.Logger) (Listener, *net.UDPConn, bool) {
 
 	if logger == nil {
 		logger = log.NewNopLogger()
 	}
 	logger.Info("NewDefaultListener", "nodeType", nodeType, "fullListenAddrString", fullListenAddrString, "externalAddrString", externalAddrString)
-	tcpListener, extAddr, udpConn := ListenerBindFunc(nodeType, fullListenAddrString, externalAddrString, logger)
+	tcpListener, extAddr, udpConn, upnpFlag := ListenerBindFunc(nodeType, fullListenAddrString, externalAddrString, logger)
 	if tcpListener == nil {
-		return nil, nil
+		return nil, nil, false
 	}
 
 	dl := &DefaultListener{
@@ -162,7 +166,7 @@ func NewDefaultListener(
 	if err != nil {
 		logger.Error("Error starting base service", "err", err)
 	}
-	return dl, udpConn
+	return dl, udpConn, upnpFlag
 }
 
 func listenFreePort(internalPort int, addr string, protocol string, logger log.Logger) net.Listener {
@@ -192,7 +196,7 @@ func StartUpnpLoop(oldTcpListener net.Listener, log log.Logger) (net.Listener, *
 	for _, address := range addrs {
 		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
 			if ipnet.IP.To4() != nil {
-				if !upnp.IsLAN(ipnet.IP) {
+				if !netutil.IsLAN(ipnet.IP) {
 					log.Info("all ready in public network,do not need upnp", "addr", oldTcpListener.Addr().String())
 					listenerIP, listenerPort := SplitHostPort(oldTcpListener.Addr().String())
 					inAddrAny := listenerIP == "" || listenerIP == "0.0.0.0"

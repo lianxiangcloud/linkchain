@@ -45,7 +45,7 @@ const (
 
 const (
 	blackListTimeout = (600 * time.Second)
-	defaultDialRatio = 3
+	defaultDialRatio = 2
 )
 
 var (
@@ -83,6 +83,7 @@ type Switch struct {
 	db             dbm.DB
 	dm             common.P2pDBManager
 	udpCon         *net.UDPConn
+	upnpFlag       bool
 	inboundHistory expHeap //record inbound ip in inboundThrottleTime
 	inboundLock    sync.Mutex
 	inboundMap     map[string]int //record connection num for single ip,only record public ip  key:ip
@@ -130,7 +131,7 @@ func NewP2pManager(logger log.Logger, bootnodeAddr string, myPrivKey crypto.Priv
 	sw.BaseService = *cmn.NewBaseService(nil, "P2P Switch", sw)
 	sw.nodeKey = myPrivKey
 	var listener Listener
-	listener, sw.udpCon = NewDefaultListener(localNodeInfo.Type, cfg.ListenAddress, cfg.ExternalAddress, logger)
+	listener, sw.udpCon, sw.upnpFlag = NewDefaultListener(localNodeInfo.Type, cfg.ListenAddress, cfg.ExternalAddress, logger)
 	if listener != nil {
 		sw.AddListener(listener)
 		p2pHost := listener.ExternalAddressHost()
@@ -232,7 +233,7 @@ func (sw *Switch) DefaultNewTable(seeds []*common.Node, needDht bool, needReNewU
 		listeners := sw.Listeners()
 		if len(listeners) > 0 {
 			listener := listeners[0]
-			selfnode := &common.Node{ //接收端收到本端的ping包后，会将selfnode信息保存到kbucket
+			selfnode := &common.Node{
 				IP:       listener.ExternalAddress().IP,
 				UDP_Port: listener.ExternalAddress().Port,
 				TCP_Port: listener.ExternalAddress().Port,
@@ -254,12 +255,16 @@ func (sw *Switch) DefaultNewTable(seeds []*common.Node, needDht bool, needReNewU
 				Self:      selfnode,
 				ListenCon: sw.UdpCon(),
 			}
-
-			if conf.MaxNumPeers/defaultDialRatio >= 1 {
-				maxDhtDialOutNums = conf.MaxNumPeers / defaultDialRatio
-			} else {
+			if bootcli.GetLocalNodeType() == types.NodePeer && sw.upnpFlag == false {
 				maxDhtDialOutNums = conf.MaxNumPeers
+			} else {
+				if conf.MaxNumPeers/defaultDialRatio >= 1 {
+					maxDhtDialOutNums = conf.MaxNumPeers / defaultDialRatio
+				} else {
+					maxDhtDialOutNums = conf.MaxNumPeers
+				}
 			}
+			sw.Logger.Info("DefaultNewTable", "maxDhtDialOutNums", maxDhtDialOutNums, "conf.MaxNumPeers", conf.MaxNumPeers)
 			sw.ntab, err = disc.NewDhtTable(maxDhtDialOutNums, sw.BootNodeAddr(), selfInfo, sw.DBManager(), cfg, dhtLogger)
 		}
 	} else {
@@ -703,11 +708,17 @@ func (sw *Switch) listenerRoutine(l Listener) {
 
 		// ignore connection if we already have enough
 		// leave room for MinNumOutboundPeers
-		var OutboundPeers int
-		if sw.ntab != nil {
-			OutboundPeers = sw.ntab.GetMaxDialOutNum()
+		var maxInPeers int
+		if netutil.IsLAN(remoteIP) {
+			sw.Logger.Debug("it is local network", "remoteIP", remoteIP.String())
+			maxInPeers = sw.config.MaxNumPeers / 2
+		} else {
+			var OutboundPeers int
+			if sw.ntab != nil {
+				OutboundPeers = sw.ntab.GetMaxDialOutNum()
+			}
+			maxInPeers = sw.config.MaxNumPeers - OutboundPeers
 		}
-		maxInPeers := sw.config.MaxNumPeers - OutboundPeers
 		if maxInPeers <= sw.peers.Size() {
 			sw.Logger.Info("Ignoring inbound connection: already have enough peers", "address", inConn.RemoteAddr().String(), "numPeers", sw.peers.Size(), "max", maxInPeers)
 			inConn.Close()

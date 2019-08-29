@@ -37,7 +37,7 @@ func AddNodeFlags(cmd *cobra.Command) {
 
 	// p2p flags
 	cmd.Flags().String("p2p.laddr", config.P2P.ListenAddress, "Node listen address. (0.0.0.0:0 means any interface, any port)")
-
+	cmd.Flags().Int("p2p.max_num_peers", config.P2P.MaxNumPeers, "max p2p connection num")
 	// consensus flags
 	cmd.Flags().Bool("consensus.create_empty_blocks", config.Consensus.CreateEmptyBlocks, "Set this to false to only produce blocks when there are txs or when the AppHash changes")
 	cmd.Flags().Int("consensus.create_empty_blocks_interval", config.Consensus.CreateEmptyBlocksInterval, "the interval time between two empty block")

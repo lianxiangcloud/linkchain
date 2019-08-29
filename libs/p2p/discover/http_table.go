@@ -113,7 +113,7 @@ func (tab *HTTPTable) LookupRandom() []*common.Node {
 //ReadRandomNodes get rand seeds from local cache
 func (tab *HTTPTable) ReadRandomNodes(buf []*common.Node) (nodeNum int) {
 	var i = 0
-	tab.logger.Debug("ReadRandomNodes", "tab.seeds", tab.seeds)
+	tab.logger.Trace("ReadRandomNodes", "tab.seeds", tab.seeds)
 	for ; i < len(buf) && i < len(tab.seeds); i++ {
 		buf[i] = unwrapNode(tab.seeds[i])
 	}

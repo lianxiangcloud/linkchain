@@ -366,13 +366,13 @@ func (tab *DhtTable) setFallbackNodes(nodes []*common.Node) error {
 	myID := common.TransPubKeyToNodeID(tab.priv.PubKey())
 	for _, n := range nodes {
 		if err := n.ValidateComplete(); err != nil {
-			log.Debug("bad bootstrap node", "err", err, "n.ip", n.IP.String(), "n.ID", n.ID, "n.UDP_Port", n.UDP_Port)
+			tab.log.Debug("bad bootstrap node", "err", err, "n.ip", n.IP.String(), "n.ID", n.ID, "n.UDP_Port", n.UDP_Port)
 			continue
 		}
 
 		if n.ID == myID { //it is my self,skip
 			//if seedNodes[i].ID == common.NodeID(crypto.Keccak256Hash(tab.priv.PubKey().Bytes()))
-			log.Debug("is is myself", "n.ID", n.ID, "myID", myID)
+			tab.log.Debug("is is myself", "n.ID", n.ID, "myID", myID)
 			continue
 		}
 		splitedNodes = append(splitedNodes, n)
@@ -386,7 +386,7 @@ func (tab *DhtTable) setFallbackNodes(nodes []*common.Node) error {
 	}
 	tab.seedsNum = seedsNum
 	tab.seeds = wrapNodes(splitedNodes)
-	log.Info("DhtTable setFallbackNodes", "seedsNum", seedsNum)
+	tab.log.Info("DhtTable setFallbackNodes", "seedsNum", seedsNum)
 	return nil
 }
 
