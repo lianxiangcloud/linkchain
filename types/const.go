@@ -68,6 +68,7 @@ var (
 func InitSignParam(TestNet bool) {
 	if TestNet {
 		SignParam = big.NewInt(TestNetSignParam)
+		GlobalSTDSigner = MakeSTDSigner(nil)
 	}
 }
 
