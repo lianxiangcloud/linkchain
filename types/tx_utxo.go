@@ -808,6 +808,10 @@ func (tx *UTXOTransaction) checkTxSemantic(censor TxCensor) error {
 	if len(tx.Inputs) <= 0 {
 		return ErrCheckNoInput
 	}
+	if !common.IsLKC(tx.TokenID) {
+		return fmt.Errorf("thirdparty token not support yet!")
+	}
+
 	utxoInNum := 0
 	utxoOutNum := 0
 	accountInNum := 0
@@ -1277,10 +1281,15 @@ func (tx *UTXOTransaction) checkState(censor TxCensor) error {
 			if state.GetTokenBalance(fromAddr, tx.TokenID).Cmp(input.Amount) < 0 {
 				return ErrInsufficientFunds
 			}
+			if !common.IsLKC(tx.TokenID) { //other token Fee
+				if state.GetBalance(fromAddr).Cmp(tx.Fee) < 0 {
+					return ErrInsufficientFunds
+				}
+			}
 			aggInputAmount.Add(aggInputAmount, input.Amount)
 			state.SubTokenBalance(fromAddr, tx.TokenID, input.Amount)
 			if !common.IsLKC(tx.TokenID) {
-				state.SubBalance(fromAddr, tx.Fee)
+				state.SubBalance(fromAddr, tx.Fee) //subBalance here, support only one accountinput
 			}
 
 			state.SetNonce(fromAddr, input.Nonce+1)
