@@ -419,10 +419,7 @@ func (mem *Mempool) AddTx(peerID string, tx types.Tx) (err error) {
 			}
 		}
 		if (txUtxo.UTXOKind() & types.Ain) == types.Ain {
-			fromAddr, err := txUtxo.From()
-			if err != nil {
-				fromAddr = common.EmptyAddress
-			}
+			fromAddr, _ := txUtxo.From()
 			if types.BlacklistInstance().IsBlackAddress(fromAddr, common.EmptyAddress, txUtxo.TokenID) {
 				mem.cache.Delete(tx.Hash())
 				return types.ErrBlacklistAddress
@@ -432,10 +429,7 @@ func (mem *Mempool) AddTx(peerID string, tx types.Tx) (err error) {
 	case *types.Transaction, *types.TokenTransaction, *types.ContractCreateTx, *types.ContractUpgradeTx:
 		// blacklist check
 		var fromAddr, toAddr common.Address
-		fromAddr, err := tx.From()
-		if err != nil {
-			fromAddr = common.EmptyAddress
-		}
+		fromAddr, _ = tx.From()
 		if tx.To() != nil {
 			toAddr = *tx.To()
 		} else {
@@ -449,14 +443,9 @@ func (mem *Mempool) AddTx(peerID string, tx types.Tx) (err error) {
 	case *types.MultiSignAccountTx:
 		// blacklist check
 		var fromAddr, toAddr common.Address
-		fromAddr, err := tx.From()
-		if err != nil {
-			fromAddr = common.EmptyAddress
-		}
+		fromAddr, _ = tx.From()
 		if tx.To() != nil {
 			toAddr = *tx.To()
-		} else {
-			toAddr = common.EmptyAddress
 		}
 		if types.BlacklistInstance().IsBlackAddress(fromAddr, toAddr, tx.(types.RegularTx).TokenAddress()) {
 			mem.cache.Delete(tx.Hash())
