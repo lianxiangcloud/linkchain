@@ -425,7 +425,7 @@ func (app *LinkApplication) verifyTxsOnProcess(block *types.Block) error {
 							return
 						}
 					}
-				case *types.ContractCreateTx, *types.ContractUpgradeTx, *types.MultiSignAccountTx:
+				case *types.ContractCreateTx, *types.ContractUpgradeTx:
 					err := checkBlacklistAddress(tx)
 					if err != nil {
 						errRets[coIndex] = &err

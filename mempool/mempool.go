@@ -441,16 +441,6 @@ func (mem *Mempool) AddTx(peerID string, tx types.Tx) (err error) {
 		}
 		err = mem.addLocalTx(tx)
 	case *types.MultiSignAccountTx:
-		// blacklist check
-		var fromAddr, toAddr common.Address
-		fromAddr, _ = tx.From()
-		if tx.To() != nil {
-			toAddr = *tx.To()
-		}
-		if types.BlacklistInstance().IsBlackAddress(fromAddr, toAddr, tx.(types.RegularTx).TokenAddress()) {
-			mem.cache.Delete(tx.Hash())
-			return types.ErrBlacklistAddress
-		}
 		err = mem.addLocalSpecTx(tx)
 	default:
 		mem.logger.Error("AddTx fail,Invaild tx type")
