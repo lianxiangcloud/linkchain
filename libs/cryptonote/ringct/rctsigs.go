@@ -5,30 +5,8 @@ import (
 	"github.com/lianxiangcloud/linkchain/libs/cryptonote/xcrypto"
 )
 
-//func GenRct(message Key, inSk CtkeyV, destinations KeyV,
-//	amounts []Lk_amount, mixRing CtkeyM, amountKeys KeyV, kLRki *MultisigKLRki, msout MultisigOut,
-//	index uint32, outSk CtkeyV, rctConfig *RctConfig) *RctSig {
-//
-//	return nil
-//}
-//func GenRctSimple(message Key, inSk CtkeyV, destinations KeyV,
-//	inAmounts []Lk_amount, outAmounts []Lk_amount, fee Lk_amount, mixRing CtkeyM, amountKeys KeyV, kLRki *MultisigKLRki, msout *MultisigOut,
-//	index []uint32, rctConfig *RctConfig) (*RctSig, *CtkeyV) {
-//	return nil, nil
-//}
-func VerRct(rs *RctSig) bool {
-	return xcrypto.VerRct(rs)
-}
-func VerRctSimple(rs *RctSig) bool {
-	return xcrypto.VerRctSimple(rs)
-}
-
 func VerRctNonSemanticsSimple(rs *RctSig) bool {
-	// return xcrypto.VerRctNonSemanticsSimple(rs)
 	return xcrypto.TlvVerRctNotSemanticsSimple(rs)
-}
-func VerRctSemanticsSimple(rs *RctSig) bool {
-	return xcrypto.VerRctSemanticsSimple(rs)
 }
 
 func VerRctSimpleTlv(rs *RctSig) bool {

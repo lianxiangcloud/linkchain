@@ -29,10 +29,7 @@ func Base58Decode(addr string) []byte {
 	p := C.x_base58_decode(caddr, &length)
 	C.free(unsafe.Pointer(caddr))
 	if unsafe.Pointer(p) != C.NULL {
-		data := make([]byte, length)
-		var cdata []byte
-		toSlice(unsafe.Pointer(p), unsafe.Pointer(&cdata), len(data))
-		copy(data, cdata)
+		data := C.GoBytes(unsafe.Pointer(p), C.int(length))
 		C.free(unsafe.Pointer(p))
 		return data
 	}
@@ -57,10 +54,7 @@ func Base58DecodeAddr(tag *uint64, addr string) []byte {
 	p := C.x_base58_decode_addr((*C.ulonglong)(tag), caddr, &length)
 	C.free(unsafe.Pointer(caddr))
 	if unsafe.Pointer(p) != C.NULL {
-		data := make([]byte, length)
-		var cdata []byte
-		toSlice(unsafe.Pointer(p), unsafe.Pointer(&cdata), len(data))
-		copy(data, cdata)
+		data := C.GoBytes(unsafe.Pointer(p), C.int(length))
 		C.free(unsafe.Pointer(p))
 		return data
 	}

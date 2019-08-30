@@ -8,7 +8,6 @@ import "C"
 
 import (
 	"fmt"
-	"reflect"
 	"unsafe"
 
 	"github.com/lianxiangcloud/linkchain/libs/cryptonote/types"
@@ -68,44 +67,12 @@ func GetSubaddress(keys *types.AccountKey, index uint32) (addr types.AccountAddr
 		panic(err)
 	}
 	return addr
-	//cAccountKey := (*C.account_keys_t)(C.malloc(C.sizeof_account_keys_t))
-	//toAccountKeys(keys, cAccountKey)
-	//cAccountAddr := (*C.account_public_address_t)(C.malloc(C.sizeof_account_public_address_t))
-	//toAccountAddress(&addr, cAccountAddr)
-	//
-	//C.x_get_subaddress(cAccountKey, C.uint32_t(index), cAccountAddr)
-	//C.free(unsafe.Pointer(cAccountAddr))
-	//C.free(unsafe.Pointer(cAccountKey))
-	//return addr
-}
-
-// GetSubaddressSpendPublicKeys get sub spend_key by [begin, end) index.
-func GetSubaddressSpendPublicKeys(keys *types.AccountKey, begin, end uint32) ([]types.PublicKey, error) {
-	if begin <= end {
-		return nil, fmt.Errorf("invalid params: begin <= end")
-	}
-
-	spendPubs := make([]types.PublicKey, (end - begin))
-	ptrs := C.malloc(C.sizeof_p_public_key_t * C.ulong(len(spendPubs)))
-	var ps []C.p_public_key_t
-	toSlice(ptrs, unsafe.Pointer(&ps), len(spendPubs))
-	for i := 0; i < len(spendPubs); i++ {
-		ps[i] = C.p_public_key_t(unsafe.Pointer(&spendPubs[i][0]))
-	}
-
-	cAccountKey := (*C.account_keys_t)(C.malloc(C.sizeof_account_keys_t))
-	toAccountKeys(keys, cAccountKey)
-
-	_, err := C.x_get_subaddress_spend_public_keys(cAccountKey, C.uint32_t(begin), C.uint32_t(end), (*C.p_public_key_t)(ptrs))
-	C.free(unsafe.Pointer(ptrs))
-	C.free(unsafe.Pointer(cAccountKey))
-
-	return spendPubs, err
 }
 
 // GenerateKeyDerivation generate KeyDerivation
 func GenerateKeyDerivation(pub types.PublicKey, sec types.SecretKey) (der types.KeyDerivation, err error) {
-	ret := C.x_generate_key_derivation(C.p_public_key_t(unsafe.Pointer(&pub[0])), C.p_secret_key_t(unsafe.Pointer(&sec[0])), C.p_ec_point_t(unsafe.Pointer(&der[0])))
+	ret := C.x_generate_key_derivation(C.p_public_key_t(unsafe.Pointer(&pub[0])),
+		C.p_secret_key_t(unsafe.Pointer(&sec[0])), C.p_ec_point_t(unsafe.Pointer(&der[0])))
 	if ret < 0 {
 		return der, fmt.Errorf("CGO x_generate_key_derivation fail")
 	}
@@ -168,30 +135,4 @@ func DerivationToScalar(derivation types.KeyDerivation, outIndex int) (res types
 		return res, fmt.Errorf("CGO x_derivation_to_scalar fail")
 	}
 	return res, nil
-}
-
-// -----------------------------------------------------------------
-
-func toAccountAddress(from *types.AccountAddress, to *C.account_public_address_t) {
-	to.spend = C.p_public_key_t(unsafe.Pointer(&from.SpendPublicKey[0]))
-	to.view = C.p_public_key_t(unsafe.Pointer(&from.ViewPublicKey[0]))
-}
-
-func fromAccountAddress(from *C.account_public_address_t, to *types.AccountAddress) {
-	var data []byte
-	sh := (*reflect.SliceHeader)((unsafe.Pointer(&data)))
-	sh.Cap = types.HASH_SIZE
-	sh.Len = types.HASH_SIZE
-
-	sh.Data = uintptr(unsafe.Pointer(from.spend))
-	copy(to.SpendPublicKey[:], data)
-
-	sh.Data = uintptr(unsafe.Pointer(from.view))
-	copy(to.ViewPublicKey[:], data)
-}
-
-func toAccountKeys(from *types.AccountKey, to *C.account_keys_t) {
-	toAccountAddress(&from.Addr, &to.address)
-	to.spend = C.p_secret_key_t(unsafe.Pointer(&from.SpendSKey[0]))
-	to.view = C.p_secret_key_t(unsafe.Pointer(&from.ViewSKey[0]))
 }
