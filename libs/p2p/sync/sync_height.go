@@ -96,7 +96,7 @@ func (sm *SyncHeightManager) heightProbe() {
 						timer.Reset(minCheckInterval)
 						continue
 					}
-					sm.logger.Info("SyncHeightManager heightProbe get the seeds again", "lkchainHeight", lkchainHeight, "myCurrentHeight", myCurrentHeight)
+					sm.logger.Info("SyncHeightManager heightProbe get the seeds again", "lkchainHeight", lkchainHeight, "myCurrentHeight", myCurrentHeight, "getType", getType)
 					for i := 0; i < len(seeds); i++ {
 						sm.logger.Info("GetSeedsFromBootSvr", " seeds i", i, "ip", seeds[i].IP.String(), "UDP_Port", seeds[i].UDP_Port, "TCP_Port", seeds[i].TCP_Port)
 					}
@@ -107,7 +107,7 @@ func (sm *SyncHeightManager) heightProbe() {
 					if getType == types.NodePeer {
 						needDht = true
 					}
-					err = sm.sw.DefaultNewTable(seeds, needDht, true)
+					err = sm.sw.DefaultNewTable(seeds, needDht, true) //udp con have closed by table.Stop,so we should renew udpCon
 					if err != nil {
 						sm.logger.Info("DefaultNewTable", "sw.ntab err", err)
 						return

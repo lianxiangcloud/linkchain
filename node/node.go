@@ -311,7 +311,8 @@ func NewNode(config *cfg.Config,
 	}
 	//
 	syncLogger := logger.With("module", "syncheight")
-	syncManager := sync.NewSyncHeightManager(p2pmanager, appHandle, config.Consensus.EmptyBlocksInterval(), syncLogger)
+	var checkInterval time.Duration = time.Second * 30
+	syncManager := sync.NewSyncHeightManager(p2pmanager, appHandle, checkInterval, syncLogger)
 	//
 	evidenceReactor.SetP2PManager(p2pmanager)
 	// Make MempoolReactor
