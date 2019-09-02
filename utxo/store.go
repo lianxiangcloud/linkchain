@@ -163,6 +163,7 @@ func (u *UtxoStore) SetLogger(logger log.Logger) {
 }
 
 func (u *UtxoStore) SaveUtxo(kImgs []*lctypes.Key, utxoOutputs []*types.UTXOOutputData, blockHeight uint64) error {
+	u.blockHeight = blockHeight
 	err := u.SaveKImages(kImgs)
 	if err != nil {
 		u.logger.Error("SaveKImages failed.", "err", err.Error())
@@ -172,7 +173,6 @@ func (u *UtxoStore) SaveUtxo(kImgs []*lctypes.Key, utxoOutputs []*types.UTXOOutp
 	if err != nil {
 		u.logger.Error("SaveUtxoOutputs failed.", "err", err.Error())
 	}
-	u.blockHeight = blockHeight
 
 	return nil
 }
