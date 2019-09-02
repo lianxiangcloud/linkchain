@@ -401,3 +401,13 @@ func (s *PublicTransactionPoolAPI) SetRefreshBlockInterval(ctx context.Context, 
 	err := s.wallet.SetRefreshBlockInterval(sec)
 	return err == nil, err
 }
+
+// GetLocalUTXOTxsByHeight return
+func (s *PublicTransactionPoolAPI) GetLocalUTXOTxsByHeight(ctx context.Context, height *hexutil.Big) (*wtypes.UTXOBlock, error) {
+	return s.wallet.GetLocalUTXOTxsByHeight((*big.Int)(height))
+}
+
+// GetLocalOutputs return
+func (s *PublicTransactionPoolAPI) GetLocalOutputs(ctx context.Context, startid hexutil.Uint64, size hexutil.Uint64) ([]wtypes.UTXOOutputDetail, error) {
+	return s.wallet.GetLocalOutputs(uint64(startid), uint64(size))
+}

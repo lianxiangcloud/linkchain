@@ -18,6 +18,7 @@ var (
 	ErrUTXONotSupportToken = errors.New("utxo not support token")
 	ErrUTXODestsOverLimit  = fmt.Errorf("utxo dests over limit, should less than %d", UTXO_DESTS_MAX_NUM)
 	ErrNoNeedToProof       = errors.New("account input utxo trans do not need proof")
-	ErrBlockHashNotFound   = errors.New("block hash not found")
+	ErrBlockNotFound       = errors.New("block not found")
 	ErrBlockParentHash     = errors.New("err block parent hash")
+	ErrOutputNotFound      = errors.New("output not found")
 )

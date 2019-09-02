@@ -42,6 +42,8 @@
         - [ltk_estimateGas](#ltk_estimategas)
         - [ltk_signTransaction](#ltk_signtransaction)
         - [ltk_sendRawTransaction](#ltk_sendrawtransaction)
+        - [ltk_getLocalUTXOTxsByHeight](#ltk_getlocalutxotxsbyheight)
+        - [ltk_getLocalOutputs](#ltk_getlocaloutputs)
 
 <!-- /TOC -->
 
@@ -988,5 +990,100 @@ curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"l
    "jsonrpc" : "2.0",
    "result" : "0xc7bca4525694bf64cfe58ac2f4ded6457f6c3701109714e73f78042db2140e51",
    "id" : "0"
+}
+```
+
+### ltk_getLocalUTXOTxsByHeight
+
+功能：通过区块高度查询跟自己相关的解密后的UTXO交易记录  
+参数：  
+height 字符串，十六进制，区块高度  
+返回：  
+
+- txs 交易数组  
+    - token_id token标识符，目前只支持  0x0000000000000000000000000000000000000000 链克  
+    - hash 字符串，交易hash  
+    - fee 字符串，十六进制，交易费用  
+    - inputs 交易输入  
+        - account类型输入  
+            - from 字符串，账户地址  
+            - amount 字符串，十六进制 转账金额，单位wei  
+            - nonce 字符串，十六进制 交易序号  
+        - utxo类型输入  
+            - global_index 字符串，十六进制 UTXO的全局索引  
+    - outputs 交易输出  
+        - account类型输出  
+            - to 字符串 账户地址  
+            - amount 字符串，十六进制 转账金额，单位wei  
+            - data 字符串，合约调用参数  
+        - utxo类型输出  
+            - otaddr 字符串，一次性交易地址  
+            - global_index 字符串，十六进制 UTXO的全局索引  
+- height 字符串，十六进制，区块高度  
+示例：  
+
+```shell
+curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"ltk_getLocalUTXOTxsByHeight","params":["0x2"]}' -H 'Content-Type: application/json'|json_pp
+{
+   "jsonrpc" : "2.0",
+   "id" : "0",
+   "result" : {
+      "txs" : [
+         {
+            "outputs" : [
+               {
+                  "otaddr" : "0xe3996932c7cc995842585988010013cce86e9387e59f03ef224847a234e0c616",
+                  "global_index" : "0x1"
+               }
+            ],
+            "token_id" : "0x0000000000000000000000000000000000000000",
+            "fee" : "0x56bc75e2d63100000",
+            "hash" : "0x5777d7d34506fb411038f9aef591044cabadb7fb9a3524031a7190177b2d6279",
+            "inputs" : [
+               {
+                  "from" : "0xa73810e519e1075010678d706533486d8ecc8000",
+                  "amount" : "0x4419f88f1a2c7900000",
+                  "nonce" : "0x1"
+               }
+            ]
+         }
+      ],
+      "height" : "0x2"
+   }
+}
+```
+
+### ltk_getLocalOutputs
+
+功能：查询跟自己相关的output数据  
+参数：  
+
+- startid 字符串，十六进制 起始的output global_index  
+- size 字符串，十六进制 最大返回output个数  
+
+返回：  
+
+- token_id  字符串，十六进制  
+- sub_addr_index 字符串，十六进制 子账户序号  
+- remark 字符串 交易留言信息  
+- amount 字符串，十六进制 交易金额  
+- global_index 字符串，十六进制 output全局索引序号  
+
+示例：  
+
+```shell
+curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"ltk_getLocalOutputs","params":["0x0","0x1"]}' -H 'Content-Type: application/json'|json_pp
+{
+   "result" : [
+      {
+         "token_id" : "0x0000000000000000000000000000000000000000",
+         "sub_addr_index" : "0x0",
+         "remark" : "0xa73810e519e1075010678d706533486d8ecc8000000000000000000000000000",
+         "amount" : "0x21e19e0c9bab2400000",
+         "global_index" : "0x0"
+      }
+   ],
+   "id" : "0",
+   "jsonrpc" : "2.0"
 }
 ```

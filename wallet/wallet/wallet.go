@@ -319,3 +319,19 @@ func (w *Wallet) SetRefreshBlockInterval(interval time.Duration) error {
 	w.currAccount.SetRefreshBlockInterval(interval)
 	return nil
 }
+
+// GetLocalUTXOTxsByHeight return
+func (w *Wallet) GetLocalUTXOTxsByHeight(height *big.Int) (*types.UTXOBlock, error) {
+	if w.IsWalletClosed() {
+		return nil, wtypes.ErrWalletNotOpen
+	}
+	return w.currAccount.GetLocalUTXOTxsByHeight(height)
+}
+
+// GetLocalOutputs return
+func (w *Wallet) GetLocalOutputs(startid uint64, size uint64) ([]types.UTXOOutputDetail, error) {
+	if w.IsWalletClosed() {
+		return nil, wtypes.ErrWalletNotOpen
+	}
+	return w.currAccount.GetLocalOutputs(startid, size)
+}

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/lianxiangcloud/linkchain/libs/common"
-	"github.com/lianxiangcloud/linkchain/libs/cryptonote/ringct"
 	lkctypes "github.com/lianxiangcloud/linkchain/libs/cryptonote/types"
 	"github.com/lianxiangcloud/linkchain/libs/cryptonote/xcrypto"
 	dbm "github.com/lianxiangcloud/linkchain/libs/db"
@@ -45,7 +44,7 @@ type LinkAccount struct {
 	walletOpen           bool
 	autoRefresh          bool
 	account              *AccountBase
-	keyImages            map[lkctypes.Key]int
+	keyImages            map[lkctypes.Key]uint64
 	Transfers            transferContainer
 	stop                 chan int
 	walletDB             dbm.DB
@@ -64,7 +63,7 @@ func NewLinkAccount(walletDB dbm.DB, logger log.Logger, keystoreFile string, pas
 		mainUTXOAddress:      "",
 		walletOpen:           false,
 		autoRefresh:          false,
-		keyImages:            make(map[lkctypes.Key]int),
+		keyImages:            make(map[lkctypes.Key]uint64),
 		Transfers:            make(transferContainer, 0),
 		stop:                 make(chan int, 1),
 		walletDB:             walletDB,
@@ -264,13 +263,13 @@ func (la *LinkAccount) Refresh(trustedDaemon bool) {
 				return
 			}
 
-			ids, err := la.processBlock(block)
+			ids, myTxs, err := la.processBlock(block)
 			if err != nil {
 				la.Logger.Error("Refresh processBlock fail", "height", la.localHeight, "err", err)
 				return
 			}
 
-			err = la.save(ids, *block.Hash)
+			err = la.save(ids, *block.Hash, myTxs)
 			if err != nil {
 				la.Logger.Error("Refresh la.save fail", "height", la.localHeight, "err", err)
 				return
@@ -280,7 +279,7 @@ func (la *LinkAccount) Refresh(trustedDaemon bool) {
 	}
 }
 
-func (la *LinkAccount) processBlock(block *rtypes.RPCBlock) (ids []int, err error) {
+func (la *LinkAccount) processBlock(block *rtypes.RPCBlock) (ids []uint64, myTxs []types.UTXOTransaction, err error) {
 	numTxs := len(block.Txs)
 	la.Logger.Info("processBlock", "Height", block.Height, "numTxs", numTxs)
 
@@ -290,21 +289,32 @@ func (la *LinkAccount) processBlock(block *rtypes.RPCBlock) (ids []int, err erro
 		case *tctypes.Transaction:
 			// TODO
 		case *tctypes.UTXOTransaction:
-			tids, err := la.processNewTransaction(t, block.Height.ToInt().Uint64())
+			tids, myTx, err := la.processNewTransaction(t, block.Height.ToInt().Uint64())
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			ids = append(ids, tids...)
+			if myTx != nil {
+				myTxs = append(myTxs, *myTx)
+			}
+
 		default:
 			// la.Logger.Warn("processBlock unknown tx type", "type", block.Txs[index].TxType)
 		}
 	}
 
-	return ids, nil
+	return ids, myTxs, nil
 }
 
-func (la *LinkAccount) processNewTransaction(tx *tctypes.UTXOTransaction, height uint64) (tids []int, err error) {
+func (la *LinkAccount) processNewTransaction(tx *tctypes.UTXOTransaction, height uint64) (tids []uint64, myTx *types.UTXOTransaction, err error) {
 	la.Logger.Info("processNewTransaction", "height", height, "txhash", tx.Hash())
+
+	myTx = &types.UTXOTransaction{}
+	myTx.Inputs = make([]types.RPCInput, 0)
+	myTx.Outputs = make([]types.RPCOutput, 0)
+	myTx.TokenID = tx.TokenID
+	myTx.Hash = tx.Hash()
+	myTx.Fee = (*hexutil.Big)(new(big.Int).Set(tx.Fee))
 
 	// output
 	received := big.NewInt(0)
@@ -386,43 +396,39 @@ func (la *LinkAccount) processNewTransaction(tx *tctypes.UTXOTransaction, height
 			uod.SubAddrIndex = subaddrIndex
 			uod.RKey = realRKey
 
-			// amount and mask
-			if height == 0 && tx.Extra[0] == byte(1) {
-				uod.Mask = ringct.I //miner tx
-				uod.Amount = ro.Amount
+			ecdh := &lkctypes.EcdhTuple{
+				Mask:   tx.RCTSig.RctSigBase.EcdhInfo[outputID].Mask,
+				Amount: tx.RCTSig.RctSigBase.EcdhInfo[outputID].Amount,
+			}
+			la.Logger.Debug("GenerateKeyDerivation", "derivationKey", realDeriKey, "amount", tx.RCTSig.RctSigBase.EcdhInfo[outputID].Amount)
+			scalar, err := xcrypto.DerivationToScalar(realDeriKey, outputID)
+			if err != nil {
+				la.Logger.Error("DerivationToScalar fail", "derivationKey", realDeriKey, "outputID", outputID, "err", err)
+				continue
+			}
 
-			} else {
-				ecdh := &lkctypes.EcdhTuple{
-					Mask:   tx.RCTSig.RctSigBase.EcdhInfo[outputID].Mask,
-					Amount: tx.RCTSig.RctSigBase.EcdhInfo[outputID].Amount,
-				}
-				la.Logger.Debug("GenerateKeyDerivation", "derivationKey", realDeriKey, "amount", tx.RCTSig.RctSigBase.EcdhInfo[outputID].Amount)
-				scalar, err := xcrypto.DerivationToScalar(realDeriKey, outputID)
-				if err != nil {
-					la.Logger.Error("DerivationToScalar fail", "derivationKey", realDeriKey, "outputID", outputID, "err", err)
-					continue
-				}
-
-				ok := xcrypto.EcdhDecode(ecdh, lkctypes.Key(scalar), false)
-				if !ok {
-					la.Logger.Error("EcdhDecode fail", "err", err)
-					continue
-				}
-				uod.Mask = ecdh.Mask
-				uod.Amount = big.NewInt(0).Mul(tctypes.Hash2BigInt(ecdh.Amount), big.NewInt(tctypes.UTXO_COMMITMENT_CHANGE_RATE))
-				la.Logger.Debug("processNewTransaction output", "ro.Amount", ro.Amount.String(), "ecdh.Amount", ecdh.Amount, "outputID", outputID, "scalar", scalar)
-				uod.Remark = ro.Remark
-				hash := xcrypto.FastHash(scalar[:])
-				for k := 0; k < 32; k++ {
-					uod.Remark[k] ^= hash[k]
-				}
+			ok := xcrypto.EcdhDecode(ecdh, lkctypes.Key(scalar), false)
+			if !ok {
+				la.Logger.Error("EcdhDecode fail", "err", err)
+				continue
+			}
+			uod.Mask = ecdh.Mask
+			uod.Amount = big.NewInt(0).Mul(tctypes.Hash2BigInt(ecdh.Amount), big.NewInt(tctypes.UTXO_COMMITMENT_CHANGE_RATE))
+			la.Logger.Debug("processNewTransaction output", "ro.Amount", ro.Amount.String(), "ecdh.Amount", ecdh.Amount, "outputID", outputID, "scalar", scalar)
+			uod.Remark = ro.Remark
+			hash := xcrypto.FastHash(scalar[:])
+			for k := 0; k < 32; k++ {
+				uod.Remark[k] ^= hash[k]
 			}
 
 			la.Transfers = append(la.Transfers, &uod)
 			tid := len(la.Transfers) - 1
 
-			la.keyImages[uod.KeyImage] = tid
-			tids = append(tids, tid)
+			la.keyImages[uod.KeyImage] = uint64(tid)
+			tids = append(tids, uint64(tid))
+
+			myTx.Outputs = append(myTx.Outputs, types.UTXOOutput{OTAddr: (common.Hash)(ro.OTAddr), GlobalIndex: (hexutil.Uint64)(tid)})
+
 			la.Logger.Info("processNewTransaction output", "KeyImage", uod.KeyImage, "subaddrIndex", subaddrIndex, "tx.RKey", tx.RKey, "uod.Amount", uod.Amount.String())
 
 			received = new(big.Int).Add(received, uod.Amount)
@@ -432,6 +438,8 @@ func (la *LinkAccount) processNewTransaction(tx *tctypes.UTXOTransaction, height
 			if bytes.Equal(ro.To[:], la.account.EthAddress[:]) {
 				needSaveTx = true
 			}
+			myTx.Outputs = append(myTx.Outputs, types.AccountOutput{To: ro.To, Amount: (*hexutil.Big)(ro.Amount), Data: (hexutil.Bytes)(ro.Data)})
+
 		default:
 		}
 	}
@@ -440,11 +448,11 @@ func (la *LinkAccount) processNewTransaction(tx *tctypes.UTXOTransaction, height
 	txMoneySpentInIns := big.NewInt(0)
 	for _, i := range tx.Inputs {
 		switch ri := i.(type) {
-		case *tctypes.MineInput:
-			// TODO mine input
-
 		case *tctypes.UTXOInput:
-			// TODO
+
+			gidx := uint64(0)
+			localImage := false
+
 			keyimage := ri.KeyImage
 			iTransfer, ok := la.keyImages[keyimage]
 			if ok {
@@ -458,7 +466,10 @@ func (la *LinkAccount) processNewTransaction(tx *tctypes.UTXOTransaction, height
 				tids = append(tids, iTransfer)
 				la.updateBalance(tx.TokenID, uod.SubAddrIndex, false, amount)
 				la.Logger.Info("processNewTransaction", "utxoTotalBalance", la.utxoTotalBalance, "iTransfer", iTransfer, "amount", amount.String())
+				gidx = uod.GlobalIndex
+				localImage = true
 			}
+			myTx.Inputs = append(myTx.Inputs, types.UTXOInput{GlobalIndex: hexutil.Uint64(gidx), LocalImage: localImage})
 		case *tctypes.AccountInput:
 			from, err := tx.From()
 			if err != nil {
@@ -468,6 +479,7 @@ func (la *LinkAccount) processNewTransaction(tx *tctypes.UTXOTransaction, height
 			if bytes.Equal(from[:], la.account.EthAddress[:]) {
 				needSaveTx = true
 			}
+			myTx.Inputs = append(myTx.Inputs, types.AccountInput{From: from, Nonce: hexutil.Uint64(ri.Nonce), Amount: (*hexutil.Big)(ri.Amount)})
 
 		default:
 
@@ -478,9 +490,9 @@ func (la *LinkAccount) processNewTransaction(tx *tctypes.UTXOTransaction, height
 		if err != nil {
 			la.Logger.Error("processNewTransaction saveUTXOTx fail", "err", err)
 		}
+		return tids, myTx, nil
 	}
-
-	return tids, nil
+	return tids, nil, nil
 }
 
 // increaseGOutIndex increase outindex,return curr idx
@@ -615,7 +627,7 @@ func (la *LinkAccount) RescanBlockchain() error {
 	la.localHeight.SetInt64(0)
 	la.utxoTotalBalance = make(map[common.Address]*big.Int)
 	la.gOutIndex = make(map[common.Address]uint64)
-	la.keyImages = make(map[lkctypes.Key]int)
+	la.keyImages = make(map[lkctypes.Key]uint64)
 	la.Transfers = make(transferContainer, 0)
 	return nil
 }
@@ -707,4 +719,47 @@ func (la *LinkAccount) GetUTXOTx(hash common.Hash) (*tctypes.UTXOTransaction, er
 func (la *LinkAccount) SetRefreshBlockInterval(interval time.Duration) {
 	la.refreshBlockInterval = interval
 	la.Logger.Info("SetRefreshBlockInterval", "refreshBlockInterval", la.refreshBlockInterval)
+}
+
+// GetLocalUTXOTxsByHeight return UTXOTransaction
+func (la *LinkAccount) GetLocalUTXOTxsByHeight(height *big.Int) (*types.UTXOBlock, error) {
+	// if !la.walletOpen {
+	// 	return nil, types.ErrWalletNotOpen
+	// }
+	return la.loadBlockTxs(height)
+}
+
+// GetLocalOutputs return UTXOTransaction
+func (la *LinkAccount) GetLocalOutputs(startid uint64, size uint64) ([]types.UTXOOutputDetail, error) {
+	// if !la.walletOpen {
+	// 	return nil, types.ErrWalletNotOpen
+	// }
+	var err error
+	outputs := make([]types.UTXOOutputDetail, 0)
+	succCnt := uint64(0)
+	nextid := startid
+	for succCnt < size {
+		if nextid < startid || nextid > la.gOutIndex[LinkToken] {
+			break
+		}
+		var o *tctypes.UTXOOutputDetail
+		o, err = la.loadOutputDetail(nextid)
+		if err != nil {
+			if err == types.ErrOutputNotFound {
+				continue
+			}
+			break
+		}
+		rpcUTXOOutputDetail := types.UTXOOutputDetail{
+			GlobalIndex:  (hexutil.Uint64)(o.GlobalIndex),
+			Amount:       (*hexutil.Big)(o.Amount),
+			SubAddrIndex: (hexutil.Uint64)(o.SubAddrIndex),
+			TokenID:      o.TokenID,
+			Remark:       (hexutil.Bytes)(o.Remark[:]),
+		}
+		outputs = append(outputs, rpcUTXOOutputDetail)
+		succCnt++
+		nextid++
+	}
+	return outputs, err
 }

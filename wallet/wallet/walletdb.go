@@ -8,6 +8,7 @@ import (
 	"github.com/lianxiangcloud/linkchain/libs/common"
 	lkctypes "github.com/lianxiangcloud/linkchain/libs/cryptonote/types"
 	dbm "github.com/lianxiangcloud/linkchain/libs/db"
+	"github.com/lianxiangcloud/linkchain/libs/hexutil"
 	"github.com/lianxiangcloud/linkchain/libs/ser"
 	tctypes "github.com/lianxiangcloud/linkchain/types"
 	"github.com/lianxiangcloud/linkchain/wallet/types"
@@ -24,16 +25,18 @@ const (
 	keyTxKeys           = "txKeys"
 	keyUTXOTx           = "utxoTx"
 	keyBlockHash        = "blockHash"
+	keyBlockTxs         = "blockTxs"
 )
 
-func (la *LinkAccount) save(ids []int, blockHash common.Hash) error {
+func (la *LinkAccount) save(ids []uint64, blockHash common.Hash, myTxs []types.UTXOTransaction) error {
 	batch := la.walletDB.NewBatch()
 
 	if la.saveLocalHeight(batch) != nil ||
 		la.saveGOutIndex(batch) != nil ||
 		la.saveAccountSubCnt(batch) != nil ||
 		(len(ids) > 0 && la.saveTransfers(batch, ids) != nil) ||
-		la.saveBlockHash(batch, la.localHeight, blockHash) != nil {
+		la.saveBlockHash(batch, la.localHeight, blockHash) != nil ||
+		la.saveBlockTxs(batch, la.localHeight, myTxs) != nil {
 		la.Logger.Error("Refresh batchSave fail", "height", la.localHeight)
 		return fmt.Errorf("save fail")
 	}
@@ -109,7 +112,7 @@ func (la *LinkAccount) saveGOutIndex(b dbm.Batch) error {
 }
 
 // transfers
-func (la *LinkAccount) getTransfersKey(idx int) []byte {
+func (la *LinkAccount) getTransfersKey(idx uint64) []byte {
 	return []byte(fmt.Sprintf("%s_%d", la.addPrefixDBkey(keyTransfers), idx))
 }
 
@@ -118,7 +121,7 @@ func (la *LinkAccount) getTransfersCntKey() []byte {
 }
 
 func (la *LinkAccount) loadTransfers() error {
-	var cnt int
+	var cnt uint64
 	key := la.getTransfersCntKey()
 	val := la.walletDB.Get(key[:])
 	if len(val) != 0 {
@@ -134,8 +137,8 @@ func (la *LinkAccount) loadTransfers() error {
 	// for i := 0; i < accCnt; i++ {
 	// 	la.AccBalance[i] = big.NewInt(0)
 	// }
-	for i := 0; i < cnt; i++ {
-		k := la.getTransfersKey(i)
+	for i := uint64(0); i < cnt; i++ {
+		k := la.getTransfersKey(uint64(i))
 		v := la.walletDB.Get(k[:])
 		if len(v) != 0 {
 			var tx tctypes.UTXOOutputDetail
@@ -155,7 +158,7 @@ func (la *LinkAccount) loadTransfers() error {
 	return nil
 }
 
-func (la *LinkAccount) saveTransfers(b dbm.Batch, tids []int) error {
+func (la *LinkAccount) saveTransfers(b dbm.Batch, tids []uint64) error {
 	key := la.getTransfersCntKey()
 	cnt := len(la.Transfers)
 	val, err := ser.MarshalJSON(cnt)
@@ -175,6 +178,20 @@ func (la *LinkAccount) saveTransfers(b dbm.Batch, tids []int) error {
 		b.Set(k, val)
 	}
 	return nil
+}
+
+func (la *LinkAccount) loadOutputDetail(id uint64) (*tctypes.UTXOOutputDetail, error) {
+	k := la.getTransfersKey(id)
+	v := la.walletDB.Get(k[:])
+	if len(v) != 0 {
+		var tx tctypes.UTXOOutputDetail
+		if err := ser.UnmarshalJSON(v, &tx); err != nil {
+			la.Logger.Error("loadTransfers DecodeBytes fail", "val", string(v), "err", err)
+			return nil, err
+		}
+		return &tx, nil
+	}
+	return nil, types.ErrOutputNotFound
 }
 
 // keyAccountSubCnt
@@ -305,11 +322,11 @@ func (la *LinkAccount) loadBlockHash(height *big.Int) (*common.Hash, error) {
 	key := la.getBlockHashKey(height)
 	val := la.walletDB.Get(key[:])
 	if len(val) == 0 {
-		return nil, types.ErrBlockHashNotFound
+		return nil, types.ErrBlockNotFound
 	}
 	var hash common.Hash
 	if err := ser.DecodeBytes(val, &hash); err != nil {
-		la.Logger.Error("loadBlockHash DecodeBytes fail", "val", string(val), "err", err)
+		la.Logger.Error("loadBlockHash DecodeBytes fail", "val", string(val), "height", height.String(), "err", err)
 		return nil, err
 	}
 	return &hash, nil
@@ -318,7 +335,40 @@ func (la *LinkAccount) saveBlockHash(b dbm.Batch, height *big.Int, hash common.H
 	key := la.getBlockHashKey(height)
 	val, err := ser.EncodeToBytes(hash)
 	if err != nil {
-		la.Logger.Error("saveBlockHash EncodeToBytes fail", "err", err)
+		la.Logger.Error("saveBlockHash EncodeToBytes fail", "height", height.String(), "hash", hash, "err", err)
+		return err
+	}
+	la.Logger.Debug("saveBlockHash", "height", height.String(), "hash", hash)
+	b.Set(key, val)
+	return nil
+}
+
+// blockTx
+func (la *LinkAccount) getBlockTxsKey(height *big.Int) []byte {
+	return []byte(fmt.Sprintf("%s_%s", la.addPrefixDBkey(keyBlockTxs), height.String()))
+}
+
+func (la *LinkAccount) loadBlockTxs(height *big.Int) (*types.UTXOBlock, error) {
+	key := la.getBlockTxsKey(height)
+	val := la.walletDB.Get(key[:])
+	if len(val) == 0 {
+		return nil, types.ErrBlockNotFound
+	}
+	var block types.UTXOBlock
+	// if err := ser.DecodeBytes(val, &block); err != nil {
+	if err := json.Unmarshal(val, &block); err != nil {
+		la.Logger.Error("loadBlockTxs DecodeBytes fail", "val", string(val), "err", err)
+		return nil, err
+	}
+	return &block, nil
+}
+func (la *LinkAccount) saveBlockTxs(b dbm.Batch, height *big.Int, myTxs []types.UTXOTransaction) error {
+	key := la.getBlockTxsKey(height)
+	block := types.UTXOBlock{Height: (*hexutil.Big)(height), Txs: myTxs}
+	// val, err := ser.EncodeToBytes(block)
+	val, err := json.Marshal(block)
+	if err != nil {
+		la.Logger.Error("saveBlockTxs EncodeToBytes fail", "err", err)
 		return err
 	}
 	b.Set(key, val)

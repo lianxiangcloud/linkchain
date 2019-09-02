@@ -81,4 +81,6 @@ type Wallet interface {
 	//
 	EthEstimateGas(args wtypes.CallArgs) (*hexutil.Uint64, error)
 	SendRawTransaction(encodedTx hexutil.Bytes) (common.Hash, error)
+	GetLocalUTXOTxsByHeight(height *big.Int) (*wtypes.UTXOBlock, error)
+	GetLocalOutputs(startid uint64, size uint64) ([]wtypes.UTXOOutputDetail, error)
 }

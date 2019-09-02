@@ -169,3 +169,54 @@ type CallArgs struct {
 	UTXOKind     types.UTXOKind     `json:"utxokind"`
 	Outputs      []types.OutputData `json:"outputs"`
 }
+
+type UTXOBlock struct {
+	Height *hexutil.Big      `json:"height"`
+	Txs    []UTXOTransaction `json:"txs"`
+}
+
+type RPCInput interface {
+}
+
+//Output represents a utxo or account output
+type RPCOutput interface {
+}
+type UTXOTransaction struct {
+	Inputs  []RPCInput     `json:"inputs"`
+	Outputs []RPCOutput    `json:"outputs"`
+	TokenID common.Address `json:"token_id"` //current version one Tx support only one token
+	Fee     *hexutil.Big   `json:"fee"`      //fee charge only LKC, without unit (different from gas)
+	Hash    common.Hash    `json:"hash"`
+	// Height  *hexutil.Big   `json:"height"`
+}
+
+type AccountInput struct {
+	From   common.Address `json:"from"`
+	Nonce  hexutil.Uint64 `json:"nonce"`
+	Amount *hexutil.Big   `json:"amount"` //Amount  =  user set amount + Fee, b in c = aG + bH
+}
+
+type UTXOInput struct {
+	GlobalIndex hexutil.Uint64 `json:"global_index"`
+	LocalImage  bool
+}
+
+type AccountOutput struct {
+	To     common.Address `json:"to"`
+	Amount *hexutil.Big   `json:"amount"`
+	Data   hexutil.Bytes  `json:"data"` //contract data
+}
+
+//UTXOOutput represents a utxo output
+type UTXOOutput struct {
+	OTAddr      common.Hash    `json:"otaddr"`
+	GlobalIndex hexutil.Uint64 `json:"global_index"`
+}
+
+type UTXOOutputDetail struct {
+	GlobalIndex  hexutil.Uint64 `json:"global_index"`
+	Amount       *hexutil.Big   `json:"amount"`
+	SubAddrIndex hexutil.Uint64 `json:"sub_addr_index"`
+	TokenID      common.Address `json:"token_id"`
+	Remark       hexutil.Bytes  `json:"remark"`
+}
