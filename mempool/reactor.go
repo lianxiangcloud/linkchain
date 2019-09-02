@@ -340,6 +340,7 @@ func (memR *MempoolReactor) handleTxReqRoutine() {
 				if !peer.TrySend(MempoolChannel, data) {
 					go peer.Send(MempoolChannel, data)
 				}
+				continue
 			}
 			peer.Send(MempoolChannel, data)
 		}

@@ -724,7 +724,7 @@ func (mem *Mempool) TxsAvailable() <-chan struct{} {
 }
 
 func (mem *Mempool) notifyTxsAvailable() {
-	if mem.GoodTxsSize() == 0 && mem.SpecGoodTxsSize() == 0 {
+	if mem.GoodTxsSize() == 0 && mem.SpecGoodTxsSize() == 0 && mem.UTXOTxsSize() == 0 {
 		panic("notified txs available but mempool is empty!")
 	}
 	if mem.txsAvailable != nil && !mem.notifiedTxsAvailable {
