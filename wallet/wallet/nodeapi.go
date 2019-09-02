@@ -340,7 +340,7 @@ func (w *Wallet) Transfer(txs []string) (ret []wtypes.SendTxRet) {
 
 		body, err := daemon.CallJSONRPC("eth_sendRawUTXOTransaction", p)
 		if err != nil || body == nil || len(body) == 0 {
-			ret[i] = wtypes.SendTxRet{Raw: txs[i], Hash: common.EmptyHash, ErrCode: -1, ErrMsg: err.Error()}
+			ret[i] = wtypes.SendTxRet{Raw: txs[i], Hash: common.EmptyHash, ErrCode: -1, ErrMsg: fmt.Sprintf("%v", err)}
 			w.Logger.Error("Transfer check body", "i", i, "tx", txs[i], "err", err, "body", body)
 			continue
 		}

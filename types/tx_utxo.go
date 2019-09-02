@@ -614,7 +614,7 @@ func generateKeyImage(acc *types.AccountKey, keyIndex map[types.PublicKey]uint64
 		return nil, ErrDerivationKey
 	}
 	otaddr := source.Ring[source.RingIndex].OTAddr
-	log.Debug("generateKeyImage", "source.RKey", source.RKey, "acc.ViewSKey", acc.ViewSKey, "derivationKey", derivationKey, "otaddr", otaddr, "source.OutIndex", source.OutIndex, "keyIndex", keyIndex)
+
 	subaddrIndex, err := isOutputBelongToAccount(acc, keyIndex, otaddr, derivationKey, source.OutIndex)
 	if err != nil {
 		return nil, err
