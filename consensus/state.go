@@ -355,6 +355,10 @@ func (cs *ConsensusState) OnReset() error {
 	cs.done = make(chan struct{})
 	cs.wal = nilWAL{}
 	cs.stepRecover = false
+	// When switch out consensus, reset the step and round info,so that consensus can
+	// replay all steps when switch back,If not so, the step will stop, since state step >=
+	// replay timeout tock when height not changed
+	cs.updateRoundStep(0, cstypes.RoundStepNewHeight)
 	err := cs.evsw.Reset()
 	if err != nil {
 		cs.Logger.Error("Error reset state.evsw", "err", err)
@@ -618,7 +622,7 @@ func (cs *ConsensusState) updateRoundStep(round int, step cstypes.RoundStepType)
 func (cs *ConsensusState) scheduleRound0(rs *cstypes.RoundState) {
 	//cs.Logger.Info("scheduleRound0", "now", time.Now(), "startTime", cs.StartTime)
 	sleepDuration := rs.StartTime.Sub(time.Now()) // nolint: gotype, gosimple
-	cs.scheduleTimeout(sleepDuration, rs.Height, rs.Round, rs.Step)
+	cs.scheduleTimeout(sleepDuration, rs.Height, 0, cstypes.RoundStepNewHeight)
 }
 
 // Attempt to schedule a timeout (by sending timeoutInfo on the tickChan)
