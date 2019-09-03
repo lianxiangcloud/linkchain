@@ -857,7 +857,7 @@ func (wallet *Wallet) checkDest(dests []types.DestEntry, tokenID common.Address,
 	hasContract := false
 	for i := 0; i < len(dests); i++ {
 		wallet.Logger.Debug("checkDest", "amount", dests[i].GetAmount().String())
-		if dests[i].GetAmount().Sign() < 0 {
+		if dests[i].GetAmount().Sign() <= 0 {
 			return big.NewInt(0), hasContract, ErrOutputMoneyInvalid
 		}
 		if dests[i].GetAmount().Sign() > 0 && (dests[i].GetAmount().Cmp(big.NewInt(types.UTXO_COMMITMENT_CHANGE_RATE)) < 0 ||
