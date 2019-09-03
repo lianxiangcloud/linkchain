@@ -557,7 +557,6 @@ type UTXOOutputData struct {
 //UTXOOutputDetail represents utxo output entry in local
 type UTXOOutputDetail struct {
 	BlockHeight  uint64
-	Tx           *UTXOTransaction
 	TxID         types.Hash
 	OutIndex     uint64
 	GlobalIndex  uint64
@@ -577,7 +576,6 @@ func (u *UTXOOutputDetail) String() string {
 	// b, _ := ser.MarshalJSON(u)
 	// return string(b)
 	return fmt.Sprintf(`[BlockHeight:%d,
-    Tx:%v,
     TxID:%x,
     OutIndex:%d,
     GlobalIndex:%d,
@@ -590,7 +588,7 @@ func (u *UTXOOutputDetail) String() string {
     Amount:%s,
     SubAddrIndex:%d,
     TokenID:%x
-    Remark:%x]`, u.BlockHeight, u.Tx, u.TxID, u.OutIndex, u.GlobalIndex, u.Spent, u.Frozen,
+	Remark:%x]`, u.BlockHeight, u.TxID, u.OutIndex, u.GlobalIndex, u.Spent, u.Frozen,
 		u.SpentHeight, u.RKey, u.KeyImage, u.Mask, u.Amount.String(), u.SubAddrIndex, u.TokenID, u.Remark)
 }
 

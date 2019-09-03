@@ -385,7 +385,6 @@ func (la *LinkAccount) processNewTransaction(tx *tctypes.UTXOTransaction, height
 
 			uod := tctypes.UTXOOutputDetail{}
 			uod.BlockHeight = height
-			uod.Tx = tx
 			uod.TxID = lkctypes.Hash(tx.Hash())
 			uod.OutIndex = uint64(outputID)
 			uod.GlobalIndex = gid
