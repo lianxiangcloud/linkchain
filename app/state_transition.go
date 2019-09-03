@@ -292,7 +292,7 @@ func (st *StateTransition) UTXOTransitionDb() (ret []byte, usedGas uint64, byteC
 		var transfervalueGas uint64
 		isNewFeeRule := inputValue.Sign() > 0
 		if isNewFeeRule {
-			transfervalueGas = types.CalNewAmountGas(inputValue)
+			transfervalueGas = types.CalNewContractAmountGas(inputValue)
 			if vmerr = st.useGas(transfervalueGas); vmerr != nil {
 				log.Warn("UTXOTransitionDb out of gas", "transfer value need gas", transfervalueGas, "have gas", st.gas)
 				st.useGas(st.gas)
@@ -408,8 +408,23 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, byteCodeG
 		vmenv.Upgrade(msg.MsgFrom(), *msg.To(), msg.Data())
 	} else if msg.To() == nil {
 		if contractCreation {
-			ret, _, st.gas, vmerr = vmenv.Create(sender, msg.Data(), st.gas, msg.Value())
-			log.Debug("contract Create", "st.gas", st.gas, "vmerr", vmerr)
+			var totalFee uint64
+			isNewFeeRule := st.state.IsContract(*msg.To()) && msg.Value().Sign() > 0
+			if isNewFeeRule {
+				totalFee = types.CalNewAmountGas(msg.Value())
+				if vmerr = st.useGas(totalFee); vmerr != nil {
+					st.useGas(st.gas)
+				}
+			}
+			if vmerr == nil {
+				ret, _, st.gas, vmerr = vmenv.Create(sender, msg.Data(), st.gas, msg.Value())
+				log.Debug("contract Create", "st.gas", st.gas, "vmerr", vmerr)
+			}
+			if vmerr != nil && isNewFeeRule {
+				vmenv.SetErrDepth(0)
+				st.gas += totalFee
+			}
+			st.gas += vmenv.RefundFee()
 		} else {
 			st.state.SetNonce(msg.MsgFrom(), st.state.GetNonce(sender.Address())+1)
 			st.state.SubTokenBalance(msg.MsgFrom(), msg.TokenAddress(), msg.Value())
@@ -424,7 +439,11 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, byteCodeG
 		var totalFee uint64
 		isNewFeeRule := st.state.IsContract(*msg.To()) && msg.Value().Sign() > 0
 		if isNewFeeRule {
-			totalFee = types.CalNewAmountGas(msg.Value())
+			if st.state.IsContract(*msg.To()) {
+				totalFee = types.CalNewContractAmountGas(msg.Value())
+			} else {
+				totalFee = types.CalNewAmountGas(msg.Value())
+			}
 			if vmerr = st.useGas(totalFee); vmerr != nil {
 				st.useGas(st.gas)
 			}

@@ -1576,9 +1576,9 @@ func gasFee(eng *vm.Engine, toAddr common.Address, val *big.Int) uint64 {
 	}
 	var fee uint64
 	if eng.State.GetContractCode(toAddr.Bytes()) == nil {
-		fee = types.CalNewAmountGas(val)
-	} else {
 		fee = types.CalNewContractAmountGas(val)
+	} else {
+		fee = types.CalNewAmountGas(val)
 	}
 	return fee
 }
