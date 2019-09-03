@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"math/rand"
 
 	"github.com/lianxiangcloud/linkchain/libs/common"
 	"github.com/lianxiangcloud/linkchain/libs/crypto"
@@ -106,11 +107,11 @@ func (cs CandidatesByAddress) Swap(i, j int) {
 }
 
 // CalRank Calculate the rank Result,abc is the rank parameters
-//	0.3*(score/500)+0.4*(deposit/Maxdeposit)+0.3*(rand/Rmax)
-func (v *CandidateInOrder) CalRank(a, b, c, maxDeposit, maxScore int64) {
+//	0.3*(score/500)+0.4*(deposit/Maxdeposit)+0.3*(rand/sub)
+func (v *CandidateInOrder) CalRank(a, b, c, maxDeposit, subScore int64) {
 	sub := a + b + c
 	p1, p2, p3 := big.NewRat(a, sub), big.NewRat(b, sub), big.NewRat(c, sub)
-	s1 := p1.Mul(p1, big.NewRat(v.Score, maxScore))
+	s1 := p1.Mul(p1, big.NewRat(v.Score, subScore))
 	s2 := p2.Mul(p2, big.NewRat(v.Deposit, maxDeposit))
 	s3 := p3.Mul(p3, big.NewRat(v.Rand, math.MaxInt64))
 	v1 := (&big.Rat{}).Add(s1, s2)
@@ -125,11 +126,57 @@ func (cl CandidateInOrderList) Len() int {
 }
 
 func (cl CandidateInOrderList) Less(i, j int) bool {
-	return cl[i].RankResult.Cmp(cl[j].RankResult) > 0
+	return cl[i].RankResult.Cmp(cl[j].RankResult) < 0
 }
 
 func (cl CandidateInOrderList) Swap(i, j int) {
 	it := cl[i]
 	cl[i] = cl[j]
 	cl[j] = it
+}
+
+//RandomSort re-sort candidateList by random chose based on RankResult
+func (cl CandidateInOrderList) RandomSort(salt int64) {
+	r := rand.New(rand.NewSource(salt))
+	size := len(cl)
+	for i := 0; i < size-1; i++ {
+		//fmt.Println("---------------------------------------------------------------------------------")
+		randomRat := (&big.Rat{}).SetFloat64(r.Float64()) //0.0~1.0
+		//f, _ := randomRat.Float64()
+		//fmt.Println("randomRat", f)
+
+		//cal the range power e.g. if power list is 1,3,5,8
+		//then the range is 1,4,9,17
+		rangePower := make([]*big.Rat, size-i)
+		for index := range rangePower {
+			if index == 0 {
+				rangePower[index] = (&big.Rat{}).Set(cl[i+index].RankResult)
+				continue
+			}
+			rangePower[index] = (&big.Rat{}).Set(cl[i+index].RankResult)
+			rangePower[index] = (&big.Rat{}).Add(rangePower[index], rangePower[index-1])
+		}
+
+		//fmt.Println("rangePower", rangePower)
+
+		//randomRat =maxRange*(0.0~1.0),if range is 1,4,9,17
+		//randomRat = 17*(0.0~1.0)
+		//if randomRat = 0.5 then 1 is chosen, =10 then 8 is chosen
+		randomRat = randomRat.Mul(randomRat, rangePower[size-i-1]) //rand(0.0~1.0)*max
+
+		//f, _ = randomRat.Float64()
+		//fmt.Println("randomRat*mul", f)
+
+		var j = 0
+		for index, r := range rangePower {
+			if randomRat.Cmp(r) < 0 {
+				j = index
+				break
+			}
+		}
+		cl[i], cl[i+j] = cl[i+j], cl[i]
+
+		//sort.Sort(cl[i+1:])
+		//fmt.Println("canidates", cl)
+	}
 }

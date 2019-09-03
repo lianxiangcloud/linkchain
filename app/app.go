@@ -6,7 +6,6 @@ import (
 	"math"
 	"math/big"
 	"runtime"
-	"sort"
 	"sync"
 
 	"github.com/lianxiangcloud/linkchain/blockchain"
@@ -923,17 +922,21 @@ func (app *LinkApplication) calculateCandidates(s *state.StateDB, hash common.Ha
 
 	deposits := app.getCandidatesDeposit(s, addrs)
 
-	var maxDeposit = int64(1) //Init maxDeposit in case that set candidate without pledge
+	maxDeposit, subScore := int64(1), int64(0) //Init maxDeposit in case that set candidate without pledge
 	for i := range can {
 		can[i].Deposit = deposits[i].Div(deposits[i], big.NewInt(config.Ether)).Int64()
 		if can[i].Deposit > maxDeposit {
 			maxDeposit = can[i].Deposit
 		}
+		subScore += can[i].Score
 	}
 	for _, v := range can {
-		v.CalRank(app.lastCoe.Srate, app.lastCoe.Drate, app.lastCoe.Rrate, maxDeposit, app.lastCoe.MaxScore)
+		v.CalRank(app.lastCoe.Srate, app.lastCoe.Drate, app.lastCoe.Rrate, maxDeposit, subScore)
 	}
-	sort.Sort(can)
+
+	salt := binary.BigEndian.Uint64(hash[:8])
+	can.RandomSort(int64(salt))
+
 	for i, v := range can {
 		f, _ := v.RankResult.Float64()
 		app.logger.Debug("candidates rank", "rank", f, "address", v.CoinBase.String())
