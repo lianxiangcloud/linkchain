@@ -304,11 +304,11 @@ func DefaultRPCConfig() *RPCConfig {
 	return &RPCConfig{
 		IpcEndpoint:  "linkchain.ipc",
 		HTTPEndpoint: ":8000",
-		HTTPModules:  []string{"web3", "eth", "personal", "debug", "txpool", "net", "relay", "relaydebug"},
+		HTTPModules:  []string{"web3", "eth", "personal", "debug", "txpool", "net"},
 		HTTPCores:    []string{"*"},
 		VHosts:       []string{"*"},
 		WSEndpoint:   ":8001",
-		WSModules:    []string{"web3", "eth", "personal", "debug", "txpool", "net", "lk", "relay", "relaydebug"},
+		WSModules:    []string{"web3", "eth", "personal", "debug", "txpool", "net", "lk"},
 		WSExposeAll:  true,
 		WSOrigins:    []string{"*"},
 		EVMInterval:  500 * time.Millisecond,

@@ -49,7 +49,7 @@ func testRPCConfig() *config.RPCConfig {
 	return &config.RPCConfig{
 		IpcEndpoint:  "linkchain.ipc",
 		HTTPEndpoint: "127.0.0.1:9001",
-		HTTPModules:  []string{"web3", "eth", "personal", "debug", "txpool", "net", "relay", "relaydebug"},
+		HTTPModules:  []string{"web3", "eth", "personal", "debug", "txpool", "net"},
 		HTTPCores:    []string{"*"},
 		VHosts:       []string{"*"},
 	}
