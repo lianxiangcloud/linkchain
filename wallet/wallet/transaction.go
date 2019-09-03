@@ -583,7 +583,7 @@ func (wallet *Wallet) CreateUinTransaction(from common.Address, passwd string, s
 		}
 	}
 	wallet.Logger.Debug("CreateUinTransaction", "availableMoney", availableMoney)
-	if availableMoney.Cmp(needMoney) < 0 {
+	if availableMoney.Cmp(big.NewInt(0).Sub(needMoney, wallet.estimateUtxoTxFee())) < 0 {
 		return nil, ErrBalanceNotEnough
 	}
 	unspentIndicePerSubaddr := wallet.unspentIndicePerSubaddr(tokenID)
@@ -629,7 +629,7 @@ func (wallet *Wallet) createUinTransaction(w accounts.Wallet, acc accounts.Accou
 		txes              = make([]*types.UTXOTransaction, 0)
 		chargeAccIdx      = sortableSubaddrs[0].Subaddr
 	)
-	for 0 != len(preferIndice) || 0 != len(dests) || addingFee {
+	for 0 != len(dests) || addingFee {
 		wallet.Logger.Debug("createUinTransaction start to choose an output")
 		wallet.Logger.Debug("createUinTransaction", "preferIndice", fmt.Sprintf("%v", preferIndice))
 		str, _ := ser.MarshalJSON(dests)
@@ -724,24 +724,31 @@ func (wallet *Wallet) createUinTransaction(w accounts.Wallet, acc accounts.Accou
 			}
 		}
 		tryTx := false
-		if 0 == len(preferIndice) {
-			if addingFee {
-				tryTx = availableFee.Cmp(needFee) >= 0
-			} else {
-				tryTx = (0 == len(dests)) || estimateTxWeight(len(selectedIndice), len(paidDests)+1) > UTXOTRANSACTION_MAX_SIZE || len(paidDests)+1 >= wtypes.UTXO_DESTS_MAX_NUM
-				if tryTx && 0 == len(paidDests) {
-					return nil, ErrTxTooBig
-				}
+		if addingFee {
+			noNeedChange := false
+			if needFee.Cmp(wallet.estimateUtxoTxFee()) > 0 &&
+				len(paidDests) == 1 &&
+				types.TypeAcDest == paidDests[0].Type() &&
+				0 == availableFee.Cmp(big.NewInt(0).Sub(needFee, wallet.estimateUtxoTxFee())) {
+				noNeedChange = true
+			}
+			tryTx = availableFee.Cmp(needFee) >= 0 || noNeedChange
+		} else {
+			tryTx = (0 == len(dests)) || estimateTxWeight(len(selectedIndice), len(paidDests)+1) > UTXOTRANSACTION_MAX_SIZE || len(paidDests)+1 >= wtypes.UTXO_DESTS_MAX_NUM
+			if tryTx && 0 == len(paidDests) {
+				return nil, ErrTxTooBig
 			}
 		}
+
 		if tryTx {
 			realNeedMoney, hasContract, err := wallet.checkDest(paidDests, tokenID, UTXOInputMode)
 			if err != nil {
 				return nil, err
 			}
 			var (
-				inAmount  = big.NewInt(0)
-				outAmount = big.NewInt(0)
+				inAmount   = big.NewInt(0)
+				outAmount  = big.NewInt(0)
+				needDecFee = false
 			)
 			for i := 0; i < len(selectedIndice); i++ {
 				inAmount.Add(inAmount, wallet.currAccount.Transfers[selectedIndice[i]].Amount)
@@ -750,7 +757,13 @@ func (wallet *Wallet) createUinTransaction(w accounts.Wallet, acc accounts.Accou
 				outAmount.Add(outAmount, paidDests[j].GetAmount())
 			}
 			needFee.Sub(realNeedMoney, outAmount)
-			if inAmount.Cmp(realNeedMoney) < 0 {
+			if len(paidDests) == 1 &&
+				types.TypeAcDest == paidDests[0].Type() &&
+				0 == inAmount.Cmp(big.NewInt(0).Sub(realNeedMoney, wallet.estimateUtxoTxFee())) {
+				realNeedMoney.Sub(realNeedMoney, wallet.estimateUtxoTxFee())
+				needDecFee = true
+			}
+			if inAmount.Cmp(realNeedMoney) < 0 && !needDecFee {
 				if inAmount.Cmp(outAmount) > 0 {
 					needFee.Sub(needFee, big.NewInt(0).Sub(inAmount, outAmount))
 				}
@@ -840,6 +853,7 @@ func (wallet *Wallet) checkDest(dests []types.DestEntry, tokenID common.Address,
 	}
 	transferMoney := big.NewInt(0)
 	needMoney := big.NewInt(0)
+	accTransMoney := big.NewInt(0)
 	hasContract := false
 	for i := 0; i < len(dests); i++ {
 		wallet.Logger.Debug("checkDest", "amount", dests[i].GetAmount().String())
@@ -890,6 +904,7 @@ func (wallet *Wallet) checkDest(dests []types.DestEntry, tokenID common.Address,
 			// 	// needMoney add only vm cost fee
 			// 	needMoney.Add(needMoney, fee)
 			// }
+			accTransMoney.Add(accTransMoney, dests[i].GetAmount())
 		}
 		transferMoney.Add(transferMoney, dests[i].GetAmount())
 	}
@@ -903,6 +918,7 @@ func (wallet *Wallet) checkDest(dests []types.DestEntry, tokenID common.Address,
 	case UTXOInputMode:
 		needMoney.Add(needMoney, transferMoney)
 		needMoney.Add(needMoney, wallet.estimateUtxoTxFee())
+		needMoney.Add(needMoney, wallet.estimateTxFee(accTransMoney))
 	case MixInputMode:
 		//not support now
 		return big.NewInt(0), hasContract, ErrMixInputNotSupport
@@ -913,9 +929,9 @@ func (wallet *Wallet) checkDest(dests []types.DestEntry, tokenID common.Address,
 
 //limit account fee > 1e11 and tx fee mod 1e11 == 0
 func (wallet *Wallet) estimateTxFee(transferMoney *big.Int) *big.Int {
-	// if transferMoney.Sign() == 0 {
-	// 	return big.NewInt(0)
-	// }
+	if transferMoney.Sign() == 0 {
+		return big.NewInt(0)
+	}
 	gasLimit := types.CalNewAmountGas(transferMoney)
 	return big.NewInt(0).Mul(big.NewInt(0).SetUint64(gasLimit), big.NewInt(types.GasPrice))
 }

@@ -1296,6 +1296,14 @@ func (tx *UTXOTransaction) checkState(censor TxCensor) error {
 		default:
 		}
 	}
+	accOutAmount := big.NewInt(0)
+	for _, txout := range tx.Outputs {
+		switch output := txout.(type) {
+		case *AccountOutput:
+			accOutAmount.Add(accOutAmount, output.Amount)
+		default:
+		}
+	}
 
 	neededGas := big.NewInt(0)
 	if aggInputAmount.Sign() > 0 && aggInputAmount.Cmp(tx.Fee) > 0 {
@@ -1304,8 +1312,11 @@ func (tx *UTXOTransaction) checkState(censor TxCensor) error {
 
 	kind := tx.UTXOKind()
 	if (kind & Uin) == Uin {
-		utxoGas := censor.GetUTXOGas()
-		neededGas.Add(neededGas, big.NewInt(0).SetUint64(utxoGas))
+		neededGas.Add(neededGas, big.NewInt(0).SetUint64(CalNewAmountGas(accOutAmount)))
+		if (kind & Uout) == Uout {
+			utxoGas := censor.GetUTXOGas()
+			neededGas.Add(neededGas, big.NewInt(0).SetUint64(utxoGas))
+		}
 	}
 
 	neededFee := neededGas.Mul(neededGas, big.NewInt(0).SetInt64(ParGasPrice))
