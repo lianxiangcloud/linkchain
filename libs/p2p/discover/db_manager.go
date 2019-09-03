@@ -172,7 +172,7 @@ func (dm *dbManager) expireNodes() {
 	r := util.BytesPrefix(prefix)
 	it := dm.db.Iterator(r.Start, r.Limit)
 	defer it.Close()
-	if !it.Next() {
+	if !it.Valid() {
 		return
 	}
 
@@ -215,7 +215,7 @@ func deleteRange(db dbm.DB, prefix []byte) {
 	r := util.BytesPrefix(tmpPrefix)
 	itr := db.Iterator(r.Start, r.Limit)
 	defer itr.Close()
-	for itr.Next() {
+	for ; itr.Valid(); itr.Next() {
 		db.Delete(itr.Key())
 	}
 }
