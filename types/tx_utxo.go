@@ -1312,7 +1312,9 @@ func (tx *UTXOTransaction) checkState(censor TxCensor) error {
 
 	kind := tx.UTXOKind()
 	if (kind & Uin) == Uin {
-		neededGas.Add(neededGas, big.NewInt(0).SetUint64(CalNewAmountGas(accOutAmount)))
+		if accOutAmount.Sign() > 0 {
+			neededGas.Add(neededGas, big.NewInt(0).SetUint64(CalNewAmountGas(accOutAmount)))
+		}
 		if (kind & Uout) == Uout {
 			utxoGas := censor.GetUTXOGas()
 			neededGas.Add(neededGas, big.NewInt(0).SetUint64(utxoGas))
