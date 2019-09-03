@@ -90,7 +90,6 @@ func (b *blacklist) DealBlackAddrsChanges(msg []byte) {
 		opt = optDelBlackAddress
 	}
 	if len(strAddrs) == 0 || len(strAddrs)%strAddressLength != 0 {
-		fmt.Println("strAddrs length is ", len(strAddrs), "strAddrs", strAddrs)
 		return
 	}
 	changes := make([]blacklistChange, 0)

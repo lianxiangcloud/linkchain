@@ -842,6 +842,8 @@ func opCall(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Sta
 		stack.push(evm.interpreter.intPool.getZero())
 		// remove transaction records
 		evm.otxs = evm.otxs[:startTxRecordsIndex]
+		// update err depth
+		evm.SetErrDepth(evm.depth+1)
 	} else {
 		stack.push(evm.interpreter.intPool.get().SetUint64(1))
 	}

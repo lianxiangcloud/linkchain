@@ -225,6 +225,9 @@ type WASM struct {
 	app *vm.APP
 
 	otxs []types.BalanceRecord
+	fees map[int]uint64
+
+	errDepth int
 }
 
 // NewWASM returns a new WASM. The returned WASM is not thread safe and should
@@ -238,6 +241,8 @@ func NewWASM(c types.Context, statedb types.StateDB, vmc types.VmConfig) *WASM {
 		StateDB:  statedb,
 		vmConfig: vmConfig,
 		otxs:     make([]types.BalanceRecord, 0),
+		fees:     make(map[int]uint64, 0),
+		errDepth: -1,
 	}
 }
 
@@ -254,6 +259,9 @@ func (wasm *WASM) Reset(msg types.Message) {
 	wasm.Context.Nonce = msg.Nonce() //nonce
 
 	wasm.otxs = make([]types.BalanceRecord, 0)
+	wasm.fees = make(map[int]uint64, 0)
+
+	wasm.errDepth = -1
 }
 
 func (wasm *WASM) GetCode(bz []byte) []byte {
@@ -659,4 +667,21 @@ func IsWasmContract(code []byte) bool {
 		}
 	}
 	return false
+}
+
+func (wasm *WASM) SetErrDepth(errDepth int) {
+	wasm.errDepth = errDepth
+}
+
+func (wasm *WASM) RefundFee() uint64 {
+	if wasm.errDepth == -1 {
+		return 0
+	}
+	var refundFee uint64
+	for depth, fee := range wasm.fees {
+		if depth >= wasm.depth {
+			refundFee += fee
+		}
+	}
+	return refundFee
 }

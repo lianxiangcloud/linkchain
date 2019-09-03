@@ -17,9 +17,12 @@
 package evm
 
 import (
+	"math/big"
+
 	cfg "github.com/lianxiangcloud/linkchain/config"
 	"github.com/lianxiangcloud/linkchain/libs/common"
 	"github.com/lianxiangcloud/linkchain/libs/math"
+	"github.com/lianxiangcloud/linkchain/types"
 )
 
 // memoryGasCosts calculates the quadratic gas for memory expansion. It does so
@@ -374,6 +377,16 @@ func gasCall(gt cfg.GasTable, evm *EVM, contract *Contract, stack *Stack, mem *M
 	if gas, overflow = math.SafeAdd(gas, evm.callGasTemp); overflow {
 		return 0, errGasUintOverflow
 	}
+
+	addrInt, valueInt := stack.Back(0), stack.Back(1)
+	toAddr := common.BigToAddress(addrInt)
+	value := math.U256(valueInt)
+	fee := gasFee(evm, toAddr, value)
+	if gas, overflow = math.SafeAdd(gas, fee); overflow {
+		return 0, errGasUintOverflow
+	}
+	evm.fees[evm.depth+1] += fee
+
 	return gas, nil
 }
 
@@ -412,8 +425,25 @@ func gasRevert(gt cfg.GasTable, evm *EVM, contract *Contract, stack *Stack, mem 
 func gasSuicide(gt cfg.GasTable, evm *EVM, contract *Contract, stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
 	if !evm.StateDB.HasSuicided(contract.Address()) {
 		evm.StateDB.AddRefund(cfg.SuicideRefundGas)
+		return 0, nil
 	}
-	return 0, nil
+	toInt := stack.Back(0)
+	addr := contract.Address()
+	tvs := evm.StateDB.GetTokenBalances(addr)
+	to := common.BigToAddress(toInt)
+
+	var gas uint64
+	var overflow bool
+	for i := 0; i < len(tvs); i++ {
+		if common.IsLKC(tvs[i].TokenAddr) {
+			fee := gasFee(evm, to, tvs[i].Value)
+			if gas, overflow = math.SafeAdd(gas, fee); overflow {
+				return 0, errGasUintOverflow
+			}
+			evm.fees[evm.depth] += fee
+		}
+	}
+	return gas, nil
 }
 
 func gasIssue(gt cfg.GasTable, evm *EVM, contract *Contract, stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
@@ -445,6 +475,22 @@ func gasTransferToken(gt cfg.GasTable, evm *EVM, contract *Contract, stack *Stac
 	var overflow bool
 	if gas, overflow = math.SafeAdd(gas, memoryGas); overflow {
 		return 0, errGasUintOverflow
+	}
+
+	amount, tokenAddressInt, toInt := stack.Back(0), stack.Back(1), stack.Back(2)
+	if amount.Sign() < 0 {
+		return 0, types.ExecutionReverted
+	}
+	if amount.Sign() == 0 {
+		return 0, nil
+	}
+	token, to := common.BigToAddress(tokenAddressInt), common.BigToAddress(toInt)
+	if common.IsLKC(token) {
+		fee := gasFee(evm, to, amount)
+		if gas, overflow = math.SafeAdd(gas, fee); overflow {
+			return 0, errGasUintOverflow
+		}
+		evm.fees[evm.depth] += fee
 	}
 
 	return gas, nil
@@ -500,4 +546,17 @@ func gasSwap(gt cfg.GasTable, evm *EVM, contract *Contract, stack *Stack, mem *M
 
 func gasDup(gt cfg.GasTable, evm *EVM, contract *Contract, stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
 	return GasFastestStep, nil
+}
+
+func gasFee(evm *EVM, toAddr common.Address, val *big.Int) uint64 {
+	if val.Sign() <= 0 {
+		return 0
+	}
+	var fee uint64
+	if evm.StateDB.IsContract(toAddr) {
+		fee = types.CalNewContractAmountGas(val)
+	} else {
+		fee = types.CalNewAmountGas(val)
+	}
+	return fee
 }

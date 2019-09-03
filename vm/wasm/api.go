@@ -2,15 +2,20 @@ package wasm
 
 import (
 	"fmt"
+	"errors"
 	"math/big"
 
 	"github.com/lianxiangcloud/linkchain/libs/common"
 	"github.com/lianxiangcloud/linkchain/libs/crypto"
 	"github.com/lianxiangcloud/linkchain/libs/crypto/secp256k1"
 	"github.com/lianxiangcloud/linkchain/types"
+	"github.com/lianxiangcloud/linkchain/libs/math"
 	"github.com/xunleichain/tc-wasm/vm"
 	"golang.org/x/crypto/sha3"
+
 )
+
+var errGasUintOverflow = errors.New("gas uint64 overflow")
 
 func init() {
 	env := vm.NewEnvTable()
@@ -643,7 +648,39 @@ func (t *TCTransfer) Call(index int64, ops interface{}, args []uint64) (uint64, 
 }
 func (t *TCTransfer) Gas(index int64, ops interface{}, args []uint64) (uint64, error) {
 	eng := ops.(*vm.Engine)
-	return vm.GasTransfer(eng, index, args)
+	transferGas, err := vm.GasTransfer(eng, index, args)
+	if err != nil {
+		return 0, err
+	}
+	runningFrame, _ := eng.RunningAppFrame()
+	vmem := runningFrame.VM.VMemory()
+	toTmp, err := vmem.GetString(args[0])
+	if err != nil || !common.IsHexAddress(string(toTmp)) {
+		return 0, vm.ErrInvalidApiArgs
+	}
+	to := common.HexToAddress(string(toTmp))
+	valTmp, err := vmem.GetString(args[1])
+	if err != nil {
+		return 0, vm.ErrInvalidApiArgs
+	}
+	val, ok := big.NewInt(0).SetString(string(valTmp), 0)
+	if !ok || val.Sign() < 0 {
+		return 0, vm.ErrInvalidApiArgs
+	}
+
+	var overflow bool
+	fee := gasFee(eng, to, val)
+	if transferGas, overflow = math.SafeAdd(transferGas, fee); overflow {
+		return 0, errGasUintOverflow
+	}
+	mWasm, ok := eng.Ctx.(*WASM)
+	if !ok {
+		eng.Logger().Error("TC_Transfer gas get WASM failed")
+	}
+	mWasm.fees[mWasm.depth] += fee
+
+	return transferGas, nil
+
 }
 
 //void TC_Transfer(char *address, char* amount)
@@ -694,7 +731,55 @@ func (t *TCTransferToken) Call(index int64, ops interface{}, args []uint64) (uin
 }
 func (t *TCTransferToken) Gas(index int64, ops interface{}, args []uint64) (uint64, error) {
 	eng := ops.(*vm.Engine)
-	return vm.GasTransferToken(eng, index, args)
+	transferTokenGas, err := vm.GasTransferToken(eng, index, args)
+	if err != nil {
+		return 0, err
+	}
+	runningFrame, _ := eng.RunningAppFrame()
+	vmem := runningFrame.VM.VMemory()
+	from := common.BytesToAddress(eng.Contract.Address().Bytes())
+	toTmp, err := vmem.GetString(args[0])
+	if err != nil || !common.IsHexAddress(string(toTmp)) {
+		return 0, vm.ErrInvalidApiArgs
+	}
+	to := common.HexToAddress(string(toTmp))
+	tokenTmp, err := vmem.GetString(args[1])
+	if err != nil || !common.IsHexAddress(string(tokenTmp)) {
+		return 0, vm.ErrInvalidApiArgs
+	}
+	token := common.HexToAddress(string(tokenTmp))
+	valTmp, err := vmem.GetString(args[2])
+	if err != nil {
+		return 0, vm.ErrInvalidApiArgs
+	}
+	val, ok := big.NewInt(0).SetString(string(valTmp), 0)
+	if !ok || val.Sign() < 0 {
+		return 0, vm.ErrInvalidApiArgs
+	}
+
+	eng.Logger().Debug("gas tcTransferToken", "from", from.String(), "to", to.String(), "token", token.String(), "val", val)
+	if val.Sign() == 0 {
+		return 0, nil
+	}
+
+	var overflow bool
+	mState := eng.State.(types.StateDB)
+	if token == common.EmptyAddress {
+		if mState.GetBalance(from).Cmp(val) >= 0 {
+			fee := gasFee(eng, to, val)
+			if transferTokenGas, overflow = math.SafeAdd(transferTokenGas, fee); overflow {
+				return 0, errGasUintOverflow
+			}
+			mWasm, ok := eng.Ctx.(*WASM)
+			if !ok {
+				eng.Logger().Error("TCTransferToken gas get WASM failed")
+			}
+			mWasm.fees[mWasm.depth] += fee
+		}
+	}
+
+	return transferTokenGas, nil
+
 }
 
 //void TC_TransferToken(char *address, char* tokenAddress, char* amount)
@@ -763,7 +848,38 @@ func (t *TCSelfDestruct) Call(index int64, ops interface{}, args []uint64) (uint
 }
 func (t *TCSelfDestruct) Gas(index int64, ops interface{}, args []uint64) (uint64, error) {
 	eng := ops.(*vm.Engine)
-	return vm.GasSelfDestruct(eng, index, args)
+	destructGas, err := vm.GasSelfDestruct(eng, index, args)
+	if err != nil {
+		return 0, err
+	}
+	runningFrame, _ := eng.RunningAppFrame()
+	vmem := runningFrame.VM.VMemory()
+	addr := common.BytesToAddress(eng.Contract.Address().Bytes())
+	toTmp, err := vmem.GetString(args[0])
+	if err != nil || !common.IsHexAddress(string(toTmp)) {
+		return 0, vm.ErrInvalidApiArgs
+	}
+	mState := eng.State.(types.StateDB)
+	to := common.HexToAddress(string(toTmp))
+	tv := mState.GetTokenBalances(addr)
+
+	var overflow bool
+	for i := 0; i < len(tv); i++ {
+		if common.IsLKC(tv[i].TokenAddr) {
+			fee := gasFee(eng, to, tv[i].Value)
+			if destructGas, overflow = math.SafeAdd(destructGas, fee); overflow {
+				return 0, errGasUintOverflow
+			}
+			mWasm, ok := eng.Ctx.(*WASM)
+			if !ok {
+				eng.Logger().Error("TCTransferToken gas get WASM failed")
+			}
+			mWasm.fees[mWasm.depth] += fee
+		}
+	}
+
+	return destructGas, nil
+
 }
 
 //char *TC_SelfDestruct(char* recipient)
@@ -1406,6 +1522,7 @@ func tcCallContract(eng *vm.Engine, index int64, args []uint64) (uint64, error) 
 	if err != nil {
 		// remove transaction records
 		mWasm.otxs = mWasm.otxs[:startTxRecordsIndex]
+		mWasm.SetErrDepth(mWasm.depth+1)
 		return 0, err
 	}
 	eng.Contract = preContract
@@ -1449,5 +1566,19 @@ func gasCallContract(eng *vm.Engine, index int64, args []uint64) (uint64, error)
 	if gas, overflow = vm.SafeAdd(gas, wordGas); overflow {
 		return 0, vm.ErrGasOverflow
 	}
+
 	return gas, nil
+}
+
+func gasFee(eng *vm.Engine, toAddr common.Address, val *big.Int) uint64 {
+	if val.Sign() == 0 {
+		return 0
+	}
+	var fee uint64
+	if eng.State.GetContractCode(toAddr.Bytes()) == nil {
+		fee = types.CalNewAmountGas(val)
+	} else {
+		fee = types.CalNewContractAmountGas(val)
+	}
+	return fee
 }

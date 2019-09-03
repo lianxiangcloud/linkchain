@@ -82,7 +82,7 @@ func loadTokenUtxoStoreMaxUtxoOutputSeqMap(utxoDB dbm.DB) map[string]int64 {
 	return retMap
 }
 
-func (u *UtxoStore)GetMaxUtxoOutputSeq(tokenId common.Address) int64 {
+func (u *UtxoStore) GetMaxUtxoOutputSeq(tokenId common.Address) int64 {
 	u.mapMutex.Lock()
 	val, ok :=  u.maxUtxoOutputSeqTokenMap[tokenId.String()]
 	u.mapMutex.Unlock()
@@ -125,7 +125,7 @@ func (u *UtxoStore) GetBlockTokenUtxoOutputSeq(blockHeight uint64) map[string]in
 	return retMap
 }
 
-func (u *UtxoStore)saveTokenUtxoOutputSeq(tokenSeqMap map[string]int64) error {
+func (u *UtxoStore) saveTokenUtxoOutputSeq(tokenSeqMap map[string]int64) error {
 	tokenOutputSeqs := newTokenUtxoSeqs()
 	u.mapMutex.Lock()
 	for tokenId, seq := range tokenSeqMap {

@@ -320,8 +320,8 @@ func (s *PublicBlockChainAPI) EstimateGas(ctx context.Context, args CallArgs) (h
 		hi = uint64(args.Gas)
 	} else {
 		// Retrieve the current pending block to act as the gas ceiling
-		args.Gas = types.MaxGasLimit * 2
-		hi = types.MaxGasLimit * 2
+		args.Gas = types.MaxGasLimit * types.MaxFeeCounts
+		hi = types.MaxGasLimit * types.MaxFeeCounts
 	}
 	//cap = hi
 

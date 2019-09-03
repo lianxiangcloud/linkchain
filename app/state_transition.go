@@ -328,8 +328,10 @@ func (st *StateTransition) UTXOTransitionDb() (ret []byte, usedGas uint64, byteC
 
 		if vmerr != nil && isNewFeeRule {
 			log.Debug("UTXOTransitionDb vmerr happened, refund partial gas", "transfervalueGas", transfervalueGas)
+			st.vmenv.SetErrDepth(0)
 			st.gas += transfervalueGas
 		}
+		st.gas += st.vmenv.RefundFee()
 		// check black list contract
 		if vmerr == nil && contractAddr == cfg.ContractBlacklistAddr {
 			log.Debug("start to deal black addrs changes", "msg", string(ret))
@@ -433,8 +435,10 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, byteCodeG
 			log.Debug("after contract Call", "st.gas", st.gas)
 		}
 		if vmerr != nil && isNewFeeRule {
+			vmenv.SetErrDepth(0)
 			st.gas += totalFee
 		}
+		st.gas += vmenv.RefundFee()
 		// check black list contract
 		if vmerr == nil && *msg.To() == cfg.ContractBlacklistAddr {
 			log.Debug("start to deal black addrs changes", "msg", string(ret))
