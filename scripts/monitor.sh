@@ -1,7 +1,5 @@
 #!/bin/bash
 proc=lkchain
-#monitor_path=$0
-#datapath= $(dirname ${monitor_path})
 datapath=$(cd `dirname $0`;cd ..;pwd)
 pid=$(ps -ef | grep $proc |grep $datapath |grep -v grep | awk '{print $2}')
 ulimit -c unlimited
