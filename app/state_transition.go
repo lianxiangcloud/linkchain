@@ -409,7 +409,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, byteCodeG
 	} else if msg.To() == nil {
 		if contractCreation {
 			var totalFee uint64
-			isNewFeeRule := st.state.IsContract(*msg.To()) && msg.Value().Sign() > 0
+			isNewFeeRule := msg.Value().Sign() > 0
 			if isNewFeeRule {
 				totalFee = types.CalNewAmountGas(msg.Value())
 				if vmerr = st.useGas(totalFee); vmerr != nil {
