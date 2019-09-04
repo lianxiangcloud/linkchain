@@ -729,6 +729,7 @@ func (cs *ConsensusState) updateToStatus(status NewStatus) {
 		cs.stepRecover = false
 		cs.status.LastRecover = true
 		cs.status.LastValidators = cs.Validators
+		cs.timeoutTimer.Reset(cs.StartTime.Add(timeoutRecover).Sub(time.Now()))
 	}
 
 	cs.Validators = validators
