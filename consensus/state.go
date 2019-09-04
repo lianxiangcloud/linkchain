@@ -804,6 +804,7 @@ func (cs *ConsensusState) receiveRoutine(maxSteps int) {
 		case <-cs.timeoutTimer.C:
 			now := time.Now()
 			recover := cs.StartTime.Add(timeoutRecover)
+			cs.Logger.Info("Recover timer", "nextRecover", recover, "stepRecover", cs.stepRecover)
 			if now.Before(recover) {
 				cs.timeoutTimer.Reset(recover.Sub(now))
 
