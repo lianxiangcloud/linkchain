@@ -411,7 +411,10 @@ func tcBlockHash(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 	if !ok {
 		eng.Logger().Error("TC_BlockHash get WASM failed")
 	}
-	hash := mWasm.GetHash(block)
+	hash := common.Hash{}
+	if block != 0{
+		hash = mWasm.GetHash(block)
+	}
 	hashStr := hash.String()
 
 	hashPointer, err := vmem.SetBytes([]byte(hashStr))

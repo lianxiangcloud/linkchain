@@ -176,6 +176,8 @@ type BaseConfig struct {
 	SaveBalanceRecord bool `mapstructure:"save_balance_record"`
 
 	IsTestMode bool `mapstructure:"is_test_mode"`
+
+	TestNet bool `mapstructure:"test_net"`
 }
 
 // DefaultBaseConfig returns a default base configuration for a node

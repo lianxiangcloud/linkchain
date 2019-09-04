@@ -131,3 +131,16 @@ func (a *AccountBase) CreateSubAccountN(cnt int) error {
 	}
 	return nil
 }
+
+// zeroKey zeroes a private key in memory.
+func (a *AccountBase) ZeroKey() {
+	mainAccount := a.GetKeys()
+	if mainAccount != nil {
+		for i := range mainAccount.SpendSKey {
+			mainAccount.SpendSKey[i] = byte(0)
+		}
+		for i := range mainAccount.ViewSKey {
+			mainAccount.ViewSKey[i] = byte(0)
+		}
+	}
+}

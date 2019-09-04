@@ -108,11 +108,14 @@ func (w *Wallet) Start() error {
 
 // OnStop stops the Wallet. It implements cmn.Service.
 func (w *Wallet) Stop() {
+	w.lock.Lock()
+	defer w.lock.Unlock()
 
-	for _, account := range w.addrMap {
+	for addr, account := range w.addrMap {
 		w.Logger.Info("OnStop", "addr", account.getEthAddress())
 
 		account.OnStop()
+		delete(w.addrMap, addr)
 	}
 
 	w.Logger.Info("Stopping Wallet")
@@ -157,7 +160,12 @@ func (w *Wallet) GetAddress(index uint64) (string, error) {
 // GetHeight rpc get height
 func (w *Wallet) GetHeight() (localHeight uint64, remoteHeight uint64) {
 	if w.IsWalletClosed() {
-		return 0, 0
+		rh, err := RefreshMaxBlock()
+		if err != nil {
+			w.Logger.Error("GetHeight,RefreshMaxBlock fail", "err", err)
+			return 0, 0
+		}
+		return 0, rh.Uint64()
 	}
 	return w.currAccount.GetHeight()
 }
@@ -203,19 +211,29 @@ func (w *Wallet) GetWalletEthAddress() (*common.Address, error) {
 	return &addr, nil
 }
 
-// CloseWallet ,close wallet
-func (w *Wallet) CloseWallet() error {
-	w.currAccount.OnStop()
+// LockAccount lock account by addr
+func (w *Wallet) LockAccount(addr common.Address) error {
+	w.lock.Lock()
+	defer w.lock.Unlock()
 
-	addr := w.currAccount.getEthAddress()
-	delete(w.addrMap, addr)
-	if len(w.addrMap) == 0 {
-		w.currAccount = nil
+	w.Logger.Info("LockAccount", "account", addr)
+
+	account, ok := w.addrMap[addr]
+	if !ok {
+		return nil
 	}
-	for _, v := range w.addrMap {
-		w.currAccount = v
-		w.Logger.Info("CloseWallet reset currAccount", "currAccount", w.currAccount.getEthAddress())
-		break
+
+	// stop account refresh and reset secKey
+	account.OnStop()
+
+	delete(w.addrMap, addr)
+	if addr == w.currAccount.getEthAddress() {
+		w.currAccount = nil
+		for _, v := range w.addrMap {
+			w.currAccount = v
+			w.Logger.Info("LockAccount reset currAccount", "currAccount", w.currAccount.getEthAddress())
+			break
+		}
 	}
 
 	return nil
@@ -232,7 +250,25 @@ func (w *Wallet) getGOutIndex(token common.Address) uint64 {
 // Status return wallet status
 func (w *Wallet) Status() *types.StatusResult {
 	if w.IsWalletClosed() {
-		return nil
+		rh, err := RefreshMaxBlock()
+		if err != nil {
+			w.Logger.Error("GetHeight,RefreshMaxBlock fail", "err", err)
+			rh = big.NewInt(0)
+		}
+		chainVersion, err := GetChainVersion()
+		if err != nil {
+			w.Logger.Error("Status getChainVersion fail", "err", err)
+			chainVersion = "0.0.0"
+		}
+		return &types.StatusResult{RemoteHeight: hexutil.Uint64(rh.Uint64()),
+			LocalHeight:          hexutil.Uint64(0),
+			WalletOpen:           false,
+			AutoRefresh:          false,
+			WalletVersion:        WalletVersion,
+			ChainVersion:         chainVersion,
+			EthAddress:           common.EmptyAddress,
+			RefreshBlockInterval: 0,
+		}
 	}
 	return w.currAccount.Status()
 }

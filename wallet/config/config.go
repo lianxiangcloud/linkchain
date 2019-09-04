@@ -37,6 +37,7 @@ type BaseConfig struct {
 	// LogPath directory
 	LogPath string `mapstructure:"log_dir"`
 	LogFile string `mapstructure:"log_file"`
+	TestNet bool `mapstructure:"test_net"`
 }
 
 // DefaultBaseConfig return default config

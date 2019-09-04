@@ -54,20 +54,6 @@ func (mr *MockWalletMockRecorder) AutoRefreshBlockchain(arg0 interface{}) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AutoRefreshBlockchain", reflect.TypeOf((*MockWallet)(nil).AutoRefreshBlockchain), arg0)
 }
 
-// CloseWallet mocks base method
-func (m *MockWallet) CloseWallet() error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CloseWallet")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// CloseWallet indicates an expected call of CloseWallet
-func (mr *MockWalletMockRecorder) CloseWallet() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloseWallet", reflect.TypeOf((*MockWallet)(nil).CloseWallet))
-}
-
 // CreateSubAccount mocks base method
 func (m *MockWallet) CreateSubAccount(arg0 uint64) error {
 	m.ctrl.T.Helper()
@@ -382,6 +368,20 @@ func (mr *MockWalletMockRecorder) GetWalletEthAddress() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetWalletEthAddress", reflect.TypeOf((*MockWallet)(nil).GetWalletEthAddress))
 }
 
+// LockAccount mocks base method
+func (m *MockWallet) LockAccount(arg0 common.Address) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LockAccount", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// LockAccount indicates an expected call of LockAccount
+func (mr *MockWalletMockRecorder) LockAccount(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LockAccount", reflect.TypeOf((*MockWallet)(nil).LockAccount), arg0)
+}
+
 // OpenWallet mocks base method
 func (m *MockWallet) OpenWallet(arg0, arg1 string) error {
 	m.ctrl.T.Helper()
@@ -422,6 +422,21 @@ func (m *MockWallet) SelectAddress(arg0 common.Address) error {
 func (mr *MockWalletMockRecorder) SelectAddress(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SelectAddress", reflect.TypeOf((*MockWallet)(nil).SelectAddress), arg0)
+}
+
+// SendRawTransaction mocks base method
+func (m *MockWallet) SendRawTransaction(arg0 hexutil.Bytes) (common.Hash, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SendRawTransaction", arg0)
+	ret0, _ := ret[0].(common.Hash)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SendRawTransaction indicates an expected call of SendRawTransaction
+func (mr *MockWalletMockRecorder) SendRawTransaction(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendRawTransaction", reflect.TypeOf((*MockWallet)(nil).SendRawTransaction), arg0)
 }
 
 // SetRefreshBlockInterval mocks base method
