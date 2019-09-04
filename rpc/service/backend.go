@@ -513,3 +513,13 @@ func (b *ApiBackend) PrometheusMetrics() string {
 func (b *ApiBackend) GetUTXOGas() uint64 {
 	return b.context().app.GetUTXOGas()
 }
+
+func (b *ApiBackend) GetTxsResult(ctx context.Context, blockNr uint64) (*types.TxsResult, error) {
+	bc := b.context().blockStore
+	latest := bc.Height()
+
+	if blockNr > latest {
+		return nil, fmt.Errorf("invalid block_number,max %v", latest)
+	}
+	return bc.LoadTxsResult(blockNr)
+}

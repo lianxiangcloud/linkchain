@@ -1219,7 +1219,7 @@ func tcEcrecover(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 	sign := make([]byte, 65)
 	copy(sign[:32], r.Bytes())
 	copy(sign[32:64], s.Bytes())
-	chainIdMul := new(big.Int).SetInt64(vm.THUNDERCHAINID * 2)
+	chainIdMul := new(big.Int).SetInt64(types.DeriveSignParam(v).Int64() * 2)
 	sign[64] = byte(new(big.Int).Sub(v, chainIdMul).Uint64() - 35)
 	// tighter sig s values input homestead only apply to tx sigs
 	if !crypto.ValidateSignatureValues(sign[64], r, s, false) {

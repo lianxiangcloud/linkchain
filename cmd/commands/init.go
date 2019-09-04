@@ -17,7 +17,6 @@ import (
 	"github.com/lianxiangcloud/linkchain/libs/log"
 	"github.com/lianxiangcloud/linkchain/state"
 	"github.com/lianxiangcloud/linkchain/types"
-	"github.com/lianxiangcloud/linkchain/vm/evm"
 	"github.com/lianxiangcloud/linkchain/vm/wasm"
 	"github.com/spf13/cobra"
 	"github.com/xunleichain/tc-wasm/vm"
@@ -340,8 +339,8 @@ func initWasmContract(st *state.StateDB, contractAddr common.Address, codeStr st
 
 	code := common.Hex2Bytes(codeStr)
 
-	caller := evm.AccountRef(common.EmptyAddress)
-	to := evm.AccountRef(contractAddr)
+	caller := common.EmptyAddress
+	to := contractAddr
 	value := big.NewInt(0)
 	gas := uint64(1000000000000000000)
 
@@ -349,26 +348,21 @@ func initWasmContract(st *state.StateDB, contractAddr common.Address, codeStr st
 	st.SetNonce(contractAddr, 1)
 	st.SetCode(contractAddr, code)
 
-	contract := wasm.NewContract(caller, to, value, gas)
-	contract.SetCallCode(&contractAddr, crypto.Keccak256Hash(code), code)
-	contract.Input = input
-	contract.CreateCall = true
-
-	innerContract := vm.NewContract(contract.CallerAddress.Bytes(), contract.Address().Bytes(), contract.Value(), contract.Gas)
-	innerContract.SetCallCode(contract.CodeAddr.Bytes(), contract.CodeHash.Bytes(), contract.Code)
-	innerContract.Input = contract.Input
-	innerContract.CreateCall = contract.CreateCall
+	innerContract := vm.NewContract(caller.Bytes(), to.Bytes(), value, gas)
+	innerContract.SetCallCode(contractAddr.Bytes(), crypto.Keccak256Hash(code).Bytes(), code)
+	innerContract.Input = input
+	innerContract.CreateCall = true
 	wasm.Inject(st, nil) // WASM and context are useless when deploy contract
-	eng := vm.NewEngine(innerContract, contract.Gas, st, logger)
+	eng := vm.NewEngine(innerContract, innerContract.Gas, st, logger)
 	eng.SetTrace(false) // trace app execution.
 
-	app, err := eng.NewApp(contract.Address().String(), contract.Code, false)
+	app, err := eng.NewApp(innerContract.Address().String(), innerContract.Code, false)
 	if err != nil {
 		return fmt.Errorf("exec.NewApp fail: %s", err)
 	}
 
 	app.EntryFunc = vm.APPEntry
-	ret, err := eng.Run(app, contract.Input)
+	ret, err := eng.Run(app, innerContract.Input)
 	if err != nil {
 		return fmt.Errorf("eng.Run fail: err=%s", err)
 	}

@@ -679,3 +679,25 @@ func (_m *MockBackend) Validators(heightPtr *uint64) (*rtypes.ResultValidators, 
 
 	return r0, r1
 }
+
+func (_m *MockBackend) GetTxsResult(ctx context.Context, blockNr uint64) (*types.TxsResult, error) {
+	ret := _m.Called(ctx, blockNr)
+
+	var r0 *types.TxsResult
+	if rf, ok := ret.Get(0).(func(context.Context, uint64) *types.TxsResult); ok {
+		r0 = rf(ctx, blockNr)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*types.TxsResult)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, uint64) error); ok {
+		r1 = rf(ctx, blockNr)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}

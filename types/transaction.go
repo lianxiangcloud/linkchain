@@ -112,7 +112,7 @@ func (data txdata) recover(hash common.Hash, signParamMul *big.Int, homestead bo
 
 // SignParam returns which sign param this transaction was signed with
 func (data txdata) SignParam() *big.Int {
-	return deriveSignParam(data.V)
+	return DeriveSignParam(data.V)
 }
 
 func (tx *Transaction) Sign(signer STDSigner, prv *ecdsa.PrivateKey) error {
@@ -276,7 +276,7 @@ func (tx *Transaction) UnmarshalJSON(input []byte) error {
 	}
 	var V byte
 	if isProtectedV(dec.V) {
-		signParam := deriveSignParam(dec.V).Uint64()
+		signParam := DeriveSignParam(dec.V).Uint64()
 		V = byte(dec.V.Uint64() - 35 - 2*signParam)
 	} else {
 		V = byte(dec.V.Uint64() - 27)
