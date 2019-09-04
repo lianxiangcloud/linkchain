@@ -69,6 +69,11 @@ func (s *PublicBlockChainAPI) BlockNumber() *big.Int {
 	return big.NewInt(int64(header.Height))
 }
 
+// GenesisBlockNumber returns the genesis block number
+func (s *PublicBlockChainAPI) GenesisBlockNumber(ctx context.Context) hexutil.Uint64 {
+	return hexutil.Uint64(types.BlockHeightZero)
+}
+
 // Get current black list
 func (s *PublicBlockChainAPI) Blacklist() []common.Address {
 	return types.BlacklistInstance().GetBlackAddrs()
