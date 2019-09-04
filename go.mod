@@ -13,6 +13,7 @@ require (
 	github.com/BurntSushi/toml v0.3.1
 	github.com/NebulousLabs/fastrand v1.2.3 // indirect
 	github.com/NebulousLabs/go-upnp v1.2.3
+	github.com/VividCortex/gohistogram v1.0.0 // indirect
 	github.com/aristanetworks/goarista v0.0.0-20190704150520-f44d68189fd7
 	github.com/boltdb/bolt v1.3.1
 	github.com/btcsuite/btcd v0.0.0-20190629003639-c26ffa870fd8
@@ -23,7 +24,6 @@ require (
 	github.com/ebuchman/fail-test v0.0.0-20170303061230-95f809107225
 	github.com/fatih/color v1.7.0
 	github.com/fortytw2/leaktest v1.3.0
-	github.com/go-interpreter/wagon v0.0.0
 	github.com/go-kit/kit v0.8.0
 	github.com/go-logfmt/logfmt v0.4.0 // indirect
 	github.com/go-stack/stack v1.8.0
@@ -52,7 +52,6 @@ require (
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 	golang.org/x/sys v0.0.0-20190712062909-fae7ac547cb7
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
-	golang.org/x/tools v0.0.0-20190820033707-85edb9ef3283 // indirect
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
 	gopkg.in/fatih/set.v0 v0.1.0
 	gopkg.in/karalabe/cookiejar.v2 v2.0.0-20150724131613-8dcd6a7f4951

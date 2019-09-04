@@ -155,7 +155,7 @@ func NewNode(config *cfg.Config,
 	blockStore := bc.NewBlockStore(blockStoreDB)
 
 	// Get Balance Records Store
-	balanceRecordStoreDB, err := dbProvider(&DBContext{"banance_record", config})
+	balanceRecordStoreDB, err := dbProvider(&DBContext{"balance_record", config})
 	if err != nil {
 		return nil, err
 	}

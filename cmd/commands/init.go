@@ -211,6 +211,11 @@ func createGenesisBlock(config *cfg.Config, genDoc *types.GenesisDoc) ([]*types.
 	stateDB := dbm.NewDB("state", dbm.DBBackendType(config.DBBackend), config.DBDir(), config.DBCounts)
 	defer stateDB.Close()
 
+	balanceRecordDB := dbm.NewDB("balance_record", dbm.DBBackendType(config.DBBackend), config.DBDir(), config.DBCounts)
+	defer balanceRecordDB.Close()
+
+	balanceRecordStore := bc.NewBalanceRecordStore(balanceRecordDB, config.SaveBalanceRecord)
+
 	isTrie := config.FullNode
 	stateRoot := common.EmptyHash
 	if len(config.InitStateRoot) != 0 {
@@ -260,6 +265,12 @@ func createGenesisBlock(config *cfg.Config, genDoc *types.GenesisDoc) ([]*types.
 	fmt.Println("genesisBlock trieRoot", trieRoot.Hex())
 	fmt.Printf("genesisBlock ChainID:%v block.Hash:%v\n", block.ChainID, block.Hash().String())
 	blockStore.SaveBlock(block, block.MakePartSet(defaultParams.BlockGossip.BlockPartSizeBytes), nil, nil, &txsResult)
+
+	bbr := types.NewBlockBalanceRecords()
+	bbr.SetBlockTime(block.Time())
+	bbr.SetBlockHash(block.Hash())
+	balanceRecordStore.Save(block.Height, bbr)
+
 	return vals, nil
 }
 

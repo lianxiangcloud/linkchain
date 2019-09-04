@@ -553,10 +553,8 @@ func (wasm *WASM) Create(c types.ContractRef, data []byte, gas uint64, value *bi
 	strInput, _ := hex.DecodeString(encodeinput)
 
 	wasm.Transfer(wasm.StateDB, caller.Address(), contractAddr, common.EmptyAddress, value)
-	if value.Sign() > 0 {
-		br := types.GenBalanceRecord(caller.Address(), contractAddr, types.AccountAddress, types.AccountAddress, types.TxCreateContract, common.EmptyAddress, value)
-		wasm.otxs = append(wasm.otxs, br)
-	}
+	br := types.GenBalanceRecord(caller.Address(), contractAddr, types.AccountAddress, types.AccountAddress, types.TxCreateContract, common.EmptyAddress, value)
+	wasm.otxs = append(wasm.otxs, br)
 
 	// initialise a new contract and set the code that is to be used by the
 	// WASM. The contract is a scoped environment for this execution context
