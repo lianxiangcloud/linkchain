@@ -54,8 +54,8 @@ type ProcessResult struct {
 	isOk      bool
 }
 
-type PoceedHandle func(st *state.StateDB, coinbase common.Address, amount *big.Int, logger log.Logger) error
-type AwardHandle func(st *state.StateDB, logger log.Logger) error
+type PoceedHandle func(wasm *wasm.WASM, coinbase common.Address, amount *big.Int, logger log.Logger) error
+type AwardHandle func(wasm *wasm.WASM, logger log.Logger) error
 
 func (p *ProcessResult) GetReceipts() *types.Receipts {
 	return p.receipts
@@ -416,11 +416,14 @@ func (app *LinkApplication) processBlock(block *types.Block, processResult *Proc
 		return
 	}
 
+	contextWasm := wasm.NewWASMContext(types.CopyHeader(block.Header), app.blockChain, nil, config.WasmGasRate)
+	wasm := wasm.NewWASM(contextWasm, processResult.tmpState, evm.Config{EnablePreimageRecording: false})
+
 	if gasUsed > 0 && app.poceedHandle != nil {
 		totalGasFee := new(big.Int).Mul(new(big.Int).SetUint64(gasUsed), new(big.Int).SetInt64(types.ParGasPrice))
 		app.logger.Info("processHandle", "foundation_addr", config.ContractFoundationAddr.String(), "totalGasFee", totalGasFee.String())
 		processResult.tmpState.AddBalance(config.ContractFoundationAddr, totalGasFee)
-		if err := app.poceedHandle(processResult.tmpState, block.Coinbase(), totalGasFee, app.logger); err != nil {
+		if err := app.poceedHandle(wasm, block.Coinbase(), totalGasFee, app.logger); err != nil {
 			app.logger.Warn("processBlock: process failed when setPoceeds", "blockHash", block.Hash(), "err", err)
 			return
 		}
@@ -428,7 +431,7 @@ func (app *LinkApplication) processBlock(block *types.Block, processResult *Proc
 
 	if block.Height%(10*app.lastCoe.VotePeriod) == 0 && len(app.lastTxsResult.Candidates) > 0 && app.awardHandle != nil {
 		app.logger.Info("awardHandle")
-		if err := app.awardHandle(processResult.tmpState, app.logger); err != nil {
+		if err := app.awardHandle(wasm, app.logger); err != nil {
 			app.logger.Warn("processBlock: process failed when allocAward", "blockHash", block.Hash(), "err", err)
 			return
 		}
@@ -935,28 +938,30 @@ func (app *LinkApplication) getCoefficient() *types.Coefficient {
 	return types.DefaultCoefficient()
 }
 
-func SetPoceeds(st *state.StateDB, coinbase common.Address, amount *big.Int, logger log.Logger) error {
+func SetPoceeds(wasm *wasm.WASM, coinbase common.Address, amount *big.Int, logger log.Logger) error {
 	input := `setPoceeds|{"0":"` + coinbase.String() + `","1":"` + amount.String() + `"}`
 	logger.Info("setPoceeds", "input", input)
-	_, err := CallWasmContract(st, common.EmptyAddress, config.ContractFoundationAddr, big.NewInt(0), []byte(input), logger)
+	_, err := CallWasmContract(wasm, common.EmptyAddress, config.ContractFoundationAddr, big.NewInt(0), []byte(input), logger)
 	return err
 }
 
-func AllocAward(st *state.StateDB, logger log.Logger) error {
+func AllocAward(wasm *wasm.WASM, logger log.Logger) error {
 	input := "allocAward|{}"
 	logger.Info("allocAward")
-	_, err := CallWasmContract(st, common.EmptyAddress, config.ContractFoundationAddr, big.NewInt(0), []byte(input), logger)
+	_, err := CallWasmContract(wasm, common.EmptyAddress, config.ContractFoundationAddr, big.NewInt(0), []byte(input), logger)
 	return err
 }
 
 //CallWasmContract only be used by chain inner to call wasm contract directly
-func CallWasmContract(st *state.StateDB, sender, contractAddr common.Address, amount *big.Int, input []byte, logger log.Logger) ([]byte, error) {
+func CallWasmContract(wasm *wasm.WASM, sender, contractAddr common.Address, amount *big.Int, input []byte, logger log.Logger) ([]byte, error) {
 	gas := uint64(10000000000000000000)
+	st := wasm.StateDB
 
 	innerContract := vm.NewContract(sender.Bytes(), contractAddr.Bytes(), amount, gas)
 	innerContract.SetCallCode(contractAddr.Bytes(), st.GetCodeHash(contractAddr).Bytes(), st.GetCode(contractAddr))
 	innerContract.Input = input
 	eng := vm.NewEngine(innerContract, innerContract.Gas, st, logger)
+	eng.Ctx = wasm
 	eng.SetTrace(false) // trace app execution.
 
 	app, err := eng.NewApp(innerContract.Address().String(), innerContract.Code, false)
@@ -975,5 +980,6 @@ func CallWasmContract(st *state.StateDB, sender, contractAddr common.Address, am
 	if err != nil {
 		return nil, fmt.Errorf("vmem.GetString fail: err=%v", err)
 	}
+
 	return result, nil
 }

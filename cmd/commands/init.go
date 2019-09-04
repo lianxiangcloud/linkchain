@@ -17,7 +17,6 @@ import (
 	"github.com/lianxiangcloud/linkchain/libs/log"
 	"github.com/lianxiangcloud/linkchain/state"
 	"github.com/lianxiangcloud/linkchain/types"
-	"github.com/lianxiangcloud/linkchain/vm/wasm"
 	"github.com/spf13/cobra"
 	"github.com/xunleichain/tc-wasm/vm"
 )
@@ -352,7 +351,6 @@ func initWasmContract(st *state.StateDB, contractAddr common.Address, codeStr st
 	innerContract.SetCallCode(contractAddr.Bytes(), crypto.Keccak256Hash(code).Bytes(), code)
 	innerContract.Input = input
 	innerContract.CreateCall = true
-	wasm.Inject(st, nil) // WASM and context are useless when deploy contract
 	eng := vm.NewEngine(innerContract, innerContract.Gas, st, logger)
 	eng.SetTrace(false) // trace app execution.
 

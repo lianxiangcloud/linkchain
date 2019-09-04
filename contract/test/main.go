@@ -73,7 +73,7 @@ func CallContractByInput(st *state.StateDB, contract *wasm.Contract, input strin
 	innerContract.Input = contract.Input
 	innerContract.CreateCall = contract.CreateCall
 	eng := vm.NewEngine(innerContract, contract.Gas, st, log.Test())
-	wasm.Inject(st, wasm.NewWASM(ctx, st, nil))
+	eng.Ctx = wasm.NewWASM(ctx, st, nil)
 	eng.SetTrace(false)
 	app, err := eng.NewApp(contract.Address().String(), contract.Code, false)
 	if err != nil {

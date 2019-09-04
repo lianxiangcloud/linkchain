@@ -1343,7 +1343,7 @@ func (cs *ConsensusState) enterPrecommit(height uint64, round int) {
 	}
 
 	// +2/3 prevoted nil. Unlock and precommit nil.
-	if len(blockID.Hash) == 0 {
+	if blockID.IsZero() {
 		if cs.LockedBlock == nil {
 			logger.Info("enterPrecommit: +2/3 prevoted for nil.")
 		} else {
@@ -1486,7 +1486,7 @@ func (cs *ConsensusState) tryFinalizeCommit(height uint64) {
 	}
 
 	blockID, ok := cs.Votes.Precommits(cs.CommitRound).TwoThirdsMajority()
-	if !ok || len(blockID.Hash) == 0 {
+	if !ok || blockID.IsZero() {
 		logger.Error("Attempt to finalize failed. There was no +2/3 majority, or +2/3 was for <nil>.")
 		return
 	}
