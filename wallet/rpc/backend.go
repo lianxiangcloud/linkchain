@@ -1,3 +1,5 @@
+//go:generate mockgen -destination mock_backend.go -package rpc -self_package github.com/lianxiangcloud/linkchain/wallet/rpc github.com/lianxiangcloud/linkchain/wallet/rpc Backend
+
 package rpc
 
 import (

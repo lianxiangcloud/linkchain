@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/lianxiangcloud/linkchain/accounts/keystore"
@@ -41,7 +40,6 @@ func WordsToAccount(words string) (*AccountBase, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Debug("WordsToAccount", "rk", fmt.Sprintf("%x", rk))
 	return RecoveryKeyToAccount(rk)
 }
 
@@ -68,7 +66,6 @@ func RecoveryKeyToAccount(rk lktypes.SecretKey) (*AccountBase, error) {
 	ab := AccountBase{
 		KeyIndex:          make(map[lktypes.PublicKey]uint64),
 		CreationTimestamp: time.Now().Unix(),
-		MainSecKey:        rk,
 	}
 	ab.Keys = append(ab.Keys, &acc)
 	ab.KeyIndex[acc.Addr.SpendPublicKey] = 0
@@ -149,7 +146,6 @@ func KeyFromAccount(keyjson []byte, passwd string) (lktypes.SecretKey, error) {
 	sk := crypto.FromECDSA(accKey.PrivateKey)
 	var key lktypes.SecretKey
 	copy(key[:], sk[:])
-	log.Debug("KeyFromAccount", "key", fmt.Sprintf("%x", key))
 	return key, nil
 }
 

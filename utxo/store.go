@@ -33,6 +33,29 @@ type UtxoStore struct {
 	blockHeight              uint64
 }
 
+type tokenUtxoSeqs struct {
+	Seqs []*tokenUtxoSeq
+}
+
+type tokenUtxoSeq struct {
+	TokenId string
+	Seq     int64
+}
+
+func newTokenUtxoSeqs() *tokenUtxoSeqs {
+	return &tokenUtxoSeqs{
+		Seqs: make([]*tokenUtxoSeq, 0),
+	}
+}
+
+func (t *tokenUtxoSeqs) addTokenUtxoSeq(tokenId string, seq int64) {
+	tus := &tokenUtxoSeq{
+		TokenId: tokenId,
+		Seq:     seq,
+	}
+	t.Seqs = append(t.Seqs, tus)
+}
+
 func NewUtxoStore(utxoDB dbm.DB, utxoOutputDB dbm.DB, utxoOutputTokenDB dbm.DB) *UtxoStore {
 	tokenMaxSeqMap := loadTokenUtxoStoreMaxUtxoOutputSeqMap(utxoDB)
 	return &UtxoStore{
@@ -70,8 +93,8 @@ func (u *UtxoStore)GetMaxUtxoOutputSeq(tokenId common.Address) int64 {
 }
 
 // Save current block token init output seq number.
-func (u *UtxoStore) saveBlockTokenUtxoOutputSeq(tokenOutputSeqs map[string]int64) error {
-	if len(tokenOutputSeqs) == 0 {
+func (u *UtxoStore) saveBlockTokenUtxoOutputSeq(tokenOutputSeqs *tokenUtxoSeqs) error {
+	if len(tokenOutputSeqs.Seqs) == 0 {
 		return nil
 	}
 	val, err := ser.EncodeToBytes(tokenOutputSeqs)
@@ -83,7 +106,7 @@ func (u *UtxoStore) saveBlockTokenUtxoOutputSeq(tokenOutputSeqs map[string]int64
 }
 
 func (u *UtxoStore) GetBlockTokenUtxoOutputSeq(blockHeight uint64) map[string]int64 {
-	tokenOutputSeqs := make(map[string]int64, 0)
+	tokenOutputSeqs := newTokenUtxoSeqs()
 	val, err := u.utxoDB.Load(genBlockTokenInitSeq(blockHeight))
 	if err != nil {
 		u.logger.Info("get block Token utxo outputs seq failed.", "blockHeight", blockHeight,
@@ -95,11 +118,15 @@ func (u *UtxoStore) GetBlockTokenUtxoOutputSeq(blockHeight uint64) map[string]in
 		u.logger.Error("ser decode exec failed", "err", err.Error())
 		return nil
 	}
-	return tokenOutputSeqs
+	retMap := make(map[string]int64, 0)
+	for _, seqObj := range tokenOutputSeqs.Seqs {
+		retMap[seqObj.TokenId] = seqObj.Seq
+	}
+	return retMap
 }
 
 func (u *UtxoStore)saveTokenUtxoOutputSeq(tokenSeqMap map[string]int64) error {
-	tokenOutputSeqs := make(map[string]int64, 0)
+	tokenOutputSeqs := newTokenUtxoSeqs()
 	u.mapMutex.Lock()
 	for tokenId, seq := range tokenSeqMap {
 		if uint64(seq) < 0 {
@@ -116,7 +143,7 @@ func (u *UtxoStore)saveTokenUtxoOutputSeq(tokenSeqMap map[string]int64) error {
 		if !ok {
 			initBlockSeq = -1
 		}
-		tokenOutputSeqs[tokenId] = initBlockSeq
+		tokenOutputSeqs.addTokenUtxoSeq(tokenId, initBlockSeq)
 		u.maxUtxoOutputSeqTokenMap[tokenId] = seq
 	}
 	u.mapMutex.Unlock()

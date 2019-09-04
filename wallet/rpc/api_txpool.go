@@ -2,10 +2,16 @@ package rpc
 
 import (
 	"context"
+	"fmt"
 
+	"github.com/lianxiangcloud/linkchain/accounts"
 	"github.com/lianxiangcloud/linkchain/libs/common"
 	"github.com/lianxiangcloud/linkchain/libs/hexutil"
 	"github.com/lianxiangcloud/linkchain/libs/rpc"
+	"github.com/lianxiangcloud/linkchain/libs/ser"
+	"github.com/lianxiangcloud/linkchain/rpc/rtypes"
+	"github.com/lianxiangcloud/linkchain/types"
+	wtypes "github.com/lianxiangcloud/linkchain/wallet/types"
 )
 
 // GetBlockTransactionCountByNumber returns the number of transactions in the block with the given block number.
@@ -56,6 +62,50 @@ func (s *PublicTransactionPoolAPI) GetRawTransactionByHash(ctx context.Context, 
 // GetTransactionReceipt returns the transaction receipt for the given transaction hash.
 func (s *PublicTransactionPoolAPI) GetTransactionReceipt(ctx context.Context, hash common.Hash) (map[string]interface{}, error) {
 	return s.wallet.GetTransactionReceipt(hash)
+}
+
+// EstimateGas return gas
+func (s *PublicTransactionPoolAPI) EstimateGas(ctx context.Context, args wtypes.CallArgs) (*hexutil.Uint64, error) {
+	return s.wallet.EthEstimateGas(args)
+}
+
+// sign is a helper function that signs a transaction with the private key of the given address.
+func (s *PublicTransactionPoolAPI) sign(addr common.Address, tx types.Tx) (types.Tx, error) {
+	// Look up the wallet containing the requested signer
+	account := accounts.Account{Address: addr}
+
+	wallet, err := s.b.AccountManager().Find(account)
+	if err != nil {
+		return nil, err
+	}
+	// Request the wallet to sign the transaction
+	return wallet.SignTx(account, tx, types.SignParam)
+}
+
+func (s *PublicTransactionPoolAPI) SignTransaction(ctx context.Context, args rtypes.SendTxArgs) (*rtypes.SignTransactionResult, error) {
+	if args.Gas == nil {
+		return nil, fmt.Errorf("gas not specified")
+	}
+	if args.GasPrice == nil {
+		return nil, fmt.Errorf("gasPrice not specified")
+	}
+	if args.Nonce == nil {
+		return nil, fmt.Errorf("nonce not specified")
+	}
+
+	tx, err := s.sign(args.From, args.ToTransaction())
+	if err != nil {
+		return nil, err
+	}
+	data, err := ser.EncodeToBytes(tx)
+	if err != nil {
+		return nil, err
+	}
+	return &rtypes.SignTransactionResult{data, tx}, nil
+}
+
+func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encodedTx hexutil.Bytes) (common.Hash, error) {
+	return s.wallet.SendRawTransaction(encodedTx)
 }
 
 /*

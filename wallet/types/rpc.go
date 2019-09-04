@@ -155,3 +155,17 @@ type CheckTxKeyResult struct {
 	BlockID hexutil.Uint64 `json:"height"`
 	Amount  *hexutil.Big   `json:"amount"`
 }
+
+// CallArgs represents the arguments for a call.
+type CallArgs struct {
+	From         common.Address     `json:"from"`
+	TokenAddress common.Address     `json:"tokenAddress"`
+	To           *common.Address    `json:"to"`
+	Gas          hexutil.Uint64     `json:"gas"`
+	GasPrice     hexutil.Big        `json:"gasPrice"`
+	Value        hexutil.Big        `json:"value"`
+	Data         hexutil.Bytes      `json:"data"`
+	Nonce        hexutil.Uint64     `json:"nonce"`
+	UTXOKind     types.UTXOKind     `json:"utxokind"`
+	Outputs      []types.OutputData `json:"outputs"`
+}

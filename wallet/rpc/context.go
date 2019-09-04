@@ -1,3 +1,5 @@
+//go:generate mockgen -destination mock_wallet.go -package rpc -self_package github.com/lianxiangcloud/linkchain/wallet/rpc github.com/lianxiangcloud/linkchain/wallet/rpc Wallet
+
 package rpc
 
 import (
@@ -76,4 +78,7 @@ type Wallet interface {
 	GetTransactionByHash(hash common.Hash) (r interface{}, err error)
 	GetRawTransactionByHash(hash common.Hash) (r hexutil.Bytes, err error)
 	GetTransactionReceipt(hash common.Hash) (r map[string]interface{}, err error)
+	//
+	EthEstimateGas(args wtypes.CallArgs) (*hexutil.Uint64, error)
+	SendRawTransaction(encodedTx hexutil.Bytes) (common.Hash, error)
 }
