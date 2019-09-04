@@ -96,10 +96,46 @@ type UTXOAccount struct {
 	Balance *hexutil.Big   `json:"balance"`
 }
 
+func (ua *UTXOAccount) Equal(t *UTXOAccount) bool {
+	if ua == nil {
+		if t == nil {
+			return true
+		}
+		return false
+	}
+	if t == nil {
+		return false
+	}
+	if ua.Address == t.Address &&
+		ua.Index.String() == t.Index.String() &&
+		ua.Balance.String() == t.Balance.String() {
+		return true
+	}
+	return false
+}
+
 type EthAccount struct {
 	Address common.Address `json:"address"`
 	Balance *hexutil.Big   `json:"balance"`
 	Nonce   hexutil.Uint64 `json:"nonce"`
+}
+
+func (ea *EthAccount) Equal(t *EthAccount) bool {
+	if ea == nil {
+		if t == nil {
+			return true
+		}
+		return false
+	}
+	if t == nil {
+		return false
+	}
+	if ea.Address.String() == t.Address.String() &&
+		ea.Balance.String() == t.Balance.String() &&
+		ea.Nonce.String() == t.Nonce.String() {
+		return true
+	}
+	return false
 }
 
 type GetAccountInfoResult struct {
@@ -107,6 +143,30 @@ type GetAccountInfoResult struct {
 	UTXOAccounts []UTXOAccount   `json:"utxo_accounts"`
 	TotalBalance *hexutil.Big    `json:"total_balance"`
 	TokenID      *common.Address `json:"token"`
+}
+
+func (g *GetAccountInfoResult) Equal(t *GetAccountInfoResult) bool {
+	if g == nil {
+		if t == nil {
+			return true
+		}
+		return false
+	}
+	if t == nil {
+		return false
+	}
+	if !g.EthAccount.Equal(&t.EthAccount) ||
+		g.TotalBalance.String() != t.TotalBalance.String() ||
+		g.TokenID.String() != t.TokenID.String() ||
+		len(g.UTXOAccounts) != len(t.UTXOAccounts) {
+		return false
+	}
+	for i := 0; i < len(g.UTXOAccounts); i++ {
+		if !g.UTXOAccounts[i].Equal(&t.UTXOAccounts[i]) {
+			return false
+		}
+	}
+	return true
 }
 
 type StatusResult struct {

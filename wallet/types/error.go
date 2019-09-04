@@ -21,4 +21,6 @@ var (
 	ErrBlockNotFound       = errors.New("block not found")
 	ErrBlockParentHash     = errors.New("err block parent hash")
 	ErrOutputNotFound      = errors.New("output not found")
+	ErrSubAccountTooLarge  = errors.New("subaccount is too large")
+	ErrSaveAccountSubCnt   = errors.New("save AccountSubCnt fail")
 )

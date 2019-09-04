@@ -20,6 +20,7 @@ import (
 
 const (
 	defaultRefreshBlockInterval = 5 * time.Second
+	defaultMaxSubAccount        = uint64(5000)
 )
 
 var (
@@ -540,6 +541,9 @@ func (la *LinkAccount) CreateSubAccount(maxSub uint64) error {
 	// if !la.walletOpen {
 	// 	return types.ErrWalletNotOpen
 	// }
+	if maxSub > defaultMaxSubAccount {
+		return types.ErrSubAccountTooLarge
+	}
 
 	subCnt := uint64(len(la.account.Keys) - 1)
 
@@ -553,7 +557,7 @@ func (la *LinkAccount) CreateSubAccount(maxSub uint64) error {
 		}
 		batch := la.walletDB.NewBatch()
 		if la.saveAccountSubCnt(batch) != nil || batch.Commit() != nil {
-			return fmt.Errorf("saveAccountSubCnt fail")
+			return types.ErrSaveAccountSubCnt
 		}
 		la.Logger.Debug("CreateSubAccount", "account", la.account.String())
 	}

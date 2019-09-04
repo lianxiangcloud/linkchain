@@ -1,6 +1,6 @@
 #! /bin/bash
 
-PKGS=$(go list github.com/lianxiangcloud/linkchain/... | grep -v /vendor/ | grep -v /libs/p2p | grep -v /contract| grep -v /evidence | grep -v /wallet/rpc )
+PKGS=$(go list github.com/lianxiangcloud/linkchain/... | grep -v /vendor/ | grep -v /libs/p2p | grep -v /contract| grep -v /evidence | grep -v /wallet/rpc |grep /wallet/wallet)
 
 set -e
 
