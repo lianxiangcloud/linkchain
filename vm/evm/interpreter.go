@@ -195,20 +195,18 @@ func (in *Interpreter) Run(contract *Contract, input []byte, readOnly bool) (ret
 		}
 		// consume the gas and return an error if not enough gas is available.
 		// cost is explicitly set so that the capture state defer method can get the proper cost
-		preFee := getAllFee(in.evm.fees)
+		in.evm.feeSaved = false
 		cost, err = operation.gasCost(in.gasTable, in.evm, contract, stack, mem, memorySize)
 		//log.Debug("bytecode gasCost", "code", op, "cost", cost)
 		if err != nil {
-			currentFee := getAllFee(in.evm.fees) - preFee
-			if currentFee > 0 {
+			if in.evm.feeSaved {
 				in.evm.fees = in.evm.fees[:len(in.evm.fees)-1]
 			}
 			return nil, ErrOutOfGas
 		}
 		if !contract.UseGas(cost) {
-			currentFee := getAllFee(in.evm.fees) - preFee
-			if currentFee > 0 {
-				realCost := cost - currentFee
+			if in.evm.feeSaved {
+				realCost := cost - in.evm.fees[len(in.evm.fees)]
 				in.evm.fees = in.evm.fees[:len(in.evm.fees)-1]
 				if contract.Gas > realCost {
 					refundFee := contract.Gas - realCost
@@ -254,12 +252,4 @@ func (in *Interpreter) Run(contract *Contract, input []byte, readOnly bool) (ret
 		}
 	}
 	return nil, nil
-}
-
-func getAllFee(fees []uint64) uint64 {
-	var allFee uint64
-	for _, fee := range fees {
-		allFee += fee
-	}
-	return allFee
 }

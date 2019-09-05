@@ -201,6 +201,7 @@ type EVM struct {
 	otxs        []types.BalanceRecord
 	fees        []uint64
 	refundFees  []uint64
+	feeSaved    bool
 }
 
 // NewEVM returns a new EVM. The returned EVM is not thread safe and should
