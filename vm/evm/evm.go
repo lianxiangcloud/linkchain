@@ -198,9 +198,9 @@ type EVM struct {
 	// applied in opCall*.
 	callGasTemp uint64
 
-	otxs []types.BalanceRecord
-	fees map[int]uint64
-	errDepth int
+	otxs        []types.BalanceRecord
+	fees        []uint64
+	refundFees  []uint64
 }
 
 // NewEVM returns a new EVM. The returned EVM is not thread safe and should
@@ -210,12 +210,12 @@ func NewEVM(c types.Context, statedb types.StateDB, vmc types.VmConfig) *EVM {
 	vmConfig := vmc.(Config)
 
 	evm := &EVM{
-		Context:  ctx,
-		StateDB:  statedb,
-		vmConfig: vmConfig,
-		otxs:     make([]types.BalanceRecord, 0),
-		fees:     make(map[int]uint64, 0),
-		errDepth: -1,
+		Context:    ctx,
+		StateDB:    statedb,
+		vmConfig:   vmConfig,
+		otxs:       make([]types.BalanceRecord, 0),
+		fees:       make([]uint64, 0),
+		refundFees: make([]uint64, 0),
 	}
 
 	evm.interpreter = NewInterpreter(evm, vmConfig)
@@ -226,14 +226,14 @@ func (evm *EVM) Reset(msg types.Message) {
 	evm.depth = 0
 	evm.abort = 0
 	evm.callGasTemp = 0
-	evm.errDepth = -1
 
 	evm.Context.Origin   = msg.MsgFrom()
 	evm.Context.GasPrice = new(big.Int).Set(msg.GasPrice())
 	evm.Context.Token    = msg.TokenAddress()
 	evm.Context.Nonce    = msg.Nonce()
 	evm.otxs             = make([]types.BalanceRecord, 0)
-	evm.fees             = make(map[int]uint64, 0)
+	evm.fees             = make([]uint64, 0)
+	evm.refundFees       = make([]uint64, 0)
 
 	evm.interpreter.readOnly = false
 	evm.interpreter.returnData = nil
@@ -666,19 +666,18 @@ func (evm *EVM) AddOtx(br types.BalanceRecord) {
 	evm.otxs = append(evm.otxs, br)
 }
 
-func (evm *EVM) SetErrDepth(errDepth int) {
-	evm.errDepth = errDepth
-}
-
 func (evm *EVM) RefundFee() uint64 {
-	if evm.errDepth == -1 {
-		return 0
-	}
 	var refundFee uint64
-	for depth, fee := range evm.fees {
-		if depth >= evm.depth {
-			refundFee += fee
-		}
+	for _, fee := range evm.refundFees {
+		refundFee += fee
 	}
 	return refundFee
+}
+
+func (evm *EVM) RefundAllFee() uint64 {
+	var refundFee uint64
+	for _, fee := range evm.fees {
+		refundFee += fee
+	}
+	return refundFee + evm.RefundFee()
 }

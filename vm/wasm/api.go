@@ -673,11 +673,7 @@ func (t *TCTransfer) Gas(index int64, ops interface{}, args []uint64) (uint64, e
 	if transferGas, overflow = math.SafeAdd(transferGas, fee); overflow {
 		return 0, errGasUintOverflow
 	}
-	mWasm, ok := eng.Ctx.(*WASM)
-	if !ok {
-		eng.Logger().Error("TC_Transfer gas get WASM failed")
-	}
-	mWasm.fees[mWasm.depth] += fee
+	eng.AddFee(fee)
 
 	return transferGas, nil
 
@@ -770,11 +766,7 @@ func (t *TCTransferToken) Gas(index int64, ops interface{}, args []uint64) (uint
 			if transferTokenGas, overflow = math.SafeAdd(transferTokenGas, fee); overflow {
 				return 0, errGasUintOverflow
 			}
-			mWasm, ok := eng.Ctx.(*WASM)
-			if !ok {
-				eng.Logger().Error("TCTransferToken gas get WASM failed")
-			}
-			mWasm.fees[mWasm.depth] += fee
+			eng.AddFee(fee)
 		}
 	}
 
@@ -870,11 +862,7 @@ func (t *TCSelfDestruct) Gas(index int64, ops interface{}, args []uint64) (uint6
 			if destructGas, overflow = math.SafeAdd(destructGas, fee); overflow {
 				return 0, errGasUintOverflow
 			}
-			mWasm, ok := eng.Ctx.(*WASM)
-			if !ok {
-				eng.Logger().Error("TCTransferToken gas get WASM failed")
-			}
-			mWasm.fees[mWasm.depth] += fee
+			eng.AddFee(fee)
 		}
 	}
 
@@ -897,7 +885,7 @@ func tcSelfDestruct(eng *vm.Engine, index int64, args []uint64) (uint64, error) 
 
 	mWasm, ok := eng.Ctx.(*WASM)
 	if !ok {
-		eng.Logger().Error("TC_Transfer get WASM failed")
+		eng.Logger().Error("TC_SelfDestruct get WASM failed")
 	}
 	for i := 0; i < len(tv); i++ {
 		mState.AddTokenBalance(to, tv[i].TokenAddr, tv[i].Value)
@@ -1515,14 +1503,13 @@ func tcCallContract(eng *vm.Engine, index int64, args []uint64) (uint64, error) 
 	// get start index of otxs
 	mWasm, ok := eng.Ctx.(*WASM)
 	if !ok {
-		eng.Logger().Error("TC_Transfer get WASM failed")
+		eng.Logger().Error("TC_CallContract get WASM failed")
 	}
 	startTxRecordsIndex := len(mWasm.otxs)
 	retPointer, err := eng.Run(toFrame, eng.Contract.Input)
 	if err != nil {
 		// remove transaction records
 		mWasm.otxs = mWasm.otxs[:startTxRecordsIndex]
-		mWasm.SetErrDepth(mWasm.depth+1)
 		return 0, err
 	}
 	eng.Contract = preContract

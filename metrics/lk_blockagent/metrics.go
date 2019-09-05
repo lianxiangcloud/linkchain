@@ -22,6 +22,7 @@ const (
 	succ                                 = 0
 	refreshCenterDataTimeIntervalMinutes = 10
 	sendMetricsArgName                   = "metrics"
+	startRunSecond                       = int(10)
 )
 
 type endPoint struct {
@@ -68,20 +69,30 @@ func runLKBlockAgent(configs *lkBlockAgentConfigs) {
 		return
 	}
 
+	log.Info("wait a moment.")
+	waitAMoment()
+	log.Info("wait a moment finish.")
+
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+
+		t := time.NewTicker(time.Minute)
+		defer t.Stop()
+
 		for {
-			m.globalMu.Lock()
+			select {
+			case <-t.C:
+				m.globalMu.Lock()
 
-			log.Info("Start getMetrics.")
-			prometheusMetrics := m.getMetrics()
-			log.Info("start send metrics to collector", "metrics", prometheusMetrics)
-			m.sendMetricsToMetricsCollector(prometheusMetrics)
-			m.globalMu.Unlock()
+				log.Info("Start getMetrics.")
+				prometheusMetrics := m.getMetrics()
+				log.Info("start send metrics to collector", "metrics", prometheusMetrics)
+				m.sendMetricsToMetricsCollector(prometheusMetrics)
+				m.globalMu.Unlock()
+			}
 
-			time.Sleep(time.Minute)
 		}
 	}()
 
@@ -131,11 +142,7 @@ func (m *metrics) getCommonMetrics(cMetrics *commonMetrics) error {
 		// Check ip address. Can
 		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
 			if ipnet.IP.To4() != nil {
-				if ipnet.IP.To4()[0] != 10 &&
-					// ipnet.IP.To4()[0] != 172 &&
-					ipnet.IP.To4()[0] != 192 {
-					cMetrics.extIpaddr = ipnet.IP.String()
-				}
+				cMetrics.extIpaddr = ipnet.IP.String()
 			}
 		}
 	}
@@ -340,4 +347,15 @@ func (m *metrics) sendMetricsToMetricsCollector(promethuesMetrics string) {
 		log.Error("client.Do failed", "err", err.Error())
 	}
 	defer resp.Body.Close()
+}
+
+func waitAMoment() {
+	s := time.Now().Second()
+	if s < startRunSecond {
+		sleepS := startRunSecond - s
+		time.Sleep(time.Duration(sleepS) * time.Second)
+	} else if s > startRunSecond {
+		sleepS := startRunSecond + 60 - s
+		time.Sleep(time.Duration(sleepS) * time.Second)
+	}
 }

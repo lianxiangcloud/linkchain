@@ -9,7 +9,7 @@ packfile=lk-chain
 tarfile=lk-chain-linux-x64.tar.gz
 packdst=pack/$packfile
 
-function do_pack()
+do_pack()
 {
     echo "pack"
     cd $ROOTDIR

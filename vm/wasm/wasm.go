@@ -178,6 +178,7 @@ func run(wasm *WASM, c types.Contract, input []byte) ([]byte, uint64, error) {
 	if modgas.Uint64() > 0 {
 		subModGas = uint64(1)
 	}
+	wasm.refundFee += eng.GetFee()
 
 	gas := contract.Gas - gasused.Uint64() - subModGas
 
@@ -224,10 +225,8 @@ type WASM struct {
 	eng *vm.Engine
 	app *vm.APP
 
-	otxs []types.BalanceRecord
-	fees map[int]uint64
-
-	errDepth int
+	otxs      []types.BalanceRecord
+	refundFee uint64
 }
 
 // NewWASM returns a new WASM. The returned WASM is not thread safe and should
@@ -237,12 +236,10 @@ func NewWASM(c types.Context, statedb types.StateDB, vmc types.VmConfig) *WASM {
 	vmConfig := Config{}
 
 	return &WASM{
-		Context:  ctx,
-		StateDB:  statedb,
-		vmConfig: vmConfig,
-		otxs:     make([]types.BalanceRecord, 0),
-		fees:     make(map[int]uint64, 0),
-		errDepth: -1,
+		Context:    ctx,
+		StateDB:    statedb,
+		vmConfig:   vmConfig,
+		otxs:       make([]types.BalanceRecord, 0),
 	}
 }
 
@@ -258,10 +255,7 @@ func (wasm *WASM) Reset(msg types.Message) {
 	wasm.Context.Token = common.EmptyAddress
 	wasm.Context.Nonce = msg.Nonce() //nonce
 
-	wasm.otxs = make([]types.BalanceRecord, 0)
-	wasm.fees = make(map[int]uint64, 0)
-
-	wasm.errDepth = -1
+	wasm.otxs       = make([]types.BalanceRecord, 0)
 }
 
 func (wasm *WASM) GetCode(bz []byte) []byte {
@@ -308,6 +302,9 @@ func (wasm *WASM) UTXOCall(c types.ContractRef, addr, token common.Address, inpu
 	contract.Input = input
 
 	ret, leftOverGas, err = run(wasm, contract, input)
+	if err == nil && wasm.depth == 0 {
+		wasm.refundFee = 0
+	}
 	contract.Gas = leftOverGas
 	// When an error was returned by the WASM or when setting the creation code
 	// above we revert to the snapshot and consume any gas remaining. Additionally
@@ -367,6 +364,9 @@ func (wasm *WASM) Call(c types.ContractRef, addr, token common.Address, input []
 	contract.Input = input
 
 	ret, leftOverGas, err = run(wasm, contract, input)
+	if err == nil && wasm.depth == 0 {
+		wasm.refundFee = 0
+	}
 	contract.Gas = leftOverGas
 	// When an error was returned by the WASM or when setting the creation code
 	// above we revert to the snapshot and consume any gas remaining. Additionally
@@ -578,7 +578,9 @@ func (wasm *WASM) Create(c types.ContractRef, data []byte, gas uint64, value *bi
 
 	// TODO :wasm not found code ,return err,create fail,
 	ret, leftOverGas, err = run(wasm, contract, contract.Input)
-
+	if err == nil && wasm.depth == 0 {
+		wasm.refundFee = 0
+	}
 	ret = code
 	contract.Gas = leftOverGas
 
@@ -669,19 +671,10 @@ func IsWasmContract(code []byte) bool {
 	return false
 }
 
-func (wasm *WASM) SetErrDepth(errDepth int) {
-	wasm.errDepth = errDepth
+func (wasm *WASM) RefundAllFee() uint64 {
+	return wasm.refundFee
 }
 
 func (wasm *WASM) RefundFee() uint64 {
-	if wasm.errDepth == -1 {
-		return 0
-	}
-	var refundFee uint64
-	for depth, fee := range wasm.fees {
-		if depth >= wasm.depth {
-			refundFee += fee
-		}
-	}
-	return refundFee
+	return wasm.RefundAllFee()
 }

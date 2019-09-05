@@ -29,8 +29,8 @@ type VmInterface interface {
 	GetStateDB() types.StateDB
 	GetOTxs() []types.BalanceRecord
 	AddOtx(br types.BalanceRecord)
-	SetErrDepth(errDepth int)
 	RefundFee() uint64
+	RefundAllFee() uint64
 }
 
 type VmFactory struct {

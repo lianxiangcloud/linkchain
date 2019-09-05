@@ -4,12 +4,12 @@ go 1.12
 
 replace (
 	github.com/NebulousLabs/go-upnp => github.com/lianxiangcloud/go-upnp v0.0.0-20190905032046-65768e0b268c
-	github.com/go-interpreter/wagon => github.com/xunleichain/wagon v0.5.2
+	github.com/go-interpreter/wagon => github.com/xunleichain/wagon v0.5.3
 	gopkg.in/sourcemap.v1 => github.com/go-sourcemap/sourcemap v1.0.5
 )
 
 require (
-	bou.ke/monkey v1.0.1
+	bou.ke/monkey v1.0.1 // indirect
 	github.com/BurntSushi/toml v0.3.1
 	github.com/NebulousLabs/fastrand v0.0.0-20181203155948-6fb6489aac4e // indirect
 	github.com/NebulousLabs/go-upnp v0.0.0-00010101000000-000000000000
@@ -32,13 +32,13 @@ require (
 	github.com/golang/protobuf v1.3.2
 	github.com/golang/snappy v0.0.1
 	github.com/hashicorp/golang-lru v0.5.1
-	github.com/huin/goupnp v1.0.0 // indirect
 	github.com/influxdata/influxdb v1.7.7
 	github.com/jmhodges/levigo v1.0.0
 	github.com/mattn/go-colorable v0.1.2
 	github.com/pborman/uuid v1.2.0
 	github.com/peterh/liner v1.1.0
 	github.com/pkg/errors v0.8.1
+	github.com/prashantv/gostub v1.0.0
 	github.com/prometheus/client_golang v1.0.0
 	github.com/rjeczalik/notify v0.9.2
 	github.com/robertkrimen/otto v0.0.0-20180617131154-15f95af6e78d
@@ -49,7 +49,7 @@ require (
 	github.com/spf13/viper v1.4.0
 	github.com/stretchr/testify v1.3.0
 	github.com/syndtr/goleveldb v1.0.0
-	github.com/xunleichain/tc-wasm v0.3.3
+	github.com/xunleichain/tc-wasm v0.3.4
 	golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4
 	golang.org/x/net v0.0.0-20190628185345-da137c7871d7
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58

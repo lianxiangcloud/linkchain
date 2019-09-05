@@ -832,8 +832,10 @@ func opCall(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Sta
 	// Get the arguments from the memory.
 	args := memory.Get(inOffset.Int64(), inSize.Int64())
 
+	startFeesIndex := len(evm.fees)
 	if value.Sign() != 0 {
 		gas += cfg.CallStipend
+		startFeesIndex = len(evm.fees) - 1
 	}
 	// get start index of otxs
 	startTxRecordsIndex := len(evm.otxs)
@@ -842,8 +844,9 @@ func opCall(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Sta
 		stack.push(evm.interpreter.intPool.getZero())
 		// remove transaction records
 		evm.otxs = evm.otxs[:startTxRecordsIndex]
-		// update err depth
-		evm.SetErrDepth(evm.depth+1)
+		// update refund fees
+		evm.refundFees = append(evm.refundFees, evm.fees[startFeesIndex:]...)
+		evm.fees = evm.fees[:startFeesIndex]
 	} else {
 		stack.push(evm.interpreter.intPool.get().SetUint64(1))
 	}

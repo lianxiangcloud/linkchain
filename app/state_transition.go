@@ -325,13 +325,15 @@ func (st *StateTransition) UTXOTransitionDb() (ret []byte, usedGas uint64, byteC
 		log.Debug("UTXOTransitionDb before contract Call", "st.gas", st.gas)
 		ret, st.gas, byteCodeGas, vmerr = st.vmenv.UTXOCall(sender, contractAddr, msg.TokenAddress(), contractData, st.gas, contractValue)
 		log.Debug("UTXOTransitionDb after contract Call", "st.gas", st.gas, "byteCodeGas", byteCodeGas, "vmerr", vmerr)
-
+		if vmerr != nil {
+			st.gas += st.vmenv.RefundAllFee()
+		} else {
+			st.gas += st.vmenv.RefundFee()
+		}
 		if vmerr != nil && isNewFeeRule {
 			log.Debug("UTXOTransitionDb vmerr happened, refund partial gas", "transfervalueGas", transfervalueGas)
-			st.vmenv.SetErrDepth(0)
 			st.gas += transfervalueGas
 		}
-		st.gas += st.vmenv.RefundFee()
 		// check black list contract
 		if vmerr == nil && contractAddr == cfg.ContractBlacklistAddr {
 			log.Debug("start to deal black addrs changes", "msg", string(ret))
@@ -420,11 +422,15 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, byteCodeG
 				ret, _, st.gas, vmerr = vmenv.Create(sender, msg.Data(), st.gas, msg.Value())
 				log.Debug("contract Create", "st.gas", st.gas, "vmerr", vmerr)
 			}
+			if vmerr != nil {
+				st.gas += vmenv.RefundAllFee()
+			} else {
+				st.gas += vmenv.RefundFee()
+			}
 			if vmerr != nil && isNewFeeRule {
-				vmenv.SetErrDepth(0)
 				st.gas += totalFee
 			}
-			st.gas += vmenv.RefundFee()
+
 		} else {
 			st.state.SetNonce(msg.MsgFrom(), st.state.GetNonce(sender.Address())+1)
 			st.state.SubTokenBalance(msg.MsgFrom(), msg.TokenAddress(), msg.Value())
@@ -453,11 +459,15 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, byteCodeG
 			ret, st.gas, byteCodeGas, vmerr = vmenv.Call(sender, *msg.To(), msg.TokenAddress(), msg.Data(), st.gas, msg.Value())
 			log.Debug("after contract Call", "st.gas", st.gas)
 		}
+		if vmerr != nil {
+			st.gas += vmenv.RefundAllFee()
+		} else {
+			st.gas += vmenv.RefundFee()
+		}
 		if vmerr != nil && isNewFeeRule {
-			vmenv.SetErrDepth(0)
 			st.gas += totalFee
 		}
-		st.gas += vmenv.RefundFee()
+
 		// check black list contract
 		if vmerr == nil && *msg.To() == cfg.ContractBlacklistAddr {
 			log.Debug("start to deal black addrs changes", "msg", string(ret))

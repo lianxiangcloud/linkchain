@@ -350,7 +350,9 @@ func gasCall(gt cfg.GasTable, evm *EVM, contract *Contract, stack *Stack, mem *M
 		transfersValue = stack.Back(2).Sign() != 0
 		address        = common.BigToAddress(stack.Back(1))
 		eip158         = true
+		overflow       = false
 	)
+
 	if eip158 {
 		if transfersValue && evm.StateDB.Empty(address) {
 			gas += cfg.CallNewAccountGas
@@ -365,7 +367,6 @@ func gasCall(gt cfg.GasTable, evm *EVM, contract *Contract, stack *Stack, mem *M
 	if err != nil {
 		return 0, err
 	}
-	var overflow bool
 	if gas, overflow = math.SafeAdd(gas, memoryGas); overflow {
 		return 0, errGasUintOverflow
 	}
@@ -378,14 +379,16 @@ func gasCall(gt cfg.GasTable, evm *EVM, contract *Contract, stack *Stack, mem *M
 		return 0, errGasUintOverflow
 	}
 
-	addrInt, valueInt := stack.Back(0), stack.Back(1)
+	addrInt, valueInt := stack.Back(1), stack.Back(2)
 	toAddr := common.BigToAddress(addrInt)
 	value := math.U256(valueInt)
 	fee := gasFee(evm, toAddr, value)
 	if gas, overflow = math.SafeAdd(gas, fee); overflow {
 		return 0, errGasUintOverflow
 	}
-	evm.fees[evm.depth+1] += fee
+	if fee > 0 {
+		evm.fees = append(evm.fees, fee)
+	}
 
 	return gas, nil
 }
@@ -415,11 +418,13 @@ func gasCallCode(gt cfg.GasTable, evm *EVM, contract *Contract, stack *Stack, me
 }
 
 func gasReturn(gt cfg.GasTable, evm *EVM, contract *Contract, stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
-	return memoryGasCost(mem, memorySize)
+	gas, err := memoryGasCost(mem, memorySize)
+	return gas, err
 }
 
 func gasRevert(gt cfg.GasTable, evm *EVM, contract *Contract, stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
-	return memoryGasCost(mem, memorySize)
+	gas, err := memoryGasCost(mem, memorySize)
+	return gas, err
 }
 
 func gasSuicide(gt cfg.GasTable, evm *EVM, contract *Contract, stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
@@ -440,9 +445,12 @@ func gasSuicide(gt cfg.GasTable, evm *EVM, contract *Contract, stack *Stack, mem
 			if gas, overflow = math.SafeAdd(gas, fee); overflow {
 				return 0, errGasUintOverflow
 			}
-			evm.fees[evm.depth] += fee
 		}
 	}
+	if gas > 0 {
+		evm.fees = append(evm.fees, gas)
+	}
+
 	return gas, nil
 }
 
@@ -485,12 +493,15 @@ func gasTransferToken(gt cfg.GasTable, evm *EVM, contract *Contract, stack *Stac
 		return 0, nil
 	}
 	token, to := common.BigToAddress(tokenAddressInt), common.BigToAddress(toInt)
+	var fee uint64
 	if common.IsLKC(token) {
-		fee := gasFee(evm, to, amount)
+		fee = gasFee(evm, to, amount)
 		if gas, overflow = math.SafeAdd(gas, fee); overflow {
 			return 0, errGasUintOverflow
 		}
-		evm.fees[evm.depth] += fee
+	}
+	if fee > 0 {
+		evm.fees = append(evm.fees, fee)
 	}
 
 	return gas, nil

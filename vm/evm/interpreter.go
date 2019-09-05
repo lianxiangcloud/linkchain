@@ -135,6 +135,7 @@ func (in *Interpreter) Run(contract *Contract, input []byte, readOnly bool) (ret
 		// to be uint256. Practically much less so feasible.
 		pc   = uint64(0) // program counter
 		cost uint64
+		fee  uint64
 		// copies used by tracer
 		pcCopy  uint64 // needed for the deferred Tracer
 		gasCopy uint64 // for Tracer to log gas remaining before execution
@@ -194,10 +195,30 @@ func (in *Interpreter) Run(contract *Contract, input []byte, readOnly bool) (ret
 		}
 		// consume the gas and return an error if not enough gas is available.
 		// cost is explicitly set so that the capture state defer method can get the proper cost
+		preFee := getAllFee(in.evm.fees)
 		cost, err = operation.gasCost(in.gasTable, in.evm, contract, stack, mem, memorySize)
 		//log.Debug("bytecode gasCost", "code", op, "cost", cost)
-		if err != nil || !contract.UseGas(cost) {
+		if err != nil {
+			currentFee := getAllFee(in.evm.fees) - preFee
+			if currentFee > 0 {
+				in.evm.fees = in.evm.fees[:len(in.evm.fees)-1]
+			}
 			return nil, ErrOutOfGas
+		}
+		if !contract.UseGas(cost) {
+			currentFee := getAllFee(in.evm.fees) - preFee
+			if currentFee > 0 {
+				realCost := cost - currentFee
+				in.evm.fees = in.evm.fees[:len(in.evm.fees)-1]
+				if contract.Gas > realCost {
+					refundFee := contract.Gas - realCost
+					in.evm.fees = append(in.evm.fees, refundFee)
+				}
+			}
+		}
+		// save fee
+		if fee != 0 {
+			in.evm.fees = append(in.evm.fees, fee)
 		}
 		if memorySize > 0 {
 			mem.Resize(memorySize)
@@ -233,4 +254,12 @@ func (in *Interpreter) Run(contract *Contract, input []byte, readOnly bool) (ret
 		}
 	}
 	return nil, nil
+}
+
+func getAllFee(fees []uint64) uint64 {
+	var allFee uint64
+	for _, fee := range fees {
+		allFee += fee
+	}
+	return allFee
 }
