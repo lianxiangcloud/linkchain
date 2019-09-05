@@ -3,8 +3,7 @@ module github.com/lianxiangcloud/linkchain
 go 1.12
 
 replace (
-	github.com/NebulousLabs/fastrand => ./pkg/github.com/NebulousLabs/fastrand
-	github.com/NebulousLabs/go-upnp => ./pkg/github.com/NebulousLabs/go-upnp
+	github.com/NebulousLabs/go-upnp => github.com/lianxiangcloud/go-upnp v0.0.0-20190905032046-65768e0b268c
 	github.com/go-interpreter/wagon => github.com/xunleichain/wagon v0.5.2
 	gopkg.in/sourcemap.v1 => github.com/go-sourcemap/sourcemap v1.0.5
 )
@@ -12,8 +11,8 @@ replace (
 require (
 	bou.ke/monkey v1.0.1
 	github.com/BurntSushi/toml v0.3.1
-	github.com/NebulousLabs/fastrand v1.2.3 // indirect
-	github.com/NebulousLabs/go-upnp v1.2.3
+	github.com/NebulousLabs/fastrand v0.0.0-20181203155948-6fb6489aac4e // indirect
+	github.com/NebulousLabs/go-upnp v0.0.0-00010101000000-000000000000
 	github.com/VividCortex/gohistogram v1.0.0 // indirect
 	github.com/aristanetworks/goarista v0.0.0-20190704150520-f44d68189fd7
 	github.com/boltdb/bolt v1.3.1
@@ -33,13 +32,13 @@ require (
 	github.com/golang/protobuf v1.3.2
 	github.com/golang/snappy v0.0.1
 	github.com/hashicorp/golang-lru v0.5.1
+	github.com/huin/goupnp v1.0.0 // indirect
 	github.com/influxdata/influxdb v1.7.7
 	github.com/jmhodges/levigo v1.0.0
 	github.com/mattn/go-colorable v0.1.2
 	github.com/pborman/uuid v1.2.0
 	github.com/peterh/liner v1.1.0
 	github.com/pkg/errors v0.8.1
-	github.com/prashantv/gostub v1.0.0
 	github.com/prometheus/client_golang v1.0.0
 	github.com/rjeczalik/notify v0.9.2
 	github.com/robertkrimen/otto v0.0.0-20180617131154-15f95af6e78d
