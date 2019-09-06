@@ -93,19 +93,24 @@ TC_ABI(Committee, (proposaAddMember)\
                 
 
 void Committee::Init() {
-	//Test address must use true address
-	tc::Address test_address = "0x54fb1c7d0f011dd63b08f85ed7b518ab82028100";
+	//Used to be a committee
+	tc::Address committee_owner = "0xb6b403be413fff19294e984dfe5964f2cfe7bc15";
+	//Used to change inner contract state
+	tc::Address inner_contract = "0x60d4d088ad5cd7f93024eedf8d58a1b226b65138";
+	//used to withDraw or confiscate in pledge contract
+	tc::Address account_admin = "0xfd13fb25b38143e50e8226989a8c83652dc77f3e";
 
 	auto mem = memberList.get();
-	mem.insert(test_address);
-
-	rights.set(test_address, "validators");
-	rights.set(test_address, "candidates");
-	rights.set(test_address, "coefficient");
-	rights.set(test_address, "pledge");
-	rights.set(test_address, "blacklist");
-
+	mem.insert(committee_owner);
 	memberList.set(mem);
+
+	rights.set(inner_contract, "validators");
+	rights.set(inner_contract, "candidates");
+	rights.set(inner_contract, "coefficient");
+	rights.set(inner_contract, "pledge");
+	rights.set(inner_contract, "blacklist");
+
+	rights.set(account_admin, "pledgeOwner");
 }
 	
 //

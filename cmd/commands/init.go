@@ -262,7 +262,7 @@ func createGenesisBlock(config *cfg.Config, genDoc *types.GenesisDoc) ([]*types.
 		LastCommit: &types.Commit{},
 	}
 
-	if len(contractData) > 0 {
+	if len(contractData) > 0 && config.OnLine {
 		contextWasm := wasm.NewWASMContext(types.CopyHeader(block.Header), blockStore, nil, config.WasmGasRate)
 		wasm := wasm.NewWASM(contextWasm, storeState, evm.Config{EnablePreimageRecording: false})
 		for _, cData := range contractData {
@@ -274,6 +274,12 @@ func createGenesisBlock(config *cfg.Config, genDoc *types.GenesisDoc) ([]*types.
 			if _, err := app.CallWasmContract(wasm, sender, contractAddr, amount, []byte(cData.input), logger); err != nil {
 				return nil, err
 			}
+		}
+		if ok := checkDeposit(storeState); !ok {
+			return nil, fmt.Errorf("checkDeposit fail")
+		}
+		if ok := checkPledgeAccount(storeState); !ok {
+			return nil, fmt.Errorf("checkPledgeAccount fail")
 		}
 		fmt.Println("contract data init!")
 	} else {
@@ -415,4 +421,44 @@ func initWasmContract(st *state.StateDB, contractAddr common.Address, codeStr st
 		return fmt.Errorf("vmem.GetString fail: err=%v", err)
 	}
 	return nil
+}
+
+func checkDeposit(st *state.StateDB) bool {
+	addrs := make([]common.Address, len(rateInfo))
+	for k := range rateInfo {
+		addrs = append(addrs, common.HexToAddress(k))
+	}
+
+	deposits := st.GetCandidatesDeposit(addrs, logger)
+
+	for i, v := range addrs {
+		deposit := big.NewInt(rateInfo[v.String()])
+		if deposits[i].Cmp(deposit.Mul(deposit, big.NewInt(cfg.Ether))) != 0 {
+			fmt.Println("deposit compare fail!", "should ether", deposit, "but", deposits[i])
+			return false
+		}
+	}
+
+	return true
+}
+
+func checkPledgeAccount(st *state.StateDB) bool {
+	oldPledgeAddress := common.HexToAddress("0xe474d6001848146aa6155bbfd7b269f2f91fe075")
+	b := st.GetBalance(oldPledgeAddress)
+	if b.Sign() == 0 {
+		fmt.Println("Warn:Old EVM pledge account balance is 0! May not transfer stateDB")
+		return true
+	}
+	deposit := big.NewInt(0).Mul(big.NewInt(subDeposit), big.NewInt(cfg.Ether))
+	if b.Cmp(deposit) < 0 {
+		fmt.Println("Error:Old EVM pledge account balance not enough!", "pledge balacne", b, "should be", deposit)
+		return false
+	}
+	if b.Cmp(deposit) > 0 {
+		fmt.Println("Warn:Old EVM pledge account balance is more! May not finish withDraw!", "pledge balacne", b, "should be", deposit)
+	}
+
+	st.SubBalance(oldPledgeAddress, deposit)
+	st.AddBalance(cfg.ContractPledgeAddr, deposit)
+	return true
 }

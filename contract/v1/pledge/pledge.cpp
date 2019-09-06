@@ -231,7 +231,7 @@ void Pledge::setVoteCnts(const tc::Address& elector, const tc::BInt& voteCnts){
 
 void Pledge::withDraw(const tc::Address& elector){
     auto elec = ElectorsMap.get(elector);
-    TC_RequireWithMsg(CheckAddrRight(tc::App::getInstance()->sender(), "pledge"), "Address does not have permission");
+    TC_RequireWithMsg(CheckAddrRight(tc::App::getInstance()->sender(), "pledgeOwner"), "Address does not have permission");
     TC_RequireWithMsg(elec.status != ElectorStatus::WINOUT, "elector is WINOUT");
     TC_RequireWithMsg(elec.status != ElectorStatus::DETAIN, "elector is DETAIN");
 
@@ -255,7 +255,7 @@ void Pledge::withDraw(const tc::Address& elector){
 }
 
 void Pledge::confiscate(const tc::Address& elector){
-    TC_RequireWithMsg(CheckAddrRight(tc::App::getInstance()->sender(), "pledge"), "Address does not have permission");
+    TC_RequireWithMsg(CheckAddrRight(tc::App::getInstance()->sender(), "pledgeOwner"), "Address does not have permission");
     TC_RequireWithMsg(ElectorsMap.get(elector).status == ElectorStatus::DETAIN,
     "Elector status is not ElectorStatus.DETAIN");
 
