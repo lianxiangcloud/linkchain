@@ -614,7 +614,7 @@ func (tab *DhtTable) loadSeedNodes() {
 		}
 		err, _ := tab.ping(&seed.Node)
 		if err != nil {
-			tab.log.Debug("ping failed", "id", seed.ID, "addr", seed.addr(), "tcpPort", seed.TCP_Port, "udpPort", seed.UDP_Port)
+			tab.log.Debug("ping failed", "err", err, "id", seed.ID, "addr", seed.addr(), "tcpPort", seed.TCP_Port, "udpPort", seed.UDP_Port)
 			continue
 		}
 		tab.log.Trace("ping success", "id", seed.ID, "addr", seed.addr(), "tcpPort", seed.TCP_Port, "udpPort", seed.UDP_Port)

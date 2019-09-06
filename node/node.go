@@ -376,7 +376,7 @@ func NewNode(config *cfg.Config,
 	consensusReactor := cs.NewConsensusReactor(consensusState, fastSync, p2pmanager)
 	consensusReactor.SetLogger(consensusLogger)
 
-	consensusReactor.SetReceiveP2pTx(!isTrie)
+	consensusReactor.SetReceiveP2pTx(true)
 	/*if config.NodeType == types.NodePeer || config.NodeType == types.NodeProxy {
 		consensusReactor.SetReceiveP2pTx(false)
 	}*/

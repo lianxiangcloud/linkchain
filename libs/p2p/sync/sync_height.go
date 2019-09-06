@@ -71,9 +71,6 @@ func (sm *SyncHeightManager) heightProbe() {
 			return
 		case <-timer.C:
 			if sameHeightCount >= maxSameHeightCount {
-				if bootcli.GetLocalNodeType() != types.NodePeer {
-					sm.logger.Report("SyncHeightManager", "logID", types.LogIdSyncBlockFail, "type", bootcli.GetLocalNodeType(), "height", sm.app.Height())
-				}
 				myCurrentHeight = sm.app.Height()
 				if myCurrentHeight > myLastHeight { //maybe the block is syning,but it is just very slowly
 					sameHeightCount = 0
@@ -90,6 +87,10 @@ func (sm *SyncHeightManager) heightProbe() {
 					continue
 				}
 				if lkchainHeight >= (myCurrentHeight + uint64(maxSameHeightCount)) { //we should 	get the seed node agian and change the nodes we have connected
+					if bootcli.GetLocalNodeType() != types.NodePeer || bootcli.GetLocalNodeType() != types.NodeValidator {
+						sm.logger.Report("SyncHeightManager", "logID", types.LogIdSyncBlockFail, "type", bootcli.GetLocalNodeType(), "height", sm.app.Height())
+						return
+					}
 					seeds, getType, err := bootcli.GetSeeds(sm.sw.BootNodeAddr(), sm.sw.NodeKey(), sm.logger)
 					if err != nil {
 						sm.logger.Report("SyncHeightManager", "logID", types.LogIdBootNodeFail, "GetSeeds err", err, "bootnodeAddr", sm.sw.BootNodeAddr())
