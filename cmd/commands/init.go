@@ -362,21 +362,32 @@ func deployOriginalContract(st *state.StateDB) ([]*types.Validator, error) {
 		return nil, fmt.Errorf("deploy pledge Contract error:%v", err)
 	}
 
-	if len(cc.ValidatorsCodes) == 0 {
-		fmt.Println("validators white list contract code nil!!!")
-	} else {
-		if err := initWasmContract(st, cfg.ContractValidatorsAddr, cc.ValidatorsCodes, logger); err != nil {
-			return nil, fmt.Errorf("deploy validators Contract error:%v", err)
-		}
-		return st.GetWhiteValidators(logger), nil
-	}
-
 	if len(cc.BlacklistCode) == 0 {
 		fmt.Println("blacklist contract code nil!!!")
 	} else {
 		if err := initWasmContract(st, cfg.ContractBlacklistAddr, cc.BlacklistCode, logger); err != nil {
 			return nil, fmt.Errorf("deploy blacklist Contract error:%v", err)
 		}
+	}
+
+	var validatorsCode string
+	if config.OnLine {
+		if len(cc.ValidatorsCodesOnline) == 0 {
+			return nil, fmt.Errorf("Error:validators white list contract code nil in online mode")
+		}
+		validatorsCode = cc.ValidatorsCodesOnline
+	} else {
+		if len(cc.ValidatorsCodes) == 0 {
+			fmt.Println("validators white list contract code nil!!!")
+		}
+		validatorsCode = cc.ValidatorsCodes
+	}
+
+	if len(validatorsCode) != 0 {
+		if err := initWasmContract(st, cfg.ContractValidatorsAddr, validatorsCode, logger); err != nil {
+			return nil, fmt.Errorf("deploy validators Contract error:%v", err)
+		}
+		return st.GetWhiteValidators(logger), nil
 	}
 
 	return nil, nil
