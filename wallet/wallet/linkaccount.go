@@ -340,10 +340,11 @@ func (la *LinkAccount) processNewTransaction(tx *tctypes.UTXOTransaction, height
 			}
 			derivationKeys = append(derivationKeys, derivationKey)
 			if len(tx.AddKeys) > 0 {
+				//we use a addinational key for utxo->account proof, maybe cause err here
 				for _, addkey := range tx.AddKeys {
 					derivationKey, err = xcrypto.GenerateKeyDerivation(addkey, la.account.GetKeys().ViewSKey)
 					if err != nil {
-						la.Logger.Error("GenerateKeyDerivation fail", "rkey", tx.RKey, "err", err)
+						la.Logger.Info("GenerateKeyDerivation fail", "addkey", addkey, "err", err)
 						continue
 					}
 					derivationKeys = append(derivationKeys, derivationKey)
