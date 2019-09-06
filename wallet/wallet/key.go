@@ -6,6 +6,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/lianxiangcloud/linkchain/accounts/keystore"
 	"github.com/lianxiangcloud/linkchain/libs/crypto"
 	lktypes "github.com/lianxiangcloud/linkchain/libs/cryptonote/types"
@@ -100,24 +101,24 @@ func addressToStr(prefix uint64, addr lktypes.AccountAddress) string {
 	idx += types.GetConfig().CRYPTONOTE_ADDRESS_LENGTH
 	copy(buff[idx:], addr.ViewPublicKey[:])
 	idx += types.GetConfig().CRYPTONOTE_ADDRESS_LENGTH
-	hash := xcrypto.FastHash(buff[:idx])
+	hash := crypto.Sha256(buff[:idx])
 	checksum := hash[:types.GetConfig().CRYPTONOTE_CHECKSUM_LENGTH]
 	copy(buff[idx:], checksum)
 	idx += types.GetConfig().CRYPTONOTE_CHECKSUM_LENGTH
-	str := xcrypto.Base58Encode(buff)
+	str := base58.Encode(buff)
 	return str
 }
 
 //StrToAddress parse address str and return utxo address
 func StrToAddress(str string) (*lktypes.AccountAddress, error) {
 	addrLen := types.GetConfig().CRYPTONOTE_PREFIX_LENGTH + 2*types.GetConfig().CRYPTONOTE_ADDRESS_LENGTH + types.GetConfig().CRYPTONOTE_CHECKSUM_LENGTH
-	data := xcrypto.Base58Decode(str)
+	data := base58.Decode(str)
 	if len(data) != addrLen {
 		return nil, ErrStrToAddressInvalid
 	}
 	checksum := data[addrLen-types.GetConfig().CRYPTONOTE_CHECKSUM_LENGTH:]
 	data = data[:addrLen-types.GetConfig().CRYPTONOTE_CHECKSUM_LENGTH]
-	hash := xcrypto.FastHash(data)
+	hash := crypto.Sha256(data)
 	expectsum := hash[:types.GetConfig().CRYPTONOTE_CHECKSUM_LENGTH]
 	if !bytes.Equal(checksum, expectsum) {
 		return nil, ErrStrToAddressCheckSum

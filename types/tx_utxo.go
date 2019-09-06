@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 
 	"github.com/lianxiangcloud/linkchain/libs/common"
+	lcrypto "github.com/lianxiangcloud/linkchain/libs/crypto"
 	"github.com/lianxiangcloud/linkchain/libs/hexutil"
 	"github.com/lianxiangcloud/linkchain/libs/log"
 	"github.com/lianxiangcloud/linkchain/libs/ser"
@@ -1455,7 +1456,7 @@ func aInTransWithRctSig(utxoTrans *UTXOTransaction, dests []DestEntry, mkeys typ
 			if n >= len(mkeys) {
 				return ErrOutsAndMkeysNotMatch
 			}
-			hash := xcrypto.FastHash(mkeys[n][:])
+			hash := lcrypto.Sha256(mkeys[n][:])
 			for i := 0; i < 32; i++ {
 				utxoOut.Remark[i] ^= hash[i]
 			}
@@ -1641,7 +1642,7 @@ func constructUinTrans(rPubKey types.Key, sources []*UTXOSourceEntry, utxoIns []
 			if n >= len(mkeys) {
 				return nil, ErrOutsAndMkeysNotMatch
 			}
-			hash := xcrypto.FastHash(mkeys[n][:])
+			hash := lcrypto.Sha256(mkeys[n][:])
 			for i := 0; i < 32; i++ {
 				utxoOut.Remark[i] ^= hash[i]
 			}
@@ -1809,8 +1810,8 @@ func GenerateAllAdditionalKeys(seckey types.Key, dests []DestEntry) ([]types.Pub
 			data := make([]byte, types.COMMONLEN+common.AddressLength)
 			copy(data[0:], scalar[:])
 			copy(data[len(data):], to[:])
-			key := xcrypto.FastHash(data)
-			pkey = types.PublicKey(key)
+			key := lcrypto.Sha256(data)
+			copy(pkey[:], key[:])
 		}
 		keys = append(keys, pkey)
 	}

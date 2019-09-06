@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/lianxiangcloud/linkchain/libs/common"
+	"github.com/lianxiangcloud/linkchain/libs/crypto"
 	lkctypes "github.com/lianxiangcloud/linkchain/libs/cryptonote/types"
 	"github.com/lianxiangcloud/linkchain/libs/cryptonote/xcrypto"
 	dbm "github.com/lianxiangcloud/linkchain/libs/db"
@@ -417,7 +418,7 @@ func (la *LinkAccount) processNewTransaction(tx *tctypes.UTXOTransaction, height
 			uod.Amount = big.NewInt(0).Mul(tctypes.Hash2BigInt(ecdh.Amount), big.NewInt(tctypes.UTXO_COMMITMENT_CHANGE_RATE))
 			la.Logger.Debug("processNewTransaction output", "ro.Amount", ro.Amount.String(), "ecdh.Amount", ecdh.Amount, "outputID", outputID, "scalar", scalar)
 			uod.Remark = ro.Remark
-			hash := xcrypto.FastHash(scalar[:])
+			hash := crypto.Sha256(scalar[:])
 			for k := 0; k < 32; k++ {
 				uod.Remark[k] ^= hash[k]
 			}

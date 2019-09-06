@@ -72,7 +72,7 @@ func TestKeyFromAccount(t *testing.T) {
 func TestStrToAddress(t *testing.T) {
 	keyTests["TestStrToAddress"] = []KeyTest{
 		{
-			val:    "B8VqGZiPtfJHuXfxBvqrRf43Gk4dP82i1egq6RgfARKVFTeL2eMtt2Yfc71PqwYH2nVe99sqN1WJY1S7cMy1CYVuCN9qJJr",
+			val:    "byF93XiVh8tP7CVsDS1Jt91sgCkhWzRBrqQ1UaygKuYE4pXM8HxnLMEXz2H9PdjFzqX7ozBJ6i2exvJdsMoKsU9zoMTG9V",
 			output: "8F138423C4219965128858A11ACA4A122B82D47C15BCA6E1506A22A1C14B3856",
 			error:  "",
 		},
@@ -149,7 +149,7 @@ func TestKeyToWords(t *testing.T) {
 }
 
 func TestGetSubaddr(t *testing.T) {
-	addr := []byte("EQbWHVvd1t6hYDZNCi3VvxXFMdmmgk6HhhFCvvw9sMf1RQFp7LyjGvrNuF7TzukfaGh7Gsin2bEDpUNRv9oc8qSGMNB6ChM")
+	addr := []byte("oHXav7gNves6vewvdMoBtwd3nNeM1sNBBQUdSggUVVB2XB7vg7JUXjntBpGx5LEkahq9yzRb25UuymoW8oYmnycV2hgYsb")
 	keyTests["TestGetSubaddr"] = []KeyTest{
 		{
 			val:    "sequence atlas unveil summon pebbles tuesday beer rudely snake rockets different fuselage woven tagged bested dented vegan hover rapid fawns obvious muppet randomly seasons randomly",

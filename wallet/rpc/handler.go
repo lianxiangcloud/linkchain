@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/lianxiangcloud/linkchain/libs/common"
+	"github.com/lianxiangcloud/linkchain/libs/crypto"
 	lkctypes "github.com/lianxiangcloud/linkchain/libs/cryptonote/types"
 	"github.com/lianxiangcloud/linkchain/libs/cryptonote/xcrypto"
 	"github.com/lianxiangcloud/linkchain/libs/hexutil"
@@ -369,7 +370,7 @@ func (s *PublicTransactionPoolAPI) CheckProofKey(ctx context.Context, args wtype
 				data := make([]byte, lkctypes.COMMONLEN+common.AddressLength)
 				copy(data[0:], key[:])
 				copy(data[len(data):], addr[:])
-				pkey := xcrypto.FastHash(data)
+				pkey := crypto.Sha256(data)
 				for _, addKey := range tx.AddKeys {
 					if bytes.Equal(pkey[:], addKey[:]) {
 						ret.Records = append(ret.Records, &wtypes.VerifyProofKey{

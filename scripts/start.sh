@@ -14,8 +14,11 @@ function Init() {
         echo "`Usage`"
         exit 1;
     fi
-    
-    $proc init --home $datapath  --log.filename $datapath/lkchain.log
+    logpath=$datapath/logs
+    if [ ! -L "$logpath" ]; then
+        mkdir -p "$logpath"
+    fi
+    $proc init --home $datapath  --init_height 39476  --init_state_root 0x477d0c839b7d7a93a718e66a6b0b5642e42aa661fc333159ace82 --log.filename $logpath/lkchain.log
 }
 
 function Start() {
@@ -32,7 +35,7 @@ function Start() {
 
 function StartNode() {
     echo "start $proc ..."
-    nohup $proc node --home $datapath --bootnode.addr $bootnode  --rpc.http_endpoint "127.0.0.1:$rpcport" --rpc.ws_endpoint "127.0.0.1:$wsport" --p2p.laddr "tcp://0.0.0.0:$p2pport" --consensus.create_empty_blocks_interval $emptyBlockInterval --consensus.timeout_commit $blockInterval --log.filename $datapath/lkchain.log --log_level debug > $datapath/error.log 2>&1 &
+    nohup $proc node --home $datapath --bootnode.addr $bootnode  --rpc.http_endpoint "127.0.0.1:$rpcport" --rpc.ws_endpoint "127.0.0.1:$wsport" --p2p.laddr "tcp://0.0.0.0:$p2pport" --consensus.create_empty_blocks_interval $emptyBlockInterval --consensus.timeout_commit $blockInterval --log.filename $logpath/lkchain.log --log_level debug > $logpath/error.log 2>&1 &
     echo "pid: $!"
 }
 
