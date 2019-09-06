@@ -1068,7 +1068,8 @@ func (h *txHeap) loop() {
 		if delta > 0 {
 			time.Sleep(time.Second * time.Duration(delta))
 		}
-		delete(h.txMap, item.hash)
+
+		h.Delete(item.hash)
 		log.Debug("txHeap delete", "hash", item.hash)
 	}
 }
