@@ -20,9 +20,9 @@ var (
 	mockEthAddr  = common.HexToAddress("0xa73810e519e1075010678d706533486d8ecc8000")
 	mockTokenA   = common.HexToAddress("0x000000000000000000000000000000000000000a")
 	mockTokenB   = common.HexToAddress("0x000000000000000000000000000000000000000b")
-	utxoAccount0 = "B82MtaMMExz8oPwtstBddpgLoMvT2YmeU79z2A8ZMbf4hxvV2GFUrwPKmT6ko4YgTwMWEmNT1tFDg3DcTSNydftUHKxmEUt"
-	utxoAccount1 = "ESuckthZTpjTsqVobB1Yg7SkbU1QUGFThPko8hkFP9VnQZ8WaVaLe4siM1r7tdKkrnFWXkHxZKPuj2gVjd6KZeoo1kWqvG4"
-	utxoAccount2 = "EStq1qHQqfp6jjmUuNcDyQAh4tWe6nBdWj3zzzvkvL1vVriaKZFQZCZR73SBwCVBRXLtG8zvC5Uq1LePaD59CeZf85eLFU2"
+	utxoAccount0 = "bwcJ9V3z7uW1fbYm2L6HuCGiuaTSVr5dq7ir49ViFBNeYYQqMuUM6S16aWKz4HmGRFGDb5RnfVBv7uGeySjkzUkmEbGKRN"
+	utxoAccount1 = "oRWauC7hnjcupPN2UMzT3fTVpv99jv2ZEmr4QV6kYjG8XaeWHTNBRXeQq2yeEHgbm85Zqu6DBjTLYZxPEJUwRugrgeUkyY"
+	utxoAccount2 = "oRTryuuZqwvd7kyWX8vPjKYyUD7M2Vmt82gvgqb5DzHme1tWSpwdenqoV9X72ExsSRAYfr1k471tmUWG9cFPRbDiZcQHmr"
 
 	mockLinkAccount *LinkAccount
 )
