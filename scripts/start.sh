@@ -5,20 +5,35 @@ emptyBlockInterval=300
 blockInterval=1000
 bootnode=https://bootnode-test.lianxiangcloud.com
 
-cd ../data
-datapath=`pwd`
-cd ../sbin
+rootpath=$(dirname $(pwd))
+dbpath=$rootpath/init/db
+datapath=$rootpath/data
+init_height=0
 
+function GetInitHeight() {
+    init_height=$(cat $dbpath/height.txt)
+    echo "init_height:$init_height"
+}
+
+logpath=$datapath/logs
 function Init() {
     if [ $# -ne 1 ]; then
         echo "`Usage`"
         exit 1;
     fi
-    logpath=$datapath/logs
+    GetInitHeight
     if [ ! -L "$logpath" ]; then
         mkdir -p "$logpath"
     fi
-    $proc init --home $datapath  --init_height 39476  --init_state_root 0x477d0c839b7d7a93a718e66a6b0b5642e42aa661fc333159ace82 --log.filename $logpath/lkchain.log
+    if [ -d "$dbpath/kv" ]; then
+         echo "kv node"
+         mkdir -p "$datapath/data"
+         cp -a $dbpath/kv/state.db  $datapath/data/state.db
+         $proc init --home $datapath  --init_height $init_height  --log.filename $logpath/lkchain.log
+    else 
+        echo "kv db not exit"
+        exit 1;
+    fi        
 }
 
 function Start() {

@@ -5,7 +5,7 @@ import (
 
 	crand "crypto/rand"
 
-	"github.com/lianxiangcloud/linkchain/bootcli"
+	"github.com/lianxiangcloud/linkchain/bootnode"
 	"github.com/lianxiangcloud/linkchain/libs/crypto"
 	"github.com/lianxiangcloud/linkchain/libs/p2p/common"
 	"github.com/lianxiangcloud/linkchain/types"
@@ -84,7 +84,7 @@ func (tab *HTTPTable) IsDhtTable() bool {
 
 //LookupRandom get seeds from bootnode server
 func (tab *HTTPTable) LookupRandom() []*common.Node {
-	seedNodes, _, _ := bootcli.GetSeeds(tab.bootSvr, tab.priv, tab.logger)
+	seedNodes, _, _ := bootnode.GetSeeds(tab.bootSvr, tab.priv, tab.logger)
 	var splitedNodes []*common.Node
 	if len(seedNodes) > 0 {
 		seedsNum := 0

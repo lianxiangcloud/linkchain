@@ -32,7 +32,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lianxiangcloud/linkchain/bootcli"
+	"github.com/lianxiangcloud/linkchain/bootnode"
 	"github.com/lianxiangcloud/linkchain/libs/p2p/common"
 	"github.com/lianxiangcloud/linkchain/libs/p2p/netutil"
 	"github.com/lianxiangcloud/linkchain/types"
@@ -233,7 +233,7 @@ func (tab *DhtTable) LookupRandom() []*common.Node {
 
 func (tab *DhtTable) getRandSeedsFromBootSvr() []*common.Node {
 	var splitedNodes []*common.Node
-	seedNodes, _, _ := bootcli.GetSeeds(tab.bootSvr, tab.priv, tab.log)
+	seedNodes, _, _ := bootnode.GetSeeds(tab.bootSvr, tab.priv, tab.log)
 	if len(seedNodes) > 0 {
 		seedsNum := 0
 		seedsMap := make(map[string]bool)

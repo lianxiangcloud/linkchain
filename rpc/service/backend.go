@@ -10,7 +10,7 @@ import (
 	"github.com/lianxiangcloud/linkchain/libs/bloombits"
 
 	"github.com/lianxiangcloud/linkchain/accounts"
-	"github.com/lianxiangcloud/linkchain/bootcli"
+	"github.com/lianxiangcloud/linkchain/bootnode"
 	"github.com/lianxiangcloud/linkchain/config"
 	cs "github.com/lianxiangcloud/linkchain/consensus"
 	"github.com/lianxiangcloud/linkchain/libs/common"
@@ -177,7 +177,7 @@ func (b *ApiBackend) NetInfo() (*rtypes.ResultNetInfo, error) {
 }
 
 func (b *ApiBackend) GetSeeds() []rtypes.Node {
-	nodes, _, _ := bootcli.GetSeeds(b.context().p2pSwitch.BootNodeAddr(), b.context().p2pSwitch.NodeKey(), b.context().p2pSwitch.Logger)
+	nodes, _, _ := bootnode.GetSeeds(b.context().p2pSwitch.BootNodeAddr(), b.context().p2pSwitch.NodeKey(), b.context().p2pSwitch.Logger)
 	returnNodes := make([]rtypes.Node, len(nodes))
 	for i := 0; i < len(returnNodes); i++ {
 		returnNodes[i].IP = nodes[i].IP.String()

@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/lianxiangcloud/linkchain/app"
-	"github.com/lianxiangcloud/linkchain/bootcli"
+	"github.com/lianxiangcloud/linkchain/bootnode"
 	cmn "github.com/lianxiangcloud/linkchain/libs/common"
 	"github.com/lianxiangcloud/linkchain/libs/log"
 	"github.com/lianxiangcloud/linkchain/libs/p2p"
@@ -80,18 +80,18 @@ func (sm *SyncHeightManager) heightProbe() {
 				}
 				myLastHeight = myCurrentHeight
 
-				lkchainHeight, err := bootcli.GetCurrentHeightOfChain(sm.sw.BootNodeAddr(), sm.logger)
+				lkchainHeight, err := bootnode.GetCurrentHeightOfChain(sm.sw.BootNodeAddr(), sm.logger)
 				if err != nil {
 					sm.logger.Report("SyncHeightManager", "logID", types.LogIdBootNodeFail, "getCurrentHeightOfChain err", err, "bootnodeAddr", sm.sw.BootNodeAddr())
 					timer.Reset(minCheckInterval)
 					continue
 				}
 				if lkchainHeight >= (myCurrentHeight + uint64(maxSameHeightCount)) { //we should 	get the seed node agian and change the nodes we have connected
-					if bootcli.GetLocalNodeType() != types.NodePeer || bootcli.GetLocalNodeType() != types.NodeValidator {
-						sm.logger.Report("SyncHeightManager", "logID", types.LogIdSyncBlockFail, "type", bootcli.GetLocalNodeType(), "height", sm.app.Height())
+					if bootnode.GetLocalNodeType() != types.NodePeer || bootnode.GetLocalNodeType() != types.NodeValidator {
+						sm.logger.Report("SyncHeightManager", "logID", types.LogIdSyncBlockFail, "type", bootnode.GetLocalNodeType(), "height", sm.app.Height())
 						return
 					}
-					seeds, getType, err := bootcli.GetSeeds(sm.sw.BootNodeAddr(), sm.sw.NodeKey(), sm.logger)
+					seeds, getType, err := bootnode.GetSeeds(sm.sw.BootNodeAddr(), sm.sw.NodeKey(), sm.logger)
 					if err != nil {
 						sm.logger.Report("SyncHeightManager", "logID", types.LogIdBootNodeFail, "GetSeeds err", err, "bootnodeAddr", sm.sw.BootNodeAddr())
 						timer.Reset(minCheckInterval)

@@ -8,7 +8,7 @@ import (
 
 	"encoding/hex"
 
-	"github.com/lianxiangcloud/linkchain/bootcli"
+	"github.com/lianxiangcloud/linkchain/bootnode"
 	"github.com/lianxiangcloud/linkchain/config"
 	cmn "github.com/lianxiangcloud/linkchain/libs/common"
 	"github.com/lianxiangcloud/linkchain/libs/crypto"
@@ -215,7 +215,7 @@ func (sw *Switch) UdpCon() *net.UDPConn {
 
 func defaultNewTable(sw *Switch, seeds []*common.Node) error {
 	needDht := false
-	if bootcli.GetLocalNodeType() == types.NodePeer {
+	if bootnode.GetLocalNodeType() == types.NodePeer {
 		needDht = true
 	}
 	return sw.DefaultNewTable(seeds, needDht, false)
@@ -251,11 +251,11 @@ func (sw *Switch) DefaultNewTable(seeds []*common.Node, needDht bool, needReNewU
 				}
 			}
 			selfInfo := &disc.SlefInfo{
-				NodeType:  bootcli.GetLocalNodeType(),
+				NodeType:  bootnode.GetLocalNodeType(),
 				Self:      selfnode,
 				ListenCon: sw.UdpCon(),
 			}
-			if bootcli.GetLocalNodeType() == types.NodePeer && sw.upnpFlag == false {
+			if bootnode.GetLocalNodeType() == types.NodePeer && sw.upnpFlag == false {
 				maxDhtDialOutNums = conf.MaxNumPeers
 			} else {
 				if conf.MaxNumPeers/defaultDialRatio >= 1 {
@@ -269,7 +269,7 @@ func (sw *Switch) DefaultNewTable(seeds []*common.Node, needDht bool, needReNewU
 		}
 	} else {
 		httpLogger := sw.Logger.With("module", "httpTable")
-		sw.ntab, err = disc.NewHTTPTable(cfg, sw.BootNodeAddr(), bootcli.GetLocalNodeType(), httpLogger)
+		sw.ntab, err = disc.NewHTTPTable(cfg, sw.BootNodeAddr(), bootnode.GetLocalNodeType(), httpLogger)
 	}
 	return err
 }

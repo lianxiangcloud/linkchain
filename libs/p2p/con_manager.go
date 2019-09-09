@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lianxiangcloud/linkchain/bootcli"
+	"github.com/lianxiangcloud/linkchain/bootnode"
 	"github.com/lianxiangcloud/linkchain/libs/p2p/common"
 	"github.com/lianxiangcloud/linkchain/types"
 
@@ -165,7 +165,7 @@ func (conma *ConManager) typeChangeProbeLoop() {
 }
 
 func (conma *ConManager) tryToSwitchNetWork(candidates []*types.CandidateState) {
-	myType := bootcli.GetLocalNodeType()
+	myType := bootnode.GetLocalNodeType()
 	conma.logger.Info("tryToSwitchNetWork", "candidates", candidates, "myoldType", myType)
 	typeChangeFlag := false
 	findPukey := false
@@ -193,7 +193,7 @@ func (conma *ConManager) tryToSwitchNetWork(candidates []*types.CandidateState) 
 		conma.logger.Info("typeChange start", "old myType", myType, "bootnodeAddr", conma.sw.bootnodeAddr)
 		maxTryNum := 30
 		for i := 0; i < maxTryNum; i++ {
-			seeds, getType, err := bootcli.GetSeeds(conma.sw.bootnodeAddr, conma.sw.nodeKey, conma.logger)
+			seeds, getType, err := bootnode.GetSeeds(conma.sw.bootnodeAddr, conma.sw.nodeKey, conma.logger)
 			if err != nil {
 				return
 			}
@@ -206,7 +206,7 @@ func (conma *ConManager) tryToSwitchNetWork(candidates []*types.CandidateState) 
 				if getType == types.NodePeer {
 					needDht = true
 				}
-				err := conma.sw.DefaultNewTable(seeds, needDht, true)
+				err := conma.sw.DefaultNewTable(seeds, needDht, true) //udp con have closed by table.Stop,so we should renew udpCon
 				if err != nil {
 					conma.logger.Info("DefaultNewTable", "sw.ntab err", err)
 					return
@@ -216,7 +216,7 @@ func (conma *ConManager) tryToSwitchNetWork(candidates []*types.CandidateState) 
 				return
 			}
 		}
-		conma.logger.Report("typeChange failed,bootcli not refreshed", "logID", types.LogIdBootNodeFail, "myType", myType)
+		conma.logger.Report("typeChange failed,bootnode not refreshed", "logID", types.LogIdBootNodeFail, "myType", myType)
 	}
 }
 
@@ -262,7 +262,7 @@ func (conma *ConManager) waitConToNewSeeds(newSeeds []*common.Node, getType type
 //SetCandidate is called when candidate ndoe changed
 func (conma *ConManager) SetCandidate(candidates []*types.CandidateState) {
 	conma.logger.Info("SetCandidate", "candidates", candidates, "len(candidates)", len(candidates))
-	myType := bootcli.GetLocalNodeType()
+	myType := bootnode.GetLocalNodeType()
 	if myType != types.NodePeer && myType != types.NodeValidator {
 		conma.logger.Info("myType is not peer or validator,do not change network", "myType", myType)
 		return

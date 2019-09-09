@@ -8,7 +8,7 @@ import (
 
 	"encoding/json"
 
-	"github.com/lianxiangcloud/linkchain/bootcli"
+	"github.com/lianxiangcloud/linkchain/bootnode"
 	"github.com/lianxiangcloud/linkchain/libs/crypto"
 	"github.com/lianxiangcloud/linkchain/libs/log"
 	"github.com/lianxiangcloud/linkchain/libs/p2p/common"
@@ -36,8 +36,8 @@ func savevalSeedsToFile(privKeys []crypto.PrivKey, valSeeds []*common.Node, valS
 	if err != nil {
 		t.Fatalf("creating test file failed: %s", err)
 	}
-	var jsonData bootcli.GeetSeedsResp
-	jsonData.Seeds = make([]bootcli.Rnode, len(valSeeds))
+	var jsonData bootnode.GeetSeedsResp
+	jsonData.Seeds = make([]bootnode.Rnode, len(valSeeds))
 	for i := 0; i < len(jsonData.Seeds); i++ {
 		jsonData.Seeds[i].ID = common.TransPubKeyToNodeID(privKeys[i].PubKey())
 		jsonData.Seeds[i].Endpoint.IP = []string{valSeeds[i].IP.String()} //{addr{Network:"tcp",Addr:valSeeds[i].IP}}

@@ -2,7 +2,8 @@ package commands
 
 import (
 	"fmt"
-	"github.com/lianxiangcloud/linkchain/bootcli"
+
+	"github.com/lianxiangcloud/linkchain/bootnode"
 	cfg "github.com/lianxiangcloud/linkchain/config"
 	"github.com/lianxiangcloud/linkchain/libs/log"
 	nm "github.com/lianxiangcloud/linkchain/node"
@@ -86,7 +87,7 @@ func NewRunNodeCmd(nodeProvider nm.NodeProvider) *cobra.Command {
 
 			filter, ok := logger.(*log.Filter)
 			if ok {
-				err = filter.SetBaseInfo(config.InfoAddr, config.InfoPrefix, bootcli.GetLocalNodeType().String())
+				err = filter.SetBaseInfo(config.InfoAddr, config.InfoPrefix, bootnode.GetLocalNodeType().String())
 				logger.Info("log.Filter SetBaseInfo", "InfoAddr", config.InfoAddr, "err", err)
 				// call log.Report(msg, "logID", 70001, "height", 8, "validators", 9, "peers", 10)
 			}

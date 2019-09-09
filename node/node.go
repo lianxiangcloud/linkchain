@@ -12,7 +12,7 @@ import (
 	"github.com/lianxiangcloud/linkchain/accounts/keystore"
 	"github.com/lianxiangcloud/linkchain/app"
 	bc "github.com/lianxiangcloud/linkchain/blockchain"
-	"github.com/lianxiangcloud/linkchain/bootcli"
+	"github.com/lianxiangcloud/linkchain/bootnode"
 	cfg "github.com/lianxiangcloud/linkchain/config"
 	cs "github.com/lianxiangcloud/linkchain/consensus"
 	"github.com/lianxiangcloud/linkchain/evidence"
@@ -135,7 +135,7 @@ func NewNode(config *cfg.Config,
 	var localNodeType types.NodeType
 	var err error
 	if len(config.BootNodeSvr.Addr) != 0 {
-		seeds, localNodeType, err = bootcli.GetSeeds(config.BootNodeSvr.Addr, privValidator.GetPrikey(), logger)
+		seeds, localNodeType, err = bootnode.GetSeeds(config.BootNodeSvr.Addr, privValidator.GetPrikey(), logger)
 	}
 	if err != nil {
 		logger.Error("GetSeeds failed")
@@ -376,11 +376,7 @@ func NewNode(config *cfg.Config,
 	consensusReactor := cs.NewConsensusReactor(consensusState, fastSync, p2pmanager)
 	consensusReactor.SetLogger(consensusLogger)
 
-	consensusReactor.SetReceiveP2pTx(true)
-	/*if config.NodeType == types.NodePeer || config.NodeType == types.NodeProxy {
-		consensusReactor.SetReceiveP2pTx(false)
-	}*/
-
+	consensusReactor.SetReceiveP2pTx(!isTrie)
 	p2pmanager.AddReactor("MEMPOOL", mempoolReactor)
 	p2pmanager.AddReactor("BLOCKCHAIN", bcReactor)
 	p2pmanager.AddReactor("CONSENSUS", consensusReactor)
