@@ -61,6 +61,11 @@ func NewWallet(config *cfg.Config,
 	// wallet.BaseService = *cmn.NewBaseService(logger, "Wallet", wallet)
 	wallet.Logger = logger
 
+	// update default init block height
+	if config.Daemon.InitHeight > defaultInitBlockHeight {
+		defaultInitBlockHeight = config.Daemon.InitHeight
+	}
+
 	return wallet, nil
 }
 
