@@ -764,3 +764,34 @@ func (w *Wallet) SendRawTransaction(encodedTx hexutil.Bytes) (common.Hash, error
 
 	return hash, nil
 }
+
+// GetBlockUTXO
+// curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getBlockUTXO","params":["0x1a"],"id":1}' https://pocketapi-lianxiangcloud.com/getBlockUTXO
+func GetBlockUTXO(height *big.Int) (*rtypes.QuickRPCBlock, error) {
+	// w.Logger.Debug("eth_getBlockUTXO")
+	p := make([]interface{}, 2)
+	p[0] = hexutil.EncodeBig(height)
+	p[1] = true
+	body, err := daemon.CallJSONRPC("eth_getBlockUTXO", p)
+	if err != nil || body == nil || len(body) == 0 {
+		// w.Logger.Error("getBlockUTXOsByNumber CallJSONRPC", "err", err)
+		return nil, wtypes.ErrNoConnectionToDaemon
+	}
+	// w.Logger.Debug("getBlockUTXOsByNumber", "body", string(body))
+	var jsonRes wtypes.RPCResponse
+	if err = json.Unmarshal(body, &jsonRes); err != nil {
+		// w.Logger.Error("getBlockUTXOsByNumber", "json.Unmarshal body", string(body), "err", err)
+		return nil, err
+	}
+	if jsonRes.Error.Code != 0 {
+		return nil, fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
+	}
+
+	var quickBlock rtypes.QuickRPCBlock
+	if err = json.Unmarshal(jsonRes.Result, &quickBlock); err != nil {
+		// w.Logger.Error("getBlockUTXOsByNumber", "ser.UnmarshalJSON Result", string(jsonRes.Result), "err", err)
+		return nil, err
+	}
+
+	return &quickBlock, nil
+}

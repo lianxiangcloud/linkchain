@@ -74,6 +74,7 @@ func (w *Wallet) OpenWallet(keystoreFile string, password string) error {
 		w.Logger.Error("OpenWallet NewLinkAccount fail", "err", err)
 		return err
 	}
+	la.SetSyncQuick(w.config.Daemon.SyncQuick)
 	addr := la.getEthAddress()
 
 	w.Logger.Info("OpenWallet", "address", addr)

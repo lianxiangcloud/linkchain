@@ -37,7 +37,7 @@ type BaseConfig struct {
 	// LogPath directory
 	LogPath string `mapstructure:"log_dir"`
 	LogFile string `mapstructure:"log_file"`
-	TestNet bool `mapstructure:"test_net"`
+	TestNet bool   `mapstructure:"test_net"`
 }
 
 // DefaultBaseConfig return default config
@@ -80,10 +80,11 @@ func rootify(path, root string) string {
 
 // DaemonConfig daemon config
 type DaemonConfig struct {
-	PeerRPC string `mapstructure:"peer_rpc"`
-	Login   string `mapstructure:"login"`
-	Trusted bool   `mapstructure:"trusted"`
-	Testnet bool   `mapstructure:"testnet"`
+	PeerRPC   string `mapstructure:"peer_rpc"`
+	Login     string `mapstructure:"login"`
+	Trusted   bool   `mapstructure:"trusted"`
+	Testnet   bool   `mapstructure:"testnet"`
+	SyncQuick bool   `mapstructure:"sync_quick"`
 }
 
 // RPCConfig rpc config
@@ -102,10 +103,11 @@ type RPCConfig struct {
 // DefaultDaemonConfig returns default daemon config
 func DefaultDaemonConfig() *DaemonConfig {
 	return &DaemonConfig{
-		PeerRPC: "http://127.0.0.1:11000",
-		Login:   "",
-		Trusted: true,
-		Testnet: true,
+		PeerRPC:   "http://127.0.0.1:11000",
+		Login:     "",
+		Trusted:   true,
+		Testnet:   true,
+		SyncQuick: false,
 	}
 }
 

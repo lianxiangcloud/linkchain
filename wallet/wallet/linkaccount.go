@@ -51,6 +51,7 @@ type LinkAccount struct {
 	stop                 chan int
 	walletDB             dbm.DB
 	refreshBlockInterval time.Duration
+	syncQuick            bool
 }
 
 // NewLinkAccount return a LinkAccount
@@ -201,25 +202,26 @@ func (la *LinkAccount) printBalance() {
 }
 
 func (la *LinkAccount) refreshLoop() {
-	// refreshMaxBlock := time.NewTicker(la.blockTick)
-	// defer refreshMaxBlock.Stop()
-
 	refreshMaxBlock := time.NewTimer(la.refreshBlockInterval)
 
 	for {
 		select {
 		case <-refreshMaxBlock.C:
-			h, err := RefreshMaxBlock()
-			if err != nil {
-				la.Logger.Error("refreshLoop RefreshMaxBlock", "err", err)
-				refreshMaxBlock.Reset(la.refreshBlockInterval)
-				continue
+			if la.syncQuick {
+				la.RefreshQuick()
+			} else {
+				h, err := RefreshMaxBlock()
+				if err != nil {
+					la.Logger.Error("refreshLoop RefreshMaxBlock", "err", err)
+					refreshMaxBlock.Reset(la.refreshBlockInterval)
+					continue
+				}
+				if h.Cmp(la.remoteHeight) > 0 {
+					la.remoteHeight = h
+				}
+				la.printBalance()
+				la.Refresh()
 			}
-			if h.Cmp(la.remoteHeight) > 0 {
-				la.remoteHeight = h
-			}
-			la.printBalance()
-			la.Refresh(true)
 			refreshMaxBlock.Reset(la.refreshBlockInterval)
 		case <-la.stop:
 			refreshMaxBlock.Stop()
@@ -245,7 +247,7 @@ func (la *LinkAccount) checkBlock(block *rtypes.RPCBlock) error {
 }
 
 // Refresh wallet
-func (la *LinkAccount) Refresh(trustedDaemon bool) {
+func (la *LinkAccount) Refresh() {
 	la.lock.Lock()
 	defer la.lock.Unlock()
 
@@ -277,6 +279,56 @@ func (la *LinkAccount) Refresh(trustedDaemon bool) {
 				return
 			}
 			la.localHeight.Add(la.localHeight, big.NewInt(1))
+		}
+	}
+}
+
+// RefreshQuick wallet
+func (la *LinkAccount) RefreshQuick() {
+	la.lock.Lock()
+	defer la.lock.Unlock()
+
+	if la.walletOpen && la.autoRefresh && la.localHeight.Cmp(la.remoteHeight) <= 0 {
+		for la.localHeight.Cmp(la.remoteHeight) <= 0 {
+			la.Logger.Debug("RefreshQuick", "localHeight", la.localHeight, "remoteHeight", la.remoteHeight)
+
+			quickBlock, err := GetBlockUTXO(la.localHeight)
+			if err != nil {
+				la.Logger.Error("RefreshQuick GetBlockUTXO fail", "height", la.localHeight, "err", err)
+				return
+			}
+			nextHeight := (*big.Int)(quickBlock.NextHeight)
+			remoteHeight := (*big.Int)(quickBlock.MaxHeight)
+
+			if quickBlock.Block == nil {
+				if quickBlock.NextHeight == nil || nextHeight.Sign() <= 0 {
+					la.Logger.Info("GetBlockUTXO not available NextHeight", "height", la.localHeight)
+					return
+				}
+				la.localHeight.Set(nextHeight)
+				la.remoteHeight.Set(remoteHeight)
+				continue
+			}
+
+			ids, myTxs, err := la.processBlock(quickBlock.Block)
+			if err != nil {
+				la.Logger.Error("RefreshQuick processBlock fail", "height", la.localHeight, "err", err)
+				return
+			}
+
+			err = la.save(ids, *quickBlock.Block.Hash, myTxs)
+			if err != nil {
+				la.Logger.Error("RefreshQuick la.save fail", "height", la.localHeight, "err", err)
+				return
+			}
+
+			if quickBlock.NextHeight == nil || nextHeight.Sign() <= 0 {
+				la.Logger.Info("GetBlockUTXO not available NextHeight", "height", la.localHeight)
+				return
+			}
+
+			la.localHeight.Set(nextHeight)
+			la.remoteHeight.Set(remoteHeight)
 		}
 	}
 }
@@ -767,4 +819,9 @@ func (la *LinkAccount) GetLocalOutputs(startid uint64, size uint64) ([]types.UTX
 		nextid++
 	}
 	return outputs, err
+}
+
+// SetSyncQuick set la.syncQuick
+func (la *LinkAccount) SetSyncQuick(quick bool) {
+	la.syncQuick = quick
 }
