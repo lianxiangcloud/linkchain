@@ -64,8 +64,11 @@ func (s *PublicTransactionPoolAPI) signUTXOTransaction(ctx context.Context, args
 			var remark [32]byte
 			copy(remark[:], args.Dests[i].Remark[:])
 			log.Debug("signUTXOTransaction", "Remark", args.Dests[i].Remark, "len", len(args.Dests[i].Remark), "remark", remark)
-
-			dests = append(dests, &types.UTXODestEntry{Addr: *addr, Amount: args.Dests[i].Amount.ToInt(), IsSubaddress: wallet.IsSubaddress(args.Dests[i].Addr), Remark: remark})
+			isSubaddr, err := wallet.IsSubaddress(args.Dests[i].Addr)
+			if err != nil {
+				return nil, err
+			}
+			dests = append(dests, &types.UTXODestEntry{Addr: *addr, Amount: args.Dests[i].Amount.ToInt(), IsSubaddress: isSubaddr, Remark: remark})
 			utxoDestsCnt++
 		} else {
 			if !common.IsHexAddress(toAddress) {

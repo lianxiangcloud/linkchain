@@ -150,15 +150,18 @@ func KeyFromAccount(keyjson []byte, passwd string) (lktypes.SecretKey, error) {
 	return key, nil
 }
 
-func IsSubaddress(str string) bool {
-	var prefix uint64
-	// var blob []byte
-	xcrypto.Base58DecodeAddr(&prefix, str)
+func IsSubaddress(str string) (bool, error) {
+	addrLen := types.GetConfig().CRYPTONOTE_PREFIX_LENGTH + 2*types.GetConfig().CRYPTONOTE_ADDRESS_LENGTH + types.GetConfig().CRYPTONOTE_CHECKSUM_LENGTH
+	data := base58.Decode(str)
+	if len(data) != addrLen {
+		return false, ErrStrToAddressInvalid
+	}
+	prefix := int(data[0])
 	log.Debug("IsSubaddress", "addr", str, "prefix", prefix)
-	if types.GetConfig().CRYPTONOTE_PUBLIC_SUBADDRESS_BASE58_PREFIX-int(prefix) == 0 {
+	if types.GetConfig().CRYPTONOTE_PUBLIC_SUBADDRESS_BASE58_PREFIX-prefix == 0 {
 		log.Debug("IsSubaddress", "Is Subaddress", str)
-		return true
+		return true, nil
 	}
 	log.Debug("IsSubaddress", "Not Subaddress", str)
-	return false
+	return false, nil
 }
