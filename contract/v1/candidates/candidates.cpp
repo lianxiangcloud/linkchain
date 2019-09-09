@@ -9,6 +9,7 @@
 
 #define ContractCommitteeAddr "0x0000000000000000000000436f6d6d6974746565"
 #define ContractPledgeAddr "0x0000000000000000000000000000506c65646765"
+#define ContractValidatorAddr "0x0000000000000000000056616c696461746f7273"
 
 
 struct Candidate {
@@ -52,6 +53,20 @@ bool IsWinOutAccount(const tc::Address& addr){
     return winOutAddr.find(addr) != winOutAddr.end();
 }
 
+bool IsRepeatPubkey(const std::string& pubkey){
+	std::set<std::string> pubkeys;
+	uint8_t* buf = TC_ContractStorageGet(ContractValidatorAddr, "ValidatorList");
+	tc::tlv::BufferReader buffer((uint8_t*)buf);
+	if (*buf == 0){
+		return false;
+	}
+	unpack(buffer, pubkeys);
+	if (pubkeys.find(pubkey) != pubkeys.end()){
+		return true; 
+	} else {
+		return false;                                                                                                                        }   
+}
+
 class Candidates : public TCBaseContract {
 
 private:
@@ -75,6 +90,7 @@ private:
         TC_RequireWithMsg(c.coinbase.isHex(),  "illegal coinbase");
 		TC_RequireWithMsg(isPubKeyHex(c.pub_key), "illegal PubKey");
 		TC_RequireWithMsg(IsWinOutAccount(c.coinbase), "Coinbase is not Winout Account");
+		TC_RequireWithMsg(!IsRepeatPubkey(c.pub_key), "Pubkey is Repeat(validator)");
     }
 
 public:

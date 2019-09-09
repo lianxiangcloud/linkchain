@@ -8,6 +8,7 @@
 #define CKEY "Validator"
 #define CKEYList "ValidatorList"
 #define ContractCommitteeAddr "0x0000000000000000000000436f6d6d6974746565"
+#define ContractCandidatesAddr "0x0000000000000000000043616e64696461746573"
 #define RKEY  "right"
 
 struct Validator {
@@ -41,6 +42,23 @@ bool CheckAddrRight(const tc::Address& addr,const std::string& right){
 	return addr == GetRightAccount(right);
 }
 
+bool IsRepeatPubkey(const std::string& pubkey){
+	std::set<std::string> pubkeys;
+	uint8_t* buf = TC_ContractStorageGet(ContractCandidatesAddr, "pubkeys");
+	tc::tlv::BufferReader buffer((uint8_t*)buf);
+	if (*buf == 0){
+		return false;
+	}
+
+	unpack(buffer, pubkeys);
+
+	if (pubkeys.find(pubkey) != pubkeys.end()){
+		return true;
+	} else {
+		return false;
+	}
+}
+
 
 class Validators : public TCBaseContract {
 
@@ -61,17 +79,12 @@ private:
         return true;
     }
 
-    std::string checkValidator(const Validator& c) {
-        if (!c.coinbase.isHex()){
-            return "illegal coinbase";
-        }
-        if ( c.voting_power < 0 ){
-            return "illegal votingPower";
-        }
-        if (!isPubKeyHex(c.pub_key)){
-            return "illegal PubKey";
-        }
-        return "";
+    void checkValidator(const Validator& c) {
+		TC_RequireWithMsg(c.coinbase.isHex(),  "illegal coinbase");
+		TC_RequireWithMsg(isPubKeyHex(c.pub_key), "illegal PubKey");
+		TC_RequireWithMsg(c.voting_power >= 0, "illegal votingPower");
+		TC_RequireWithMsg(!IsRepeatPubkey(c.pub_key), "Pubkey is Repeat(candidate)");
+
     }
 
     void addValidator(tc::StorMap<Key<std::string>, std::string>& cand,std::set<std::string>& keys,const Validator& val){
@@ -80,12 +93,12 @@ private:
         keys.insert(val.pub_key);
     }
 
+	tc::StorMap<Key<std::string>, std::string> cand{CKEY};
+	tc::StorValue<std::set<std::string>> pubkeys{CKEYList};
 public:
 	//init
     void Init(){
         Validator v1,v2,v3;
-        tc::StorMap<Key<std::string>, std::string> cand(CKEY);
-        tc::StorValue<std::set<std::string>> pubkeys(CKEYList);
 		std::set<std::string> keys =  pubkeys.get();
 
 /*
@@ -112,22 +125,12 @@ public:
     //add or update a validator
     std::string SetValidator(const Validator& c) {
         TC_RequireWithMsg(CheckAddrRight(tc::App::getInstance()->sender(), "validators"), "Address does not have permission");
-        std::string ret = checkValidator(c);
-        if ("" !=ret ){
-            return ret;
-        }
+        checkValidator(c);
 
-        tc::StorMap<Key<std::string>, std::string> cand(CKEY);
         std::string Candjson = tc::json::Marshal(c);
         cand.set(Candjson, c.pub_key);
 
-        tc::StorValue<std::set<std::string>> pubkeys(CKEYList);
 		std::set<std::string> keys =  pubkeys.get();
-
-        if(keys.find(c.pub_key)!=keys.end()){
-            return "";
-        }
-
         keys.insert(c.pub_key);
         pubkeys.set(keys);
         return "";
@@ -139,22 +142,16 @@ public:
         if (!isPubKeyHex(s)){
             return "illegal PubKey";
         }
-
-        tc::StorMap<Key<std::string>, std::string> cand(CKEY);
         cand.set("", s);
 
-        tc::StorValue<std::set<std::string>> pubkeys(CKEYList);
 		std::set<std::string> keys =  pubkeys.get();
         keys.erase(s);
         pubkeys.set(keys);
-
         return "";
 	}
 
     //get all validators
 	std::string GetAllValidators() {
-		tc::StorMap<Key<std::string>, std::string> cand(CKEY);
-		tc::StorValue<std::set<std::string>> pubkeys(CKEYList);
 		auto keys = pubkeys.get();
 		int i =0;
 
