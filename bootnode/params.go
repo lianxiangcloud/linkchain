@@ -12,12 +12,12 @@ import (
 var (
 	bootNodeLocker   sync.RWMutex
 	MainnetBootnodes = []string{
-		"https://39.97.128.184:8087",
-		"https://39.97.197.181:8087",
-		"https://120.55.156.239:8087",
-		"https://47.110.211.42:8087",
-		"https://47.91.221.28:8087",
-		"https://161.117.157.31:8087",
+		"https://39.97.128.184:443",
+		"https://39.97.197.181:443",
+		"https://120.55.156.239:443",
+		"https://47.110.211.42:443",
+		"https://47.91.221.28:443",
+		"https://161.117.157.31:443",
 	}
 	index = rand.Intn(len(MainnetBootnodes))
 )
