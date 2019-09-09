@@ -621,13 +621,13 @@ func TestInstrumentationConfig() *InstrumentationConfig {
 
 // BootNodeConfig defines the configuration of bootnode
 type BootNodeConfig struct {
-	Addr string `mapstructure:"addr"`
+	Addrs string `mapstructure:"addrs"` //https://ip1:port1,https://ip2:port2
 }
 
 //bootnode
 func DefaultBootNodeConfig() *BootNodeConfig {
 	return &BootNodeConfig{
-		Addr: "",
+		Addrs: "",
 	}
 }
 

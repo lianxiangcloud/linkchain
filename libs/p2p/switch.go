@@ -101,7 +101,7 @@ func TransNodeToEndpoint(nodes []*common.Node) []string {
 }
 
 // NewP2pManager creates a new Switch with the given config.
-func NewP2pManager(logger log.Logger, bootnodeAddr string, myPrivKey crypto.PrivKey, cfg *config.P2PConfig,
+func NewP2pManager(logger log.Logger, myPrivKey crypto.PrivKey, cfg *config.P2PConfig,
 	localNodeInfo NodeInfo, seeds []*common.Node, db dbm.DB) (*Switch, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("cfg is nil")
@@ -116,7 +116,6 @@ func NewP2pManager(logger log.Logger, bootnodeAddr string, myPrivKey crypto.Priv
 		blackListMap: make(map[string]bool),
 		db:           db,
 		rng:          cmn.NewRand(), // Ensure we have a completely undeterministic PRNG.
-		bootnodeAddr: bootnodeAddr,
 		inboundMap:   make(map[string]int),
 	}
 
@@ -206,7 +205,7 @@ func (sw *Switch) GetTable() common.DiscoverTable {
 }
 
 func (sw *Switch) BootNodeAddr() string {
-	return sw.bootnodeAddr
+	return bootnode.GetBestBootNode()
 }
 
 func (sw *Switch) UdpCon() *net.UDPConn {

@@ -239,7 +239,7 @@ prometheus_listen_addr = "{{ .Instrumentation.PrometheusListenAddr }}"
 max_open_connections = {{ .Instrumentation.MaxOpenConnections }}
 
 [bootnode]
-addr = "{{ .BootNodeSvr.Addr }}"
+addrs = "{{ .BootNodeSvr.Addrs }}"
 `
 
 /****** these are for test settings ***********/

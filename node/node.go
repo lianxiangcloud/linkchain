@@ -134,8 +134,12 @@ func NewNode(config *cfg.Config,
 	var seeds []*p2pcmn.Node
 	var localNodeType types.NodeType
 	var err error
-	if len(config.BootNodeSvr.Addr) != 0 {
-		seeds, localNodeType, err = bootnode.GetSeeds(config.BootNodeSvr.Addr, privValidator.GetPrikey(), logger)
+	if len(config.BootNodeSvr.Addrs) != 0 {
+		bootnode.UpdateBootNode(config.BootNodeSvr.Addrs)
+	}
+	var bootNodeAddr = bootnode.GetBestBootNode()
+	if len(bootNodeAddr) != 0 {
+		seeds, localNodeType, err = bootnode.GetSeeds(bootNodeAddr, privValidator.GetPrikey(), logger)
 	}
 	if err != nil {
 		logger.Error("GetSeeds failed")
@@ -146,7 +150,7 @@ func NewNode(config *cfg.Config,
 		logger.Info("GetSeedsFromBootSvr", " seeds i", i, "ip", seeds[i].IP.String(), "UDP_Port", seeds[i].UDP_Port, "TCP_Port", seeds[i].TCP_Port)
 	}
 
-	logger.Info("GetSeeds:", "BootNodeSvr addr", config.BootNodeSvr.Addr, "localpubky hex", localPubKeyHex, "localNodeType", localNodeType)
+	logger.Info("GetSeeds:", "BootNodeSvr addr", bootNodeAddr, "localpubky hex", localPubKeyHex, "localNodeType", localNodeType)
 
 	// Get BlockStore
 	blockStoreDB, err := dbProvider(&DBContext{"blockstore", config})
@@ -303,7 +307,7 @@ func NewNode(config *cfg.Config,
 	}
 	p2pLogger := logger.With("module", "p2p")
 	localNodeInfo := MakeNodeInfo(status.ChainID, localNodeType, config.Moniker, config.RPC.HTTPEndpoint)
-	p2pmanager, err := p2p.NewP2pManager(p2pLogger, config.BootNodeSvr.Addr, privValidator.GetPrikey(), config.P2P,
+	p2pmanager, err := p2p.NewP2pManager(p2pLogger, privValidator.GetPrikey(), config.P2P,
 		localNodeInfo, seeds, p2pDB)
 	if err != nil {
 		logger.Warn("NewP2pManager failed")
