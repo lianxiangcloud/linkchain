@@ -386,6 +386,7 @@ func (la *LinkAccount) processNewTransaction(tx *tctypes.UTXOTransaction, height
 			// TODO
 			gid := la.increaseGOutIndex(tx.TokenID)
 
+			keyMaps := make(map[lkctypes.KeyDerivation]lkctypes.PublicKey, 0)
 			derivationKeys := make([]lkctypes.KeyDerivation, 0)
 			derivationKey, err := xcrypto.GenerateKeyDerivation(tx.RKey, la.account.GetKeys().ViewSKey)
 			if err != nil {
@@ -393,6 +394,7 @@ func (la *LinkAccount) processNewTransaction(tx *tctypes.UTXOTransaction, height
 				continue
 			}
 			derivationKeys = append(derivationKeys, derivationKey)
+			keyMaps[derivationKey] = tx.RKey
 			if len(tx.AddKeys) > 0 {
 				//we use a addinational key for utxo->account proof, maybe cause err here
 				for _, addkey := range tx.AddKeys {
@@ -402,6 +404,7 @@ func (la *LinkAccount) processNewTransaction(tx *tctypes.UTXOTransaction, height
 						continue
 					}
 					derivationKeys = append(derivationKeys, derivationKey)
+					keyMaps[derivationKey] = addkey
 				}
 			}
 
@@ -412,15 +415,10 @@ func (la *LinkAccount) processNewTransaction(tx *tctypes.UTXOTransaction, height
 				continue
 			}
 			needSaveTx = true
-			var realRKey lkctypes.PublicKey
-			for k, deriKey := range derivationKeys {
-				if realDeriKey == deriKey {
-					if k == 0 {
-						realRKey = tx.RKey
-					} else {
-						realRKey = tx.AddKeys[k-1]
-					}
-				}
+			realRKey, exist := keyMaps[realDeriKey]
+			if !exist {
+				la.Logger.Error("real rkey not found", "real derivation key", realDeriKey)
+				continue
 			}
 			la.Logger.Debug("processNewTransaction", "real derivation key", realDeriKey, "real random key", realRKey)
 			secretKey, err := xcrypto.DeriveSecretKey(realDeriKey, outputID, la.account.GetKeys().SpendSKey)
