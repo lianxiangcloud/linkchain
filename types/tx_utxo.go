@@ -212,6 +212,7 @@ type UTXOTransaction struct {
 	size       atomic.Value
 	utxoInNum  atomic.Value
 	utxoOutNum atomic.Value
+	nonce      uint64
 }
 
 var _ Tx = &UTXOTransaction{}
@@ -413,15 +414,10 @@ func (tx *UTXOTransaction) TxType() string     { return TxUTXO }
 func (tx *UTXOTransaction) Data() []byte       { panic("should not call"); return nil }
 func (tx *UTXOTransaction) Value() *big.Int    { panic("should not call"); return big.NewInt(0) }
 func (tx *UTXOTransaction) Nonce() uint64 {
-	for _, txin := range tx.Inputs {
-		switch input := txin.(type) {
-		case *AccountInput:
-			return input.Nonce
-		}
+	if (tx.UTXOKind() & Ain) == Ain {
+		return tx.nonce
 	}
-
 	panic("should not call for no AccountInput UTXOTransaction")
-	return 0
 }
 
 //CheckBasic check tx's input, output, commit, bulletproof, and ringct.
@@ -858,6 +854,7 @@ func (tx *UTXOTransaction) checkTxSemantic(censor TxCensor) error {
 
 			kind |= Ain
 			accountInNum++
+			tx.nonce = input.Nonce
 		default:
 			return ErrInputTypeNotExpect
 		}
