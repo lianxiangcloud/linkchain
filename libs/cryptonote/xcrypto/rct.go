@@ -4,52 +4,56 @@ package xcrypto
 #include "xcrypto.h"
 #include <stdint.h>
 
-#define MALLOC(tp) \
-	static inline tp *malloc_##tp() {\
-		return (tp *)malloc(sizeof(tp));\
-	}
-
-#define SETN_VECTOR(tp, field) \
-	static inline void setn_##tp(tp *vec, void *p, int nums) {\
-		vec->field = p; \
-		vec->nums = nums; \
-	}
-
-#define INIT_VECTOR(tp, field) \
-	static inline void init_##tp(tp *vec, int nums) {\
-		if (nums > 0) {\
-			vec->field = malloc(sizeof(vec->field) * nums); \
-		} \
-		vec->nums = nums; \
-	}
-
-#define SETP_VECTOR(tp, field) \
-	static inline void setp_##tp(tp *vec, void *p) {\
-		memcpy(vec->field, p, sizeof(vec->field) * (vec->nums)); \
-	}
-
-#define FREE_VECTOR(tp, field) \
-	static inline void free_rct_keyV_t(tp *vec) {\
-		if (vec->nums > 0) {\
-			free(vec->field);\
-		}\
-	}
-
-// rct_keyV_t
-SETN_VECTOR(rct_keyV_t, v)
-INIT_VECTOR(rct_keyV_t, v)
-SETP_VECTOR(rct_keyV_t, v)
-FREE_VECTOR(rct_keyV_t, v)
-
-
 // signature_t
-static inline void fill_signature(signature_t *sig, void *c, void *r) {
-	memcpy(&sig->c[0], c, X_HASH_SIZE);
-	memcpy(&sig->r[0], r, X_HASH_SIZE);
+static inline int generate_signature(void *prefix, void *key_image, void *pubs, int count, void *sec, size_t index, void *sig_c, void *sig_r) {
+	rct_keyV_t key_v;
+	key_v.nums = count;
+	key_v.v = malloc(count * sizeof(p_rct_key_t));
+	memcpy(key_v.v, pubs, count * sizeof(p_rct_key_t));
+
+	signature_t sig;
+	int ret = x_generate_ring_signature(prefix, key_image, &key_v, sec, index, &sig);
+	if (ret == 0) {
+		memcpy(sig_c, &sig.c[0], X_HASH_SIZE);
+		memcpy(sig_r, &sig.r[0], X_HASH_SIZE);
+	}
+
+	free(key_v.v);
+	return ret;
 }
-static inline void extract_signature(signature_t *sig, void *c, void *r) {
-	memcpy(c, &sig->c[0], X_HASH_SIZE);
-	memcpy(r, &sig->r[0], X_HASH_SIZE);
+
+static inline int check_signature(void *prefix, void *key_image, void *pubs, int count, void *sig_c, void *sig_r) {
+	rct_keyV_t key_v;
+	key_v.nums = count;
+	key_v.v = malloc(count * sizeof(p_rct_key_t));
+	memcpy(key_v.v, pubs, count * sizeof(p_rct_key_t));
+
+	signature_t sig;
+	memcpy(&sig.c[0], sig_c, X_HASH_SIZE);
+	memcpy(&sig.r[0], sig_r, X_HASH_SIZE);
+
+	int ret = x_check_ring_signature(prefix, key_image, &key_v, &sig);
+
+	free(key_v.v);
+	return ret;
+}
+
+
+// ecdhTuple
+static inline int ecdh_decode(void *mask, void *amount, void *shared_key, int flag) {
+	rct_ecdhTuple_t t;
+	t.mask = mask;
+	t.amount = amount;
+
+	return x_ecdh_decode(&t, shared_key, flag);
+}
+
+static inline int ecdh_encode(void *mask, void *amount, void *shared_key, int flag) {
+	rct_ecdhTuple_t t;
+	t.mask = mask;
+	t.amount = amount;
+
+	return x_ecdh_encode(&t, shared_key, flag);
 }
 
 */
@@ -70,26 +74,18 @@ func GenerateRingSignature(prefix types.Hash, keyImage types.KeyImage, pks []typ
 		return nil, fmt.Errorf("pubkeys zero")
 	}
 
-	cKeyV := C.struct_rct_keyV{}
-	C.init_rct_keyV_t(&cKeyV, C.int(len(pks)))
-
 	ptrs := make([]uintptr, len(pks))
 	for i := 0; i < len(pks); i++ {
 		ptrs[i] = uintptr(unsafe.Pointer(&pks[i][0]))
 	}
-	C.setp_rct_keyV_t(&cKeyV, unsafe.Pointer(&ptrs[0]))
 
-	cSig := C.struct_signature{}
-	ret := C.x_generate_ring_signature((*C.char)(unsafe.Pointer(&prefix[0])), (*C.char)(unsafe.Pointer(&keyImage[0])), &cKeyV,
-		(C.p_rct_key_t)(unsafe.Pointer(&sec[0])), C.size_t(secIndex), &cSig)
-	C.free_rct_keyV_t(&cKeyV)
-
+	var sig types.Signature
+	ret := C.generate_signature(unsafe.Pointer(&prefix[0]), unsafe.Pointer(&keyImage[0]),
+		unsafe.Pointer(&ptrs[0]), C.int(len(pks)), unsafe.Pointer(&sec[0]), C.size_t(secIndex),
+		unsafe.Pointer(&sig.C[0]), unsafe.Pointer(&sig.R[0]))
 	if ret != 0 {
 		return nil, fmt.Errorf("x_generate_ring_signature")
 	}
-
-	var sig types.Signature
-	C.extract_signature(&cSig, unsafe.Pointer(&sig.C[0]), unsafe.Pointer(&sig.R[0]))
 	return &sig, nil
 }
 
@@ -99,19 +95,14 @@ func CheckRingSignature(prefix types.Hash, keyImage types.KeyImage, pks []types.
 		panic("pubkeys zero")
 	}
 
-	cKeyV := C.struct_rct_keyV{}
-	C.init_rct_keyV_t(&cKeyV, C.int(len(pks)))
-
 	ptrs := make([]uintptr, len(pks))
 	for i := 0; i < len(pks); i++ {
 		ptrs[i] = uintptr(unsafe.Pointer(&pks[i][0]))
 	}
-	C.setp_rct_keyV_t(&cKeyV, unsafe.Pointer(&ptrs[0]))
 
-	cSig := C.struct_signature{}
-	C.fill_signature(&cSig, unsafe.Pointer(&sig.C[0]), unsafe.Pointer(&sig.R[0]))
-
-	ret := C.x_check_ring_signature((*C.char)(unsafe.Pointer(&prefix[0])), (*C.char)(unsafe.Pointer(&keyImage[0])), &cKeyV, &cSig)
+	ret := C.check_signature(unsafe.Pointer(&prefix[0]), unsafe.Pointer(&keyImage[0]),
+		unsafe.Pointer(&ptrs[0]), C.int(len(pks)),
+		unsafe.Pointer(&sig.C[0]), unsafe.Pointer(&sig.R[0]))
 	if ret == 0 {
 		return true
 	}
@@ -156,17 +147,12 @@ func EcdhDecode(masked *types.EcdhTuple, sharedSec types.Key, shortAmount bool) 
 	if shortAmount {
 		flag = 1
 	}
-	cMasked := C.malloc(C.sizeof_rct_ecdhTuple_t)
-	defer C.free(unsafe.Pointer(cMasked))
 
-	toRctEcdhTuple(masked, (*C.rct_ecdhTuple_t)(cMasked))
-	ret := C.x_ecdh_decode((*C.rct_ecdhTuple_t)(cMasked), C.p_rct_key_t(unsafe.Pointer(&sharedSec[0])), C.int(flag))
-
+	ret := C.ecdh_decode(unsafe.Pointer(&masked.Mask[0]), unsafe.Pointer(&masked.Amount[0]),
+		unsafe.Pointer(&sharedSec[0]), C.int(flag))
 	if ret < 0 {
 		return false
 	}
-
-	fromRctEcdhTuple((*C.rct_ecdhTuple_t)(cMasked), masked)
 	return true
 }
 
@@ -176,17 +162,12 @@ func EcdhEncode(unmasked *types.EcdhTuple, sharedSec types.Key, shortAmount bool
 	if shortAmount {
 		flag = 1
 	}
-	cUnmasked := C.malloc(C.sizeof_rct_ecdhTuple_t)
-	defer C.free(unsafe.Pointer(cUnmasked))
 
-	toRctEcdhTuple(unmasked, (*C.rct_ecdhTuple_t)(cUnmasked))
-	ret := C.x_ecdh_encode((*C.rct_ecdhTuple_t)(unsafe.Pointer(cUnmasked)), C.p_rct_key_t(unsafe.Pointer(&sharedSec[0])), C.int(flag))
-
+	ret := C.ecdh_encode(unsafe.Pointer(&unmasked.Mask[0]), unsafe.Pointer(&unmasked.Amount[0]),
+		unsafe.Pointer(&sharedSec[0]), C.int(flag))
 	if ret < 0 {
 		return false
 	}
-
-	fromRctEcdhTuple((*C.rct_ecdhTuple_t)(cUnmasked), unmasked)
 	return true
 }
 
@@ -237,13 +218,3 @@ func AddKeys2(a, b, B types.Key) (ret types.Key, err error) {
 // 	sh.Len = n
 // 	sh.Data = uintptr(cPtr)
 // }
-
-func toRctEcdhTuple(from *types.EcdhTuple, to *C.struct_rct_ecdhTuple) {
-	to.mask = C.p_rct_key_t(unsafe.Pointer(&from.Mask[0]))
-	to.amount = C.p_rct_key_t(unsafe.Pointer(&from.Amount[0]))
-}
-
-func fromRctEcdhTuple(from *C.struct_rct_ecdhTuple, to *types.EcdhTuple) {
-	copy(to.Mask[:], C.GoBytes(unsafe.Pointer(from.mask), C.int(types.COMMONLEN)))
-	copy(to.Amount[:], C.GoBytes(unsafe.Pointer(from.amount), C.int(types.COMMONLEN)))
-}

@@ -61,8 +61,8 @@ func TlvProveRangeBulletproof(amounts types.KeyV, sk types.KeyV) (b *types.Bulle
 	if ret == -1 {
 		return nil, nil, nil, fmt.Errorf("tlv_proveRangeBulletproof internal error")
 	}
-	defer C.free((unsafe.Pointer(backp)))
 	retslice := C.GoBytes(unsafe.Pointer(backp), C.int(ret))
+	C.free((unsafe.Pointer(backp)))
 
 	bulletproof := types.Bulletproof{}
 	tms = types.NewTlvMapSerializerWith(&c, &masks, &bulletproof)
@@ -89,8 +89,8 @@ func TlvProveRangeBulletproof128(amounts types.KeyV, sk types.KeyV) (b *types.Bu
 	if ret == -1 {
 		return nil, nil, nil, fmt.Errorf("tlv_proveRangeBulletproof internal error")
 	}
-	defer C.free((unsafe.Pointer(backp)))
 	retslice := C.GoBytes(unsafe.Pointer(backp), C.int(ret))
+	C.free((unsafe.Pointer(backp)))
 
 	bulletproof := types.Bulletproof{}
 	tms = types.NewTlvMapSerializerWith(&c, &masks, &bulletproof)
@@ -124,8 +124,8 @@ func TlvProveRctMGSimple(message types.Key, pubs types.CtkeyV, inSk types.Ctkey,
 	if ret == -1 {
 		return nil, fmt.Errorf("tlv_proveRangeBulletproof internal error")
 	}
-	defer C.free((unsafe.Pointer(backp)))
 	retslice := C.GoBytes(unsafe.Pointer(backp), C.int(ret))
+	C.free((unsafe.Pointer(backp)))
 
 	mgsig := types.MgSig{}
 	if err := mgsig.TlvDecode(retslice); err != nil {
@@ -212,8 +212,8 @@ func TlvGetSubaddress(keys *types.AccountKey, index uint32) (addr types.AccountA
 		return addr, fmt.Errorf("cgo TlvVerBulletproof internal fail")
 	}
 
-	defer C.free((unsafe.Pointer(backp)))
 	retslice := C.GoBytes(unsafe.Pointer(backp), C.int(ret))
+	C.free((unsafe.Pointer(backp)))
 
 	if err := addr.TlvDecode(retslice); err != nil {
 		return addr, err
@@ -238,8 +238,8 @@ func TlvKeyVTest(keysie int) error {
 	if ret == -1 {
 		return fmt.Errorf("cgo test_tlv_keyV fail")
 	}
-	defer C.free((unsafe.Pointer(backp)))
 	retslice := C.GoBytes(unsafe.Pointer(backp), C.int(ret))
+	C.free((unsafe.Pointer(backp)))
 
 	//fmt.Printf("ret=%v\n", retslice)
 	to := types.KeyV{}
@@ -274,8 +274,8 @@ func TlvRctsigForTest(rctsign *types.RctSig) (*types.RctSig, error) {
 		fmt.Printf("%v len=%v\n", hex.EncodeToString(data), len(data))
 		return nil, fmt.Errorf("cgo test_tlv_rctsig fail")
 	}
-	defer C.free((unsafe.Pointer(backp)))
 	retslice := C.GoBytes(unsafe.Pointer(backp), C.int(ret))
+	C.free((unsafe.Pointer(backp)))
 
 	to := &types.RctSig{}
 	to.TlvDecode(retslice)

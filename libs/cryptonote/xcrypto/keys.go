@@ -26,7 +26,7 @@ func WordsToBytes(words string) (sec types.SecretKey, err error) {
 }
 
 // BytesToWords convert recover_key to words
-func BytesToWords(sec types.SecretKey, lang string) (words string, err error) {
+func BytesToWords(sec types.SecretKey, lang string) (string, error) {
 	cLang := C.CString(lang)
 	var p *C.char
 
@@ -37,7 +37,7 @@ func BytesToWords(sec types.SecretKey, lang string) (words string, err error) {
 		return "", fmt.Errorf("CGO x_bytes_to_words fail")
 	}
 
-	words = C.GoString(p)
+	words := C.GoString(p)
 	C.free(unsafe.Pointer(p))
 	return words, nil
 }
