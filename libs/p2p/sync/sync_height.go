@@ -87,7 +87,7 @@ func (sm *SyncHeightManager) heightProbe() {
 					continue
 				}
 				if lkchainHeight >= (myCurrentHeight + uint64(maxSameHeightCount)) { //we should 	get the seed node agian and change the nodes we have connected
-					if bootnode.GetLocalNodeType() != types.NodePeer || bootnode.GetLocalNodeType() != types.NodeValidator {
+					if bootnode.GetLocalNodeType() != types.NodePeer && bootnode.GetLocalNodeType() != types.NodeValidator {
 						sm.logger.Report("SyncHeightManager", "logID", types.LogIdSyncBlockFail, "type", bootnode.GetLocalNodeType(), "height", sm.app.Height())
 						return
 					}
