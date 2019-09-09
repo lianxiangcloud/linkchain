@@ -70,7 +70,12 @@ func InitDaemonClient(daemonConfig *config.DaemonConfig) {
 // CallJSONRPC call  /json_rpc func
 // curl -X POST http://127.0.0.1:18081/json_rpc -d '{"jsonrpc":"2.0","id":"0","method":"get_block","params":{"height":912345}}' -H 'Content-Type: application/json'
 func CallJSONRPC(method string, params interface{}) ([]byte, error) {
-	url := fmt.Sprintf("%s", gDaemonClient.Addr)
+	urlPath := ""
+	if len(method) >= 4 {
+		urlPath = method[4:]
+	}
+
+	url := fmt.Sprintf("%s/%s", gDaemonClient.Addr, urlPath)
 
 	requestData := make(map[string]interface{})
 

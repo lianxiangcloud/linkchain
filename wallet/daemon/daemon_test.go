@@ -27,7 +27,7 @@ func TestCallJSONRPC(t *testing.T) {
 	InitDaemonClient(config.Daemon)
 	log.ParseLogLevel("*:error", log.Root(), "info")
 
-	host := "http://127.0.0.1:15000"
+	host := "http://127.0.0.1:15000/blockNumber"
 	matchType := "application/json"
 	bodyOK := `{"jsonrpc":"2.0","id":"0","method":"eth_blockNumber","params":[]}`
 	replyOK := 200
@@ -48,6 +48,7 @@ func TestCallJSONRPC(t *testing.T) {
 
 			p := make([]interface{}, 0)
 			body, err := CallJSONRPC("eth_blockNumber", p)
+			log.Debug("TestCallJSONRPC", "body", string(body), "err", err)
 			//several So assert
 			So(strings.Compare(string(body), bodyReturnOK) == 0 && err == nil, ShouldBeTrue)
 		})
