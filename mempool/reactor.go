@@ -148,7 +148,7 @@ func defaultHandReceiveMsg(memR *MempoolReactor, msg MempoolMessage, src p2p.Pee
 // It adds any received transactions to the cache.
 func (memR *MempoolReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) {
 	if !memR.config.ReceiveP2pTx {
-		//memR.Logger.Debug("MempoolReactor Receive return", "ReceiveP2pTx", memR.config.ReceiveP2pTx)
+		memR.Logger.Debug("MempoolReactor Receive return", "ReceiveP2pTx", memR.config.ReceiveP2pTx)
 		return
 	}
 	msg, err := decodeMsg(msgBytes)

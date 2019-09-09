@@ -1259,12 +1259,10 @@ func (tx *UTXOTransaction) checkState(censor TxCensor) error {
 				log.Debug("Key image already spent in blockchain", "KeyImage", input.KeyImage, "hash", tx.Hash())
 				return ErrUtxoTxDoubleSpend
 			}
-			if censor.Mempool().KeyImageExists(input.KeyImage) {
+			if !censor.Mempool().KeyImagePush(input.KeyImage) {
 				log.Debug("Key image already spent in other txs", "KeyImage", input.KeyImage, "hash", tx.Hash())
 				return ErrUtxoTxDoubleSpend
 			}
-			log.Debug("checkState unspent", "KeyImage", input.KeyImage)
-			censor.Mempool().KeyImagePush(input.KeyImage)
 		case *AccountInput:
 			//check nonce
 			state := censor.State()

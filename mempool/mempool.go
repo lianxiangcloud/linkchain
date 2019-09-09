@@ -119,7 +119,7 @@ type Mempool struct {
 	sem *semaphore.Weighted
 	//keyimage cache
 	kImageMtx   sync.RWMutex
-	kImageCache map[lktypes.Key]bool
+	kImageCache map[lktypes.Key]struct{}
 }
 
 // MemFunc sets an optional parameter on the Mempool.
@@ -153,7 +153,7 @@ func NewMempool(config *cfg.MempoolConfig, height uint64, sw p2p.P2PManager, opt
 		mempool.cache = nopTxCache{}
 	}
 
-	mempool.kImageCache = make(map[lktypes.Key]bool)
+	mempool.kImageCache = make(map[lktypes.Key]struct{})
 
 	for _, option := range options {
 		option(mempool)
@@ -1126,38 +1126,43 @@ func (m *txHeapManager) Exists(hash common.Hash) bool {
 //-------UTXO----------
 func (m *Mempool) KeyImageReset() {
 	m.kImageMtx.Lock()
-	defer m.kImageMtx.Unlock()
-	m.kImageCache = make(map[lktypes.Key]bool)
+	m.kImageCache = make(map[lktypes.Key]struct{})
+	m.kImageMtx.Unlock()
 }
 
 func (m *Mempool) KeyImageExists(key lktypes.Key) bool {
+	ok := false
+
 	m.kImageMtx.RLock()
-	defer m.kImageMtx.RUnlock()
-	return m.kImageCache[key]
+	_, ok = m.kImageCache[key]
+	m.kImageMtx.RUnlock()
+
+	return ok
 }
 
 func (m *Mempool) KeyImagePush(key lktypes.Key) bool {
 	m.kImageMtx.Lock()
-	defer m.kImageMtx.Unlock()
-	if m.kImageCache[key] {
+	if _, ok := m.kImageCache[key]; ok {
 		return false
 	}
-	m.kImageCache[key] = true
+	m.kImageCache[key] = struct{}{}
+	m.kImageMtx.Unlock()
+
 	log.Debug("KeyImagePush push image cache", "key", key)
 	return true
 }
 
 func (m *Mempool) KeyImageRemove(key lktypes.Key) {
 	m.kImageMtx.Lock()
-	defer m.kImageMtx.Unlock()
 	delete(m.kImageCache, key)
+	m.kImageMtx.Unlock()
 }
 
 func (m *Mempool) KeyImageRemoveKeys(keys []*lktypes.Key) {
 	m.kImageMtx.Lock()
-	defer m.kImageMtx.Unlock()
 	for _, key := range keys {
 		delete(m.kImageCache, *key)
 		log.Debug("KeyImageRemoveKeys delete image cache", "key", *key)
 	}
+	m.kImageMtx.Unlock()
 }
