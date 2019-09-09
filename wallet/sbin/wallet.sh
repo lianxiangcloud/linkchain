@@ -2,6 +2,10 @@
 
 PATH=../../bin/:$PATH
 
+home=./testdata
+logpath=${home}/logs
+pidfile=${home}/wallet.pid
+
 red="\033[0;31;40m"
 color_end="\033[0m"
 #echo -e "$color Heelooo!!!$color_end";
@@ -23,8 +27,11 @@ function Init(){
 
 function Start(){
   echo start wallet
-  home=./testdata
-  logpath=${home}/logs
+
+  if [ -f "$pidfile" ]; then 
+    echo "wallet process is running, $pidfile"
+    return
+  fi
 
   if [ ! -e $logpath ]; then
     mkdir -p $logpath
@@ -39,12 +46,18 @@ function Start(){
 }
 
 function Stop(){
-  pids=`ps aux|grep wallet|grep -v wallet.sh |grep -v grep|awk '{print $2}'`
+  if [ ! -f "$pidfile" ]; then 
+    echo "wallet process is not running"
+    return
+  fi
+
+  pids=`cat $pidfile`
   for i in $pids; do
-    #`ps aux|grep $i`
-    echo "kill $i"
+    echo "kill -9 $i"
     kill -9 $i 2> /dev/null
   done
+  rm -rf $pidfile
+  echo "rm -rf $pidfile"
 }
 
 function Restart(){
@@ -58,10 +71,21 @@ function Restart(){
 }
 
 function Check(){
-  pids=`ps aux|grep wallet|grep -v wallet.sh |grep -v grep|awk '{print $2}'`
+  if [ ! -f "$pidfile" ]; then 
+    echo "wallet process is not running"
+    return
+  fi
+  pids=`cat $pidfile`
   for i in $pids; do
-    echo "pid $i"
+    echo "wallet pid: $i"
+    realpid=`ps aux |grep wallet |grep -w $i |wc -l`
+
+    if [ $realpid -eq '0' ]; then
+      echo "process is not running, please check $pidfile"
+    fi
+    return
   done
+  echo "no wallet process running"
 }
 
 function Usage(){

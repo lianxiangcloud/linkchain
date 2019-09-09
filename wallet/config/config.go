@@ -1,6 +1,8 @@
 package config
 
 import (
+	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/lianxiangcloud/linkchain/libs/log"
@@ -13,6 +15,7 @@ var (
 	defaultKeyStoreDir = "keystore"
 	defaultLogDir      = "logs"
 	defaultLogFileName = "wallet.log"
+	defaultPidFile     = "wallet.pid"
 )
 
 // BaseConfig define
@@ -52,6 +55,7 @@ func DefaultBaseConfig() BaseConfig {
 		DBPath:         defaultDataDir,
 		LogPath:        defaultLogDir,
 		KeyStorePath:   defaultKeyStoreDir,
+		Pidfile:        defaultPidFile,
 	}
 }
 
@@ -70,12 +74,39 @@ func (cfg BaseConfig) KeyStoreDir() string {
 	return rootify(cfg.KeyStorePath, cfg.RootDir)
 }
 
+// PidFileDir returns the full path to the pid file directory
+func (cfg BaseConfig) PidFileDir() string {
+	return rootify(cfg.Pidfile, cfg.RootDir)
+}
+
 // helper function to make config creation independent of root dir
 func rootify(path, root string) string {
 	if filepath.IsAbs(path) {
 		return path
 	}
 	return filepath.Join(root, path)
+}
+
+func (cfg BaseConfig) SavePid() error {
+	pidFilePath := cfg.PidFileDir()
+
+	_, err := os.Stat(pidFilePath)
+	if err == nil || (err != nil && os.IsExist(err)) {
+		return fmt.Errorf("%s is exist,SavePid fail", pidFilePath)
+	}
+
+	fd, err := os.Create(pidFilePath)
+	if err != nil {
+		return err
+	}
+	defer fd.Close()
+
+	pid := os.Getpid()
+	fmt.Printf("SavePid,pidpath:%s, pid:%d \n", pidFilePath, pid)
+	if _, err := fd.WriteString(fmt.Sprintf("%d", pid)); err != nil {
+		return err
+	}
+	return nil
 }
 
 // DaemonConfig daemon config

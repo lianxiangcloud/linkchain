@@ -42,6 +42,10 @@ func NewRunNodeCmd(nodeProvider nm.NodeProvider) *cobra.Command {
 		Use:   "node",
 		Short: "Run the wallet node",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			err := config.BaseConfig.SavePid()
+			if err != nil {
+				panic(err)
+			}
 			logger.Info("NewRunNodeCmd", "base", config.BaseConfig, "daemon", config.Daemon, "rpc", config.RPC, "log", config.Log)
 			fmt.Printf("conf:%v\n", *config)
 
