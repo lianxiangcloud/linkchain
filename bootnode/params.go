@@ -2,21 +2,28 @@ package bootnode
 
 import (
 	"fmt"
+	"math/rand"
 	"strings"
 	"sync"
+
+	"github.com/lianxiangcloud/linkchain/libs/log"
 )
 
 var (
-	index            int
 	bootNodeLocker   sync.RWMutex
 	MainnetBootnodes = []string{
-		"https://127.0.0.1:8087",
-		"https://192.168.10.125:8087",
+		"https://39.97.128.184:8087",
+		"https://39.97.197.181:8087",
+		"https://120.55.156.239:8087",
+		"https://47.110.211.42:8087",
+		"https://47.91.221.28:8087",
+		"https://161.117.157.31:8087",
 	}
+	index = rand.Intn(len(MainnetBootnodes))
 )
 
 //UpdateBootNode update MainnetBootnodes from bootnodeAddrs,bootnodeAddrs's format are like https://ip1:port1,https://ip2:port2
-func UpdateBootNode(bootnodeAddrs string) {
+func UpdateBootNode(bootnodeAddrs string, logger log.Logger) {
 	var bootNodes []string
 	endpoints := strings.Split(bootnodeAddrs, ",")
 	for i := 0; i < len(endpoints); i++ {
@@ -31,9 +38,11 @@ func UpdateBootNode(bootnodeAddrs string) {
 	}
 	if len(bootNodes) > 0 {
 		bootNodeLocker.Lock()
+		index = rand.Intn(len(bootNodes))
 		MainnetBootnodes = bootNodes
 		bootNodeLocker.Unlock()
 	}
+	logger.Debug("UpdateBootNode", "index", index, "len(endpoints)", len(endpoints))
 }
 
 func GetBootNodesNum() int {

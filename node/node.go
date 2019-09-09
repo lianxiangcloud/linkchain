@@ -135,7 +135,7 @@ func NewNode(config *cfg.Config,
 	var localNodeType types.NodeType
 	var err error
 	if len(config.BootNodeSvr.Addrs) != 0 {
-		bootnode.UpdateBootNode(config.BootNodeSvr.Addrs)
+		bootnode.UpdateBootNode(config.BootNodeSvr.Addrs, logger)
 	}
 	var bootNodeAddr = bootnode.GetBestBootNode()
 	if len(bootNodeAddr) != 0 {
