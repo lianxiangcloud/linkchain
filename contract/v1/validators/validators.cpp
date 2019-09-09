@@ -98,27 +98,29 @@ private:
 public:
 	//init
     void Init(){
-        Validator v1,v2,v3;
+        const int valsNum =10;
+        Validator val[valsNum];
 		std::set<std::string> keys =  pubkeys.get();
 
-/*
-        //Use true address instead
-        v1.pub_key="0x724c2517228e6aa0244cd7b37466aa824822b5c735518d2019c2a25d238ab70e7bfc4bbdeac71111";
-        v1.voting_power=10;
-        v1.coinbase=tc::Address("0x54fb1c7d0f011dd63b08f85ed7b518ab82028100");
+        std::string pubKeys[10]={
+            "0x724c2517228e6aa00d698c5d9acc07a6d728b9ff208b2d69dbf6cce6da05900e811fd81dd9a4f9f5",
+            "0x724c2517228e6aa06998e02e3964070cab7ef990ce0369459a4abf882387a873f2254327822aef2a",
+            "0x724c2517228e6aa0eb08dae3754116c1286978423075088ad55eb92ca580f29e09ea31ca5edb7798",
+            "0x724c2517228e6aa020f87b284b6a8e313317bbb8c094738392d4a208843c870f2041f3774d01fbd3",
+            "0x724c2517228e6aa028882466ad0af7bef9c0894d7ab7eaa8f67688a7532f4b4e334c2397c3664a6b",
+            "0x724c2517228e6aa0fba2d4ca1bf3826b4f60d3e490a06aa84cd8984b1116e78f63a125972a16fb21",
+            "0x724c2517228e6aa03b80019fae3b716687c80a1e03292c4f805359f70a69e67d8aefb03205f51906",
+            "0x724c2517228e6aa03fd09cea1acffae3c1ceb69da550f1fa90b35021d318a15697e3a16793c27814",
+            "0x724c2517228e6aa06390bf1cef91cbf671e325d50adde4097933bd5956b4fbf1e709558b307b78ec",
+            "0x724c2517228e6aa017722c13d2b5ab2167a93979bee1cb031949ec6b93e3cd182e9e3a8b50abaade"
+        };
 
-        v2.pub_key="0x724c2517228e6aa0244cd7b37466aa824822b5c735518d2019c2a25d238ab70e7bfc4bbdeac72222";
-        v2.voting_power=10;
-        v2.coinbase=tc::Address("0x54fb1c7d0f011dd63b08f85ed7b518ab82028100");
-
-        v3.pub_key="0x724c2517228e6aa0244cd7b37466aa824822b5c735518d2019c2a25d238ab70e7bfc4bbdeac73333";
-        v3.voting_power=10;
-        v3.coinbase=tc::Address("0x54fb1c7d0f011dd63b08f85ed7b518ab82028100");
-
-        addValidator(cand,keys,v1);
-        addValidator(cand,keys,v2);
-        addValidator(cand,keys,v3);
-*/
+        for(int i=0;i<valsNum;i++){
+            val[i].pub_key=pubKeys[i];
+            val[i].voting_power=10;
+            val[i].coinbase=tc::Address("0x00000000000000000000466f756e646174696f6e");
+            addValidator(cand,keys,val[i]);
+        }
         pubkeys.set(keys);
 	}
 

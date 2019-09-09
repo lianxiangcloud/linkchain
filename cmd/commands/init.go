@@ -93,6 +93,7 @@ func initFiles(cmd *cobra.Command, args []string) error {
 	if vals != nil && len(vals) != 0 {
 		var validators []types.GenesisValidator
 		for _, val := range vals {
+			fmt.Println(val)
 			validators = append(validators, types.GenesisValidator{
 				PubKey:   val.PubKey,
 				Power:    val.VotingPower,
