@@ -300,7 +300,7 @@ func (st *StateTransition) UTXOTransitionDb() (ret []byte, usedGas uint64, byteC
 			}
 			if vmerr = st.useGas(transfervalueGas); vmerr != nil {
 				log.Warn("UTXOTransitionDb out of gas", "transfer value need gas", transfervalueGas, "have gas", st.gas)
-				st.useGas(st.gas)
+				// st.useGas(st.gas)
 				break
 			}
 		}
@@ -420,7 +420,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, byteCodeG
 			if isNewFeeRule {
 				totalFee = types.CalNewAmountGas(msg.Value())
 				if vmerr = st.useGas(totalFee); vmerr != nil {
-					st.useGas(st.gas)
+					// st.useGas(st.gas)
 				}
 			}
 			if vmerr == nil {
@@ -464,7 +464,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, byteCodeG
 				}
 			}
 			if vmerr = st.useGas(totalFee); vmerr != nil {
-				st.useGas(st.gas)
+				// st.useGas(st.gas)
 			}
 		}
 		if vmerr == nil {

@@ -431,7 +431,6 @@ func gasRevert(gt cfg.GasTable, evm *EVM, contract *Contract, stack *Stack, mem 
 func gasSuicide(gt cfg.GasTable, evm *EVM, contract *Contract, stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
 	if !evm.StateDB.HasSuicided(contract.Address()) {
 		evm.StateDB.AddRefund(cfg.SuicideRefundGas)
-		return 0, nil
 	}
 	toInt := stack.Back(0)
 	addr := contract.Address()
