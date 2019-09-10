@@ -1,15 +1,19 @@
 package wallet
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"testing"
+	"time"
 
 	. "github.com/bouk/monkey"
 	"github.com/lianxiangcloud/linkchain/libs/common"
+	lkctypes "github.com/lianxiangcloud/linkchain/libs/cryptonote/types"
 	dbm "github.com/lianxiangcloud/linkchain/libs/db"
 	"github.com/lianxiangcloud/linkchain/libs/hexutil"
 	"github.com/lianxiangcloud/linkchain/libs/log"
+	"github.com/lianxiangcloud/linkchain/rpc/rtypes"
 	"github.com/lianxiangcloud/linkchain/wallet/types"
 	. "github.com/prashantv/gostub"
 	. "github.com/smartystreets/goconvey/convey"
@@ -405,6 +409,112 @@ func TestGetHeight(t *testing.T) {
 			local, remote := mockLinkAccount.GetHeight()
 			So(expectRemoteHeight.Cmp(remote), ShouldEqual, 0)
 			So(local.Cmp(new(big.Int).Sub(localHeightSet, big.NewInt(1))), ShouldEqual, 0)
+		})
+	})
+}
+
+func TestOnStart(t *testing.T) {
+
+	remoteHeightExpect := big.NewInt(2)
+	blocks := [][]byte{
+		[]byte(""),
+		[]byte(""),
+		[]byte(""),
+	}
+	localHeightExpect := big.NewInt(2)
+
+	type tokenBalanceItem struct {
+		token   common.Address
+		index   uint64
+		balance *big.Int
+	}
+	balanceTests := []tokenBalanceItem{
+		{
+			index:   1,
+			token:   LinkToken,
+			balance: big.NewInt(0),
+		},
+	}
+
+	type outIndexItem struct {
+		token common.Address
+		index uint64
+	}
+	indexTests := []outIndexItem{
+		{
+			token: LinkToken,
+			index: 1,
+		},
+		{
+			token: mockTokenA,
+			index: 0,
+		},
+	}
+
+	type keyimageItem struct {
+		key   lkctypes.Key
+		index uint64
+	}
+	keyimageTests := []keyimageItem{
+		{
+			key:   lkctypes.HexToKey(""),
+			index: 0,
+		},
+		{
+			key:   lkctypes.HexToKey(""),
+			index: 1,
+		},
+	}
+
+	Convey("test OnStart", t, func() {
+		Convey("for RefreshMaxBlock succ", func() {
+			resetMockAccount()
+
+			Patch(RefreshMaxBlock, func() (*big.Int, error) {
+				return remoteHeightExpect, nil
+			})
+			defer UnpatchAll()
+
+			Patch(GetBlockUTXOsByNumber, func(height *big.Int) (*rtypes.RPCBlock, error) {
+				h := int(height.Int64())
+				if h >= len(blocks) {
+					return nil, fmt.Errorf("GetBlockUTXOsByNumber fail")
+				}
+				var block rtypes.RPCBlock
+				if err := json.Unmarshal(blocks[h], &block); err != nil {
+					return nil, err
+				}
+
+				return &block, nil
+			})
+
+			mockLinkAccount.OnStart()
+			time.Sleep(3 * time.Second)
+
+			lh, rh := mockLinkAccount.GetHeight()
+			So(lh.Cmp(localHeightExpect), ShouldEqual, 0)
+			So(rh.Cmp(remoteHeightExpect), ShouldEqual, 0)
+
+			for _, test := range balanceTests {
+				b := mockLinkAccount.getTokenBalanceBySubIndex(test.token, test.index)
+				So(test.balance.Cmp(b), ShouldEqual, 0)
+			}
+
+			// utxoTotalBalance     map[common.Address]*big.Int   //key:tokenid
+
+			for _, test := range indexTests {
+				idx := mockLinkAccount.GetGOutIndex(test.token)
+				So(idx, ShouldEqual, test.index)
+			}
+
+			for _, test := range keyimageTests {
+				idx, ok := mockLinkAccount.keyImages[test.key]
+				So(ok, ShouldEqual, true)
+				So(idx, ShouldEqual, test.index)
+			}
+			So(len(mockLinkAccount.keyImages), ShouldEqual, len(keyimageTests))
+
+			// Transfers            transferContainer
 		})
 	})
 }

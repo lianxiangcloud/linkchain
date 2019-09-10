@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+
+	"github.com/lianxiangcloud/linkchain/libs/common"
 )
 
 const (
@@ -131,9 +133,9 @@ func (a *AccountKey) String() string {
 		a.Addr.ViewPublicKey, a.Addr.SpendPublicKey, a.SubIdx)
 }
 
-func (key *Key) IsEqual(to *Key) bool {
+func (h *Key) IsEqual(to *Key) bool {
 	for i := 0; i < COMMONLEN; i++ {
-		if key[i] != to[i] {
+		if h[i] != to[i] {
 			return false
 		}
 	}
@@ -183,16 +185,36 @@ func (t *CtkeyM) IsEqual(to *CtkeyM) bool {
 }
 
 // Big converts a hash to a big integer.
-func (h Key) Big() *big.Int { return new(big.Int).SetBytes(h[:]) }
+func (h *Key) Big() *big.Int { return new(big.Int).SetBytes(h[:]) }
 
 // Hex converts a hash to a hex string.
-func (h Key) Hex() string { return strings.ToLower(hex.EncodeToString(h[:])) }
+func (h *Key) Hex() string { return strings.ToLower(hex.EncodeToString(h[:])) }
 
 // String implements the stringer interface and is used also by the logger when
 // doing full logging into a file.
-func (h Key) String() string {
+func (h *Key) String() string {
 	return h.Hex()
 }
+
+// SetBytes set key bytes
+func (h *Key) SetBytes(b []byte) {
+	if len(b) > len(h) {
+		b = b[len(b)-COMMONLEN:]
+	}
+	copy(h[COMMONLEN-len(b):], b)
+}
+
+// BytesToKey returns Address with value b.
+// If b is larger than len(h), b will be cropped from the left.
+func BytesToKey(b []byte) Key {
+	var a Key
+	a.SetBytes(b)
+	return a
+}
+
+// HexToKey returns Address with byte values of s.
+// If s is larger than len(h), s will be cropped from the left.
+func HexToKey(s string) Key { return BytesToKey(common.FromHex(s)) }
 
 // Big converts a hash to a big integer.
 func (h PublicKey) Big() *big.Int { return new(big.Int).SetBytes(h[:]) }

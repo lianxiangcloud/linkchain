@@ -10,6 +10,7 @@ import (
 	"github.com/lianxiangcloud/linkchain/libs/common"
 	lktypes "github.com/lianxiangcloud/linkchain/libs/cryptonote/types"
 	"github.com/lianxiangcloud/linkchain/libs/hexutil"
+	"github.com/lianxiangcloud/linkchain/libs/log"
 	"github.com/lianxiangcloud/linkchain/libs/rpc"
 	"github.com/lianxiangcloud/linkchain/libs/ser"
 	rtypes "github.com/lianxiangcloud/linkchain/rpc/rtypes"
@@ -408,6 +409,7 @@ func GetBlockUTXOsByNumber(height *big.Int) (*rtypes.RPCBlock, error) {
 	if jsonRes.Error.Code != 0 {
 		return nil, fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
 	}
+	log.Debug("GetBlockUTXOsByNumber", "jsonRes.Result", string(jsonRes.Result))
 
 	var block rtypes.RPCBlock
 	if err = json.Unmarshal(jsonRes.Result, &block); err != nil {
