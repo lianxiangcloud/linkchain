@@ -620,7 +620,7 @@ func (app *LinkApplication) CommitBlock(block *types.Block, blockParts *types.Pa
 		canList = app.recoverCandidates(canList)
 	}
 
-	app.logger.Debug("candidates list", "canList", canList)
+	app.logger.Info("candidates list", "canList", canList)
 
 	if canList != nil {
 		processResult.txsResult.UpdateCandidates(canList)
@@ -637,7 +637,7 @@ func (app *LinkApplication) CommitBlock(block *types.Block, blockParts *types.Pa
 	app.checkTxState = processResult.tmpState.Copy()
 	app.mempool.KeyImageRemoveKeys(processResult.txsResult.KeyImages())
 	app.lastCoe = GetCoefficient(processResult.tmpState, app.logger)
-	app.logger.Debug("GetCoefficient ", "Coefficient", app.lastCoe)
+	app.logger.Info("GetCoefficient ", "Coefficient", app.lastCoe)
 	types.BlacklistInstance().UpdateBlacklist()
 	app.UnlockState()
 
@@ -939,7 +939,7 @@ func (app *LinkApplication) calculateCandidates(s *state.StateDB, hash common.Ha
 
 	for i, v := range can {
 		f, _ := v.RankResult.Float64()
-		app.logger.Debug("candidates rank", "rank", f, "address", v.CoinBase.String())
+		app.logger.Info("candidates rank", "rank", f, "address", v.CoinBase.String())
 		v.Rank = i
 	}
 	return can
