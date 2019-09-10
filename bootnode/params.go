@@ -1,7 +1,6 @@
 package bootnode
 
 import (
-	"fmt"
 	"math/rand"
 	"strings"
 	"sync"
@@ -26,25 +25,8 @@ var (
 func UpdateBootNode(bootnodeAddrs string, logger log.Logger) {
 	var bootNodes []string
 	endpoints := strings.Split(bootnodeAddrs, ",")
-	if len(endpoints) == 0 {
-		logger.Info("len(endpoints) == 0")
-		netinfo := strings.Split(bootnodeAddrs, ":")
-		if len(netinfo) != 0 {
-			logger.Info("len(netinfo) != 0")
-			bootNodes = append(bootNodes, bootnodeAddrs)
-		}
-	} else {
-		logger.Info("len(endpoints) != 0")
-		for i := 0; i < len(endpoints); i++ {
-			var addr string
-			netinfo := strings.Split(endpoints[i], ":")
-			if len(netinfo) == 2 { //maybe is ip:port, not https://ip1:port1
-				addr = fmt.Sprintf("https://%s", endpoints[i])
-			} else {
-				addr = endpoints[i]
-			}
-			bootNodes = append(bootNodes, addr)
-		}
+	for i := 0; i < len(endpoints); i++ {
+		bootNodes = append(bootNodes, endpoints[i])
 	}
 	if len(bootNodes) > 0 {
 		bootNodeLocker.Lock()

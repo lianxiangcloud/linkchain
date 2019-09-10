@@ -138,7 +138,7 @@ func NewNode(config *cfg.Config,
 		bootnode.UpdateBootNode(config.BootNodeSvr.Addrs, logger)
 	}
 	var bootNodeAddr = bootnode.GetBestBootNode()
-	if len(bootNodeAddr) != 0 {
+	if len(bootNodeAddr) != 0 && config.IsTestMode == false {
 		seeds, localNodeType, err = bootnode.GetSeeds(bootNodeAddr, privValidator.GetPrikey(), logger)
 	}
 	if err != nil {
