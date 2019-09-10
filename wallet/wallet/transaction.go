@@ -34,6 +34,7 @@ var (
 
 const (
 	UTXOTRANSACTION_MAX_SIZE     = 1024 * 20
+	UTXOTRANSACTION_FEE_MAX_SIZE = 1024 * 28
 	UTXOTRANSACTION_FEE          = 1e13
 	UTXO_DEFAULT_RING_SIZE       = 11
 	UTXO_OUTPUT_QUERY_PAGESIZE   = 2   //2*UTXO_DEFAULT_RING_SIZE
@@ -731,6 +732,9 @@ func (wallet *Wallet) createUinTransaction(w accounts.Wallet, acc accounts.Accou
 				types.TypeAcDest == paidDests[0].Type() &&
 				0 == availableFee.Cmp(big.NewInt(0).Sub(needFee, wallet.estimateUtxoTxFee())) {
 				noNeedChange = true
+			}
+			if estimateTxWeight(len(selectedIndice), len(paidDests)+1) > UTXOTRANSACTION_FEE_MAX_SIZE {
+				return nil, ErrTxTooBig
 			}
 			tryTx = availableFee.Cmp(needFee) >= 0 || noNeedChange
 		} else {
