@@ -5,8 +5,8 @@ rm -rf bin
 
 ROOTDIR=`pwd`
 pack=pack
-packfile=lk-chain
-tarfile=lk-chain-linux-x64.tar.gz
+packfile=lkchain
+tarfile=lkchain-linux-x64.tar.gz
 packdst=pack/$packfile
 
 function do_pack()

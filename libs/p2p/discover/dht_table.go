@@ -170,6 +170,7 @@ func newDhtTable(maxDialOutNums int, bootSvr string, self *SlefInfo, db common.P
 
 //Start start dht service
 func (tab *DhtTable) Start() {
+	tab.log.Info("DhtTable Start")
 	if tab == nil {
 		return
 	}
@@ -179,6 +180,7 @@ func (tab *DhtTable) Start() {
 
 // Stop shuts down the socket and aborts any running queries.
 func (tab *DhtTable) Stop() {
+	tab.log.Info("DhtTable Stop")
 	tab.closeOnce.Do(func() {
 		tab.udpCon.close()
 		tab.close()
@@ -751,7 +753,9 @@ func (tab *DhtTable) addSeenNode(n *node) {
 	if n.ID == tab.self().ID {
 		return
 	}
-
+	if n.TCP_Port == 0 {
+		return
+	}
 	tab.mutex.Lock()
 	defer tab.mutex.Unlock()
 	b := tab.bucket(n.ID)
@@ -814,7 +818,9 @@ func (tab *DhtTable) addVerifiedNode(n *node) {
 	if ip16 == nil {
 		return
 	}
-
+	if n.TCP_Port == 0 {
+		return
+	}
 	tab.mutex.Lock()
 	defer tab.mutex.Unlock()
 	b := tab.bucket(n.ID)
