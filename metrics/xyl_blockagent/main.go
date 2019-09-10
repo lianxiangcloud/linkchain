@@ -18,7 +18,7 @@ func logInit() {
 	logConfig := cfg.DefaultRotateConfig()
 	logConfig.Daily    = true
 	logConfig.Hourly   = false
-	logConfig.Filename = "logs/lk_blockagent.log"
+	logConfig.Filename = "logs/xyl_blockagent.log"
 	if !filepath.IsAbs(logConfig.Filename) {
 		dir, err := os.Getwd()
 		if err != nil {
