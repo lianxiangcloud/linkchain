@@ -9,7 +9,7 @@ packfile=lk-chain
 tarfile=lk-chain-linux-x64.tar.gz
 packdst=pack/$packfile
 
-do_pack()
+function do_pack()
 {
     echo "pack"
     cd $ROOTDIR
@@ -18,6 +18,7 @@ do_pack()
     mkdir -p $packdst/bin
     mkdir -p $packdst/data
     mkdir -p $packdst/sbin
+	mkdir -p $packdst/init
 
     chmod 777 bin/lkchain
     chmod 777 scripts/start.sh
