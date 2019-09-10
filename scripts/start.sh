@@ -28,7 +28,7 @@ function Init() {
          echo "kv node"
          mkdir -p "$datapath/data"
          cp -a $dbpath/kv/state.db  $datapath/data/state.db
-         $proc init --home $datapath  --init_height $init_height  --log.filename $logpath/lkchain.log
+         $proc init --home $datapath --on_line true --init_height $init_height  --log.filename $logpath/lkchain.log
     else 
         echo "kv db not exit"
         exit 1;
@@ -49,7 +49,7 @@ function Start() {
 
 function StartNode() {
     echo "start $proc ..."
-    nohup $proc node --home $datapath  --rpc.http_endpoint "127.0.0.1:$rpcport" --rpc.ws_endpoint "127.0.0.1:$wsport" --p2p.laddr "tcp://0.0.0.0:$p2pport" --consensus.create_empty_blocks_interval $emptyBlockInterval --consensus.timeout_commit $blockInterval --log.filename $logpath/lkchain.log --log_level info > $logpath/error.log 2>&1 &
+    nohup $proc node --home $datapath --on_line true --rpc.http_endpoint "127.0.0.1:$rpcport" --rpc.ws_endpoint "127.0.0.1:$wsport" --p2p.laddr "tcp://0.0.0.0:$p2pport" --consensus.create_empty_blocks_interval $emptyBlockInterval --consensus.timeout_commit $blockInterval --log.filename $logpath/lkchain.log --log_level info > $logpath/error.log 2>&1 &
     echo "pid: $!"
 }
 
