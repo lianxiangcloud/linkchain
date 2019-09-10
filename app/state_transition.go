@@ -415,25 +415,29 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, byteCodeG
 		vmenv.Upgrade(msg.MsgFrom(), *msg.To(), msg.Data())
 	} else if msg.To() == nil {
 		if contractCreation {
+			needRefund := true
 			var totalFee uint64
 			isNewFeeRule := msg.Value().Sign() > 0
 			if isNewFeeRule {
 				totalFee = types.CalNewAmountGas(msg.Value())
 				if vmerr = st.useGas(totalFee); vmerr != nil {
 					// st.useGas(st.gas)
+					needRefund = false
 				}
 			}
 			if vmerr == nil {
 				ret, _, st.gas, vmerr = vmenv.Create(sender, msg.Data(), st.gas, msg.Value())
 				log.Debug("contract Create", "st.gas", st.gas, "vmerr", vmerr)
 			}
-			if vmerr != nil {
-				st.gas += vmenv.RefundAllFee()
-			} else {
-				st.gas += vmenv.RefundFee()
-			}
-			if vmerr != nil && isNewFeeRule {
-				st.gas += totalFee
+			if needRefund {
+				if vmerr != nil {
+					st.gas += vmenv.RefundAllFee()
+				} else {
+					st.gas += vmenv.RefundFee()
+				}
+				if vmerr != nil && isNewFeeRule {
+					st.gas += totalFee
+				}
 			}
 		} else {
 			st.state.SetNonce(msg.MsgFrom(), st.state.GetNonce(sender.Address())+1)
@@ -447,6 +451,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, byteCodeG
 		st.state.SetNonce(msg.MsgFrom(), st.state.GetNonce(sender.Address())+1)
 
 		var totalFee uint64
+		needRefund := true
 		isNewFeeRule := st.state.IsContract(*msg.To()) && msg.Value().Sign() > 0
 		isLianke := common.IsLKC(msg.TokenAddress())
 		if isNewFeeRule {
@@ -465,6 +470,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, byteCodeG
 			}
 			if vmerr = st.useGas(totalFee); vmerr != nil {
 				// st.useGas(st.gas)
+				needRefund = false
 			}
 		}
 		if vmerr == nil {
@@ -472,13 +478,15 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, byteCodeG
 			ret, st.gas, byteCodeGas, vmerr = vmenv.Call(sender, *msg.To(), msg.TokenAddress(), msg.Data(), st.gas, msg.Value())
 			log.Debug("after contract Call", "st.gas", st.gas)
 		}
-		if vmerr != nil {
-			st.gas += vmenv.RefundAllFee()
-		} else {
-			st.gas += vmenv.RefundFee()
-		}
-		if vmerr != nil && isNewFeeRule {
-			st.gas += totalFee
+		if needRefund {
+			if vmerr != nil {
+				st.gas += vmenv.RefundAllFee()
+			} else {
+				st.gas += vmenv.RefundFee()
+			}
+			if vmerr != nil && isNewFeeRule {
+				st.gas += totalFee
+			}
 		}
 
 		// check black list contract

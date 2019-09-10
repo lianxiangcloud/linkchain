@@ -34,6 +34,7 @@ import (
 	"github.com/lianxiangcloud/linkchain/vm"
 	"github.com/lianxiangcloud/linkchain/vm/evm"
 	"github.com/lianxiangcloud/linkchain/vm/wasm"
+	"math/big"
 )
 
 const (
@@ -199,6 +200,15 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 					GasUsed:           gas,
 					Status:            types.ReceiptStatusSuccessful,
 				}
+				fee := new(big.Int).Mul(big.NewInt(0).SetUint64(gas), big.NewInt(types.GasPrice))
+				br := types.GenBalanceRecord(common.EmptyAddress, config.ContractFoundationAddr, types.PrivateAddress,
+					types.AccountAddress, types.TxFee, common.EmptyAddress, fee)
+				tbr.AddBalanceRecord(br)
+				payloads := make([]types.Payload, 0)
+				gasPrice := tx.GasPrice()
+				gasLimit := tx.Gas()
+				tbr.SetOptions(tx.Hash(), tx.TypeName(), payloads, 0, gasLimit, gasPrice, common.EmptyAddress,
+					common.EmptyAddress, common.EmptyAddress)
 			}
 			tbrBlock.AddTxBalanceRecord(tbr)
 			receipts = append(receipts, receipt)
@@ -323,7 +333,7 @@ func (p *StateProcessor) applyTransaction(statedb *state.StateDB, tx types.Regul
 		otxs = make([]types.BalanceRecord, 0)
 	}
 
-	if fee != nil && fee.Sign() > 0 {
+	if fee != nil {
 		from, err := tx.From()
 		if err != nil {
 			from = common.EmptyAddress

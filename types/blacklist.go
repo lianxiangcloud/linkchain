@@ -88,7 +88,10 @@ func (b *blacklist) DealBlackAddrsChanges(msg []byte) {
 		opt = optAddBlackAddress
 	} else if strOpt == strOptDelBlackAddress {
 		opt = optDelBlackAddress
+	} else {
+		return
 	}
+
 	if len(strAddrs) == 0 || len(strAddrs)%strAddressLength != 0 {
 		return
 	}
