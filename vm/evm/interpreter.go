@@ -24,6 +24,7 @@ import (
 	//"github.com/lianxiangcloud/linkchain/libs/log"
 	"github.com/lianxiangcloud/linkchain/libs/math"
 	"github.com/lianxiangcloud/linkchain/types"
+	"github.com/lianxiangcloud/linkchain/libs/log"
 )
 
 // Config are the configuration options for the Interpreter
@@ -197,7 +198,7 @@ func (in *Interpreter) Run(contract *Contract, input []byte, readOnly bool) (ret
 		// cost is explicitly set so that the capture state defer method can get the proper cost
 		in.evm.feeSaved = false
 		cost, err = operation.gasCost(in.gasTable, in.evm, contract, stack, mem, memorySize)
-		//log.Debug("bytecode gasCost", "code", op, "cost", cost)
+		log.Debug("bytecode gasCost", "code", op, "cost", cost)
 		if err != nil {
 			if in.evm.feeSaved {
 				in.evm.fees = in.evm.fees[:len(in.evm.fees)-1]
@@ -206,7 +207,7 @@ func (in *Interpreter) Run(contract *Contract, input []byte, readOnly bool) (ret
 		}
 		if !contract.UseGas(cost) {
 			if in.evm.feeSaved {
-				realCost := cost - in.evm.fees[len(in.evm.fees)]
+				realCost := cost - in.evm.fees[len(in.evm.fees)-1]
 				in.evm.fees = in.evm.fees[:len(in.evm.fees)-1]
 				if contract.Gas > realCost {
 					refundFee := contract.Gas - realCost
