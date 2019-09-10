@@ -758,15 +758,18 @@ func (t *TCTransferToken) Gas(index int64, ops interface{}, args []uint64) (uint
 	}
 
 	var overflow bool
-	mState := eng.State.(types.StateDB)
 	if token == common.EmptyAddress {
-		if mState.GetBalance(from).Cmp(val) >= 0 {
-			fee := gasFee(eng, to, val)
-			if transferTokenGas, overflow = math.SafeAdd(transferTokenGas, fee); overflow {
-				return 0, errGasUintOverflow
-			}
-			eng.AddFee(fee)
+		fee := gasFee(eng, to, val)
+		if transferTokenGas, overflow = math.SafeAdd(transferTokenGas, fee); overflow {
+			return 0, errGasUintOverflow
 		}
+		eng.AddFee(fee)
+	} else {
+		fee := gasTokenFee(eng, to, val)
+		if transferTokenGas, overflow = math.SafeAdd(transferTokenGas, fee); overflow {
+			return 0, errGasUintOverflow
+		}
+		eng.AddFee(fee)
 	}
 
 	return transferTokenGas, nil
@@ -861,6 +864,9 @@ func (t *TCSelfDestruct) Gas(index int64, ops interface{}, args []uint64) (uint6
 			if destructGas, overflow = math.SafeAdd(destructGas, fee); overflow {
 				return 0, errGasUintOverflow
 			}
+			eng.AddFee(fee)
+		} else {
+			fee := gasTokenFee(eng, to, tv[i].Value)
 			eng.AddFee(fee)
 		}
 	}
@@ -1565,6 +1571,19 @@ func gasFee(eng *vm.Engine, toAddr common.Address, val *big.Int) uint64 {
 		fee = types.CalNewContractAmountGas(val)
 	} else {
 		fee = types.CalNewAmountGas(val)
+	}
+	return fee
+}
+
+func gasTokenFee(eng *vm.Engine, toAddr common.Address, val *big.Int) uint64 {
+	if val.Sign() == 0 {
+		return 0
+	}
+	var fee uint64
+	if eng.State.GetContractCode(toAddr.Bytes()) != nil {
+		fee = 0
+	} else {
+		fee = types.MinGasLimit
 	}
 	return fee
 }

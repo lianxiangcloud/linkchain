@@ -388,6 +388,7 @@ func gasCall(gt cfg.GasTable, evm *EVM, contract *Contract, stack *Stack, mem *M
 	}
 	if fee > 0 {
 		evm.fees = append(evm.fees, fee)
+		evm.feeSaved = true
 	}
 
 	return gas, nil
@@ -445,10 +446,16 @@ func gasSuicide(gt cfg.GasTable, evm *EVM, contract *Contract, stack *Stack, mem
 			if gas, overflow = math.SafeAdd(gas, fee); overflow {
 				return 0, errGasUintOverflow
 			}
+		} else {
+			fee := gasTokenFee(evm, to, tvs[i].Value)
+			if gas, overflow = math.SafeAdd(gas, fee); overflow {
+				return 0, errGasUintOverflow
+			}
 		}
 	}
 	if gas > 0 {
 		evm.fees = append(evm.fees, gas)
+		evm.feeSaved = true
 	}
 
 	return gas, nil
@@ -499,9 +506,15 @@ func gasTransferToken(gt cfg.GasTable, evm *EVM, contract *Contract, stack *Stac
 		if gas, overflow = math.SafeAdd(gas, fee); overflow {
 			return 0, errGasUintOverflow
 		}
+	} else {
+		fee = gasTokenFee(evm, to, amount)
+		if gas, overflow = math.SafeAdd(gas, fee); overflow {
+			return 0, errGasUintOverflow
+		}
 	}
 	if fee > 0 {
 		evm.fees = append(evm.fees, fee)
+		evm.feeSaved = true
 	}
 
 	return gas, nil
@@ -568,6 +581,19 @@ func gasFee(evm *EVM, toAddr common.Address, val *big.Int) uint64 {
 		fee = types.CalNewAmountGas(val)
 	} else {
 		fee = types.CalNewContractAmountGas(val)
+	}
+	return fee
+}
+
+func gasTokenFee(evm *EVM, toAddr common.Address, val *big.Int) uint64 {
+	if val.Sign() <= 0 {
+		return 0
+	}
+	var fee uint64
+	if evm.StateDB.IsContract(toAddr) {
+		fee = 0
+	} else {
+		fee = types.MinGasLimit
 	}
 	return fee
 }

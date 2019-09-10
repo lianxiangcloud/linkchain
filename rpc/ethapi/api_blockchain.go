@@ -225,6 +225,10 @@ func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr
 			}
 		}
 	}
+	incrBalance    := new(big.Int).Mul(big.NewInt(types.MaxGasLimit), big.NewInt(types.MaxFeeCounts))
+	incrBalanceWei := new(big.Int).Mul(incrBalance, big.NewInt(types.GasPrice))
+	state.AddBalance(addr, incrBalanceWei)
+
 	// Set default gas & gas price if none were set
 	gas, gasPrice := uint64(args.Gas), args.GasPrice.ToInt()
 	if gas == 0 {

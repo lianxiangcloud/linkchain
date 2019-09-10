@@ -291,8 +291,13 @@ func (st *StateTransition) UTXOTransitionDb() (ret []byte, usedGas uint64, byteC
 
 		var transfervalueGas uint64
 		isNewFeeRule := inputValue.Sign() > 0
+		isLianke := common.IsLKC(msg.TokenAddress())
 		if isNewFeeRule {
-			transfervalueGas = types.CalNewContractAmountGas(inputValue)
+			if isLianke {
+				transfervalueGas = types.CalNewContractAmountGas(inputValue)
+			} else {
+				transfervalueGas = 0
+			}
 			if vmerr = st.useGas(transfervalueGas); vmerr != nil {
 				log.Warn("UTXOTransitionDb out of gas", "transfer value need gas", transfervalueGas, "have gas", st.gas)
 				st.useGas(st.gas)
@@ -430,7 +435,6 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, byteCodeG
 			if vmerr != nil && isNewFeeRule {
 				st.gas += totalFee
 			}
-
 		} else {
 			st.state.SetNonce(msg.MsgFrom(), st.state.GetNonce(sender.Address())+1)
 			st.state.SubTokenBalance(msg.MsgFrom(), msg.TokenAddress(), msg.Value())
@@ -444,11 +448,20 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, byteCodeG
 
 		var totalFee uint64
 		isNewFeeRule := st.state.IsContract(*msg.To()) && msg.Value().Sign() > 0
+		isLianke := common.IsLKC(msg.TokenAddress())
 		if isNewFeeRule {
 			if st.state.IsContract(*msg.To()) {
-				totalFee = types.CalNewContractAmountGas(msg.Value())
+				if isLianke {
+					totalFee = types.CalNewContractAmountGas(msg.Value())
+				} else {
+					totalFee = 0
+				}
 			} else {
-				totalFee = types.CalNewAmountGas(msg.Value())
+				if isLianke {
+					totalFee = types.CalNewAmountGas(msg.Value())
+				} else {
+					totalFee = types.MinGasLimit
+				}
 			}
 			if vmerr = st.useGas(totalFee); vmerr != nil {
 				st.useGas(st.gas)

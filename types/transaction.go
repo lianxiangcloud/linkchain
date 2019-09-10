@@ -224,10 +224,15 @@ func (tx *Transaction) IllegalGasLimitOrGasPrice(hascode bool) bool {
 		log.Info("ParGasPrice!=0", "GasPrice", tx.GasPrice())
 		return true
 	}
-	gasFee := CalNewAmountGas(tx.Value())
+	var gasFee uint64
 	iscontract := IsContract(tx.Data())
+	if iscontract {
+		gasFee = CalNewContractAmountGas(tx.Value())
+	} else {
+		gasFee = CalNewAmountGas(tx.Value())
+	}
 
-	if tx.Value().Cmp(big.NewInt(0)) > 0 {
+	if tx.Value().Sign() > 0 {
 		if gasFee > tx.Gas() {
 			log.Info("gasFee > tx.Gas()", "gasFee", gasFee, "tx.Gas()", tx.Gas())
 			return true

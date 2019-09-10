@@ -213,6 +213,7 @@ func (in *Interpreter) Run(contract *Contract, input []byte, readOnly bool) (ret
 					in.evm.fees = append(in.evm.fees, refundFee)
 				}
 			}
+			return nil, ErrOutOfGas
 		}
 		// save fee
 		if fee != 0 {
