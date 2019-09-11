@@ -152,7 +152,7 @@ func (la *LinkAccount) getTokenBalanceBySubIndex(token common.Address, subIdx ui
 		if !ok {
 			return big.NewInt(0)
 		}
-		return balance
+		return new(big.Int).Set(balance)
 	}
 	return big.NewInt(0)
 }
@@ -467,7 +467,7 @@ func (la *LinkAccount) processNewTransaction(tx *tctypes.UTXOTransaction, height
 			}
 			uod.Mask = ecdh.Mask
 			uod.Amount = big.NewInt(0).Mul(tctypes.Hash2BigInt(ecdh.Amount), big.NewInt(tctypes.UTXO_COMMITMENT_CHANGE_RATE))
-			la.Logger.Debug("processNewTransaction output", "ro.Amount", ro.Amount.String(), "ecdh.Amount", ecdh.Amount, "outputID", outputID, "scalar", scalar)
+			la.Logger.Debug("processNewTransaction output", "ro.Amount", ro.Amount.String(), "ecdh.Amount", ecdh.Amount.String(), "outputID", outputID, "scalar", scalar)
 			uod.Remark = ro.Remark
 			hash := crypto.Sha256(scalar[:])
 			for k := 0; k < 32; k++ {
@@ -482,7 +482,7 @@ func (la *LinkAccount) processNewTransaction(tx *tctypes.UTXOTransaction, height
 
 			myTx.Outputs = append(myTx.Outputs, types.UTXOOutput{OTAddr: (common.Hash)(ro.OTAddr), GlobalIndex: (hexutil.Uint64)(tid)})
 
-			la.Logger.Info("processNewTransaction output", "KeyImage", uod.KeyImage, "subaddrIndex", subaddrIndex, "tx.RKey", tx.RKey, "uod.Amount", uod.Amount.String())
+			la.Logger.Info("processNewTransaction output", "KeyImage", uod.KeyImage.String(), "subaddrIndex", subaddrIndex, "tx.RKey", tx.RKey, "uod.Amount", uod.Amount.String())
 
 			received = new(big.Int).Add(received, uod.Amount)
 			la.updateBalance(tx.TokenID, uod.SubAddrIndex, true, uod.Amount)

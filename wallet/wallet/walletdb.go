@@ -316,7 +316,7 @@ func (la *LinkAccount) getBlockHashKey(height *big.Int) []byte {
 }
 
 func (la *LinkAccount) loadBlockHash(height *big.Int) (*common.Hash, error) {
-	if height.Sign() < 0 {
+	if height.Cmp(big.NewInt(defaultInitBlockHeight)) <= 0 {
 		return &common.EmptyHash, nil
 	}
 	key := la.getBlockHashKey(height)

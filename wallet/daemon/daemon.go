@@ -95,6 +95,7 @@ func CallJSONRPC(method string, params interface{}) ([]byte, error) {
 		return nil, fmt.Errorf("NewRequest: err=%v", err)
 	}
 	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("nc", "IN")
 	req = req.WithContext(context.Background())
 	resp, err := client.Do(req)
 	if err != nil {
