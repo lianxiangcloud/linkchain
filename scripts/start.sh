@@ -28,7 +28,7 @@ function Init() {
          echo "kv node"
          mkdir -p "$datapath/data"
          cp -a $dbpath/kv/state.db  $datapath/data/state.db
-         $proc init --home $datapath --on_line true --init_height $init_height  --log.filename $logpath/lkchain.log
+         $proc init --home $datapath --on_line=true --init_height $init_height  --log.filename $logpath/lkchain.log
     else 
         echo "kv db not exit"
         exit 1;
@@ -40,9 +40,9 @@ function Start() {
         echo "`Usage`"
         exit 1;
     fi
-    rpcport=45000
-    wsport=46000
-    p2pport=47000
+    rpcport=16000
+    wsport=18000
+    p2pport=17000
     StartNode $@
 }
 

@@ -76,8 +76,7 @@ type Switch struct {
 
 	mConfig conn.MConnConfig
 
-	rng            *cmn.Rand // seed for randomizing dial times and orders
-	bootnodeAddr   string
+	rng            *cmn.Rand            // seed for randomizing dial times and orders
 	ntab           common.DiscoverTable //cache node from nodeserver or dht network
 	manager        *ConManager          //manager the all connections with myself
 	db             dbm.DB
@@ -239,7 +238,13 @@ func (sw *Switch) DefaultNewTable(seeds []*common.Node, needDht bool, needReNewU
 				ID:       common.NodeID(crypto.Keccak256Hash(sw.NodeKey().PubKey().Bytes())),
 			}
 			if needReNewUdpCon == true {
-				addr, err := net.ResolveUDPAddr("udp", listener.ExternalAddress().String())
+				var bindUdpAddr string
+				if sw.upnpFlag == true {
+					bindUdpAddr = listener.ExternalAddress().String()
+				} else {
+					bindUdpAddr = fmt.Sprintf(":%d", listener.ExternalAddress().Port)
+				}
+				addr, err := net.ResolveUDPAddr("udp", bindUdpAddr)
 				if err != nil {
 					sw.Logger.Error("NewDefaultListener", "ResolveUDPAddr err", err, "addr", addr)
 				} else {

@@ -190,12 +190,13 @@ func (conma *ConManager) tryToSwitchNetWork(candidates []*types.CandidateState) 
 
 	//get seeds from bootNode
 	if typeChangeFlag {
-		conma.logger.Info("typeChange start", "old myType", myType, "bootnodeAddr", conma.sw.bootnodeAddr)
 		maxTryNum := 30
 		for i := 0; i < maxTryNum; i++ {
-			seeds, getType, err := bootnode.GetSeeds(conma.sw.bootnodeAddr, conma.sw.nodeKey, conma.logger)
+			var bootNodeAddr = bootnode.GetBestBootNode()
+			conma.logger.Info("typeChange start", "old myType", myType, "bootnodeAddr", bootNodeAddr)
+			seeds, getType, err := bootnode.GetSeeds(bootNodeAddr, conma.sw.nodeKey, conma.logger)
 			if err != nil {
-				return
+				continue
 			}
 			if myType == getType { //bootnode refresh delay
 				time.Sleep(time.Second)
