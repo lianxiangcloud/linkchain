@@ -76,7 +76,9 @@ func GetSeeds(bootSouce string, priv crypto.PrivKey, logger log.Logger) (nodes [
 		nodes, localNodeType, err = getSeedsFromFile(bootSouce, logger)
 	}
 	nodeTypeLocker.Lock()
-	LocalNodeType = localNodeType
+	if err == nil {
+		LocalNodeType = localNodeType
+	}
 	nodeTypeLocker.Unlock()
 	return
 }
