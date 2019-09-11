@@ -105,14 +105,18 @@ func (w *Wallet) IsWalletClosed() bool {
 	return w.currAccount == nil
 }
 
-// OnStart starts the Wallet. It implements cmn.Service.
+// Start starts the Wallet. It implements cmn.Service.
 func (w *Wallet) Start() error {
 	w.Logger.Info("starting Wallet OnStart")
+
+	// update at first time
+	w.updateUTXOGas()
+
 	go w.refreshUTXOGas()
 	return nil
 }
 
-// OnStop stops the Wallet. It implements cmn.Service.
+// Stop stops the Wallet. It implements cmn.Service.
 func (w *Wallet) Stop() {
 	w.lock.Lock()
 	defer w.lock.Unlock()
@@ -127,6 +131,18 @@ func (w *Wallet) Stop() {
 	w.Logger.Info("Stopping Wallet")
 }
 
+func (w *Wallet) updateUTXOGas() error {
+	utxoGas, err := w.getUTXOGas()
+	if err != nil {
+		w.Logger.Error("updateUTXOGas", "err", err)
+		return err
+	}
+	newUtxoGas := new(big.Int).Mul(new(big.Int).SetUint64(utxoGas), new(big.Int).SetInt64(tctypes.ParGasPrice))
+	w.utxoGas.Set(newUtxoGas)
+	w.Logger.Debug("refreshUTXOGas set utxoGas", "utxoGas", w.utxoGas.String())
+	return nil
+}
+
 func (w *Wallet) refreshUTXOGas() {
 	w.Logger.Debug("refreshUTXOGas")
 	refresh := time.NewTicker(defaultRefreshUTXOGasInterval)
@@ -135,14 +151,7 @@ func (w *Wallet) refreshUTXOGas() {
 	for {
 		select {
 		case <-refresh.C:
-			utxoGas, err := w.getUTXOGas()
-			if err != nil {
-				w.Logger.Error("refreshUTXOGas", "err", err)
-				continue
-			}
-			newUtxoGas := new(big.Int).Mul(new(big.Int).SetUint64(utxoGas), new(big.Int).SetInt64(tctypes.ParGasPrice))
-			w.utxoGas.Set(newUtxoGas)
-			w.Logger.Info("refreshUTXOGas set utxoGas", "utxoGas", w.utxoGas.String())
+			w.updateUTXOGas()
 		}
 	}
 }

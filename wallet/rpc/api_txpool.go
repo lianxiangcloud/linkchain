@@ -108,6 +108,10 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encod
 	return s.wallet.SendRawTransaction(encodedTx)
 }
 
+func (s *PublicTransactionPoolAPI) SendRawUTXOTransaction(ctx context.Context, encodedTx hexutil.Bytes) (common.Hash, error) {
+	return s.wallet.SendRawUTXOTransaction(encodedTx)
+}
+
 /*
 func (s *PublicTransactionPoolAPI) SignSpecTx(ctx context.Context, args rtypes.SendSpecTxArgs) (*rtypes.SignTransactionResult, error) {
 	tx, err := args.ToTransaction()

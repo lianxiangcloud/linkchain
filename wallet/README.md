@@ -42,6 +42,7 @@
         - [ltk_estimateGas](#ltk_estimategas)
         - [ltk_signTransaction](#ltk_signtransaction)
         - [ltk_sendRawTransaction](#ltk_sendrawtransaction)
+        - [ltk_sendRawUTXOTransaction](#ltk_sendrawutxotransaction)
         - [ltk_getLocalUTXOTxsByHeight](#ltk_getlocalutxotxsbyheight)
         - [ltk_getLocalOutputs](#ltk_getlocaloutputs)
 
@@ -977,7 +978,7 @@ curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"l
 
 ### ltk_sendRawTransaction
 
-功能：发送交易  
+功能：发送普通交易  
 参数：  
 raw 字符串，十六进制 签名后的交易内容  
 返回：  
@@ -986,6 +987,24 @@ raw 字符串，十六进制 签名后的交易内容
 
 ```shell
 curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"ltk_sendRawTransaction","params":["0xf87a0485174876e800843d09000094a73810e519e1075010678d706533486d8ecc80018a04563918244f40000000884563918244f4000082e3e5a0a83cd1f18678f0631ea59c81d4ade2a9b59616073ad6b0f5114d183b3efddbdfa056f768216d7def987b369df3d3fa50146029ab7378495f0ec62e1aadf70c8324"]}' -H 'Content-Type: application/json'|json_pp
+{
+   "jsonrpc" : "2.0",
+   "result" : "0xc7bca4525694bf64cfe58ac2f4ded6457f6c3701109714e73f78042db2140e51",
+   "id" : "0"
+}
+```
+
+### ltk_sendRawUTXOTransaction
+
+功能：发送UTXO类型交易  
+参数：  
+raw 字符串，十六进制 签名后的交易内容  
+返回：  
+     交易hash  字符串，十六进制  
+示例：  
+
+```shell
+curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"ltk_sendRawUTXOTransaction","params":["0xf87a0485174876e800843d09000094a73810e519e1075010678d706533486d8ecc80018a04563918244f40000000884563918244f4000082e3e5a0a83cd1f18678f0631ea59c81d4ade2a9b59616073ad6b0f5114d183b3efddbdfa056f768216d7def987b369df3d3fa50146029ab7378495f0ec62e1aadf70c8324"]}' -H 'Content-Type: application/json'|json_pp
 {
    "jsonrpc" : "2.0",
    "result" : "0xc7bca4525694bf64cfe58ac2f4ded6457f6c3701109714e73f78042db2140e51",
