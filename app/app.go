@@ -407,7 +407,7 @@ func (app *LinkApplication) verifyTxsOnProcess(block *types.Block) error {
 						for _, out := range tx.Outputs {
 							switch aOutput := out.(type) {
 							case *types.AccountOutput:
-								if types.BlacklistInstance().IsBlackAddress(common.EmptyAddress, aOutput.To, tx.TokenID) {
+								if types.BlacklistInstance.IsBlackAddress(common.EmptyAddress, aOutput.To, tx.TokenID) {
 									errRets[coIndex] = &types.ErrBlacklistAddress
 									return
 								}
@@ -419,7 +419,7 @@ func (app *LinkApplication) verifyTxsOnProcess(block *types.Block) error {
 						if err != nil {
 							fromAddr = common.EmptyAddress
 						}
-						if types.BlacklistInstance().IsBlackAddress(fromAddr, common.EmptyAddress, tx.TokenID) {
+						if types.BlacklistInstance.IsBlackAddress(fromAddr, common.EmptyAddress, tx.TokenID) {
 							errRets[coIndex] = &types.ErrBlacklistAddress
 							return
 						}
@@ -457,7 +457,7 @@ func checkBlacklistAddress(tx types.Tx) error {
 	} else {
 		toAddr = common.EmptyAddress
 	}
-	if types.BlacklistInstance().IsBlackAddress(fromAddr, toAddr, tx.(types.RegularTx).TokenAddress()) {
+	if types.BlacklistInstance.IsBlackAddress(fromAddr, toAddr, tx.(types.RegularTx).TokenAddress()) {
 		return types.ErrBlacklistAddress
 	}
 	return nil
@@ -638,7 +638,7 @@ func (app *LinkApplication) CommitBlock(block *types.Block, blockParts *types.Pa
 	app.mempool.KeyImageRemoveKeys(processResult.txsResult.KeyImages())
 	app.lastCoe = GetCoefficient(processResult.tmpState, app.logger)
 	app.logger.Info("GetCoefficient ", "Coefficient", app.lastCoe)
-	types.BlacklistInstance().UpdateBlacklist()
+	types.BlacklistInstance.UpdateBlacklist()
 	app.UnlockState()
 
 	err = app.mempool.Update(app.blockChain.Height(), block.Data.Txs)

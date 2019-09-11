@@ -10,8 +10,7 @@ import (
 )
 
 var (
-	once      sync.Once
-	bInstance *blacklist
+	BlacklistInstance *blacklist
 )
 
 const (
@@ -43,14 +42,11 @@ type blacklist struct {
 	db               dbm.DB
 }
 
-func BlacklistInstance() *blacklist {
-	once.Do(func() {
-		bInstance = &blacklist{
-			addrs:            make(map[common.Address]struct{}, 0),
-			blacklistChanges: make([]blacklistChange, 0),
-		}
-	})
-	return bInstance
+func init() {
+	BlacklistInstance = &blacklist{
+		addrs:            make(map[common.Address]struct{}, 0),
+		blacklistChanges: make([]blacklistChange, 0),
+	}
 }
 
 func (b *blacklist) Init(db dbm.DB) {
@@ -151,20 +147,15 @@ func (b *blacklist) GetBlackAddrs() []common.Address {
 	return blacklist
 }
 
-func (b *blacklist) IsBlackAddress(addrFrom common.Address, addrTo common.Address, tokenId common.Address) bool {
+func (b *blacklist) IsBlackAddress(addrs ...common.Address) bool {
 	b.rwMu.RLock()
 	defer b.rwMu.RUnlock()
 
-	if _, ok := b.addrs[addrFrom]; ok {
-		return true
+	for _, addr := range addrs {
+		if _, ok := b.addrs[addr]; ok {
+			return true
+		}
 	}
-	if _, ok := b.addrs[addrTo]; ok {
-		return true
-	}
-	if _, ok := b.addrs[tokenId]; ok {
-		return true
-	}
-
 	return false
 }
 

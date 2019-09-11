@@ -76,7 +76,12 @@ func (s *PublicBlockChainAPI) GenesisBlockNumber(ctx context.Context) hexutil.Ui
 
 // Get current black list
 func (s *PublicBlockChainAPI) Blacklist() []common.Address {
-	return types.BlacklistInstance().GetBlackAddrs()
+	return types.BlacklistInstance.GetBlackAddrs()
+}
+
+// Check address is black address
+func (s *PublicBlockChainAPI) IsBlackAddress(ctx context.Context, address common.Address) bool  {
+	return types.BlacklistInstance.IsBlackAddress(address)
 }
 
 // GetBalance returns the amount of wei for the given address in the state of the

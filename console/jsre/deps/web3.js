@@ -5608,6 +5608,12 @@ var methods = function () {
         name: 'accounts',
         call: 'eth_accounts'
     });
+    var isBlackAddress = new Method({
+        name: 'isBlackAddress',
+        call: 'eth_isBlackAddress',
+        params: 1,
+        inputFormatter: [formatters.inputAddressFormatter]
+    });
 
     return [
         getAllBalances,
@@ -5646,7 +5652,8 @@ var methods = function () {
         consensusState,
         dumpConsensusState,
         status,
-        accounts
+        accounts,
+        isBlackAddress
     ];
 };
 
