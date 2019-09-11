@@ -865,8 +865,8 @@ func (app *LinkApplication) processBlockEvidence(eviList types.EvidenceList, pro
 					v.ProduceInfo = 0
 					if v.Score < app.lastCoe.MaxScore {
 						v.Score++
-						app.logger.Debug("Increase Score", "height", processResult.height, "ev", ev)
 					}
+					app.logger.Debug("Increase Score", "height", processResult.height, "ev", ev)
 				}
 			}
 			if ev.Round > 0 {
@@ -882,8 +882,8 @@ func (app *LinkApplication) processBlockEvidence(eviList types.EvidenceList, pro
 						if v.Score > 1 {
 							v.Score--
 						}
+						app.logger.Warn("Decrease Score", "height", processResult.height, "ev", ev)
 					}
-					app.logger.Warn("Decrease Score", "height", processResult.height, "ev", ev)
 				}
 			}
 		}
