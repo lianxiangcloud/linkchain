@@ -564,6 +564,8 @@ func (la *LinkAccount) GetBalance(index uint64, token *common.Address) *big.Int 
 	if index >= uint64(len(la.account.Keys)) {
 		return big.NewInt(0)
 	}
+	la.lock.Lock()
+	defer la.lock.Unlock()
 	return la.getTokenBalanceBySubIndex(*token, index)
 }
 
@@ -583,6 +585,9 @@ func (la *LinkAccount) GetAddress(index uint64) (string, error) {
 
 // GetHeight rpc get height
 func (la *LinkAccount) GetHeight() (localHeight *big.Int, remoteHeight *big.Int) {
+	la.lock.Lock()
+	defer la.lock.Unlock()
+
 	if la.localHeight.Cmp(big.NewInt(defaultInitBlockHeight)) == 0 {
 		return la.localHeight, la.remoteHeight
 	}

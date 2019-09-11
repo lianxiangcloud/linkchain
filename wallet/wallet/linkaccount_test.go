@@ -571,7 +571,7 @@ func TestOnStart(t *testing.T) {
 			So(rh.Cmp(remoteHeightExpect), ShouldEqual, 0)
 
 			for _, test := range balanceTests {
-				b := mockLinkAccount.getTokenBalanceBySubIndex(test.token, test.index)
+				b := mockLinkAccount.GetBalance(test.index, &test.token)
 				So(test.balance.Cmp(b), ShouldEqual, 0)
 			}
 

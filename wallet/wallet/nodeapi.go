@@ -682,7 +682,7 @@ func (w *Wallet) GetTransactionReceipt(hash common.Hash) (r map[string]interface
 	}
 	var jsonRes wtypes.RPCResponse
 	if err = json.Unmarshal(body, &jsonRes); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("json.Unmarshal(body, &jsonRes) error:%v,body:[%s]", err, string(body))
 	}
 	if jsonRes.Error.Code != 0 {
 		return nil, fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))

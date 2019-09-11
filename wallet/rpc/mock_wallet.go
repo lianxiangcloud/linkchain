@@ -188,6 +188,36 @@ func (mr *MockWalletMockRecorder) GetHeight() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHeight", reflect.TypeOf((*MockWallet)(nil).GetHeight))
 }
 
+// GetLocalOutputs mocks base method
+func (m *MockWallet) GetLocalOutputs(arg0, arg1 uint64) ([]types1.UTXOOutputDetail, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetLocalOutputs", arg0, arg1)
+	ret0, _ := ret[0].([]types1.UTXOOutputDetail)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetLocalOutputs indicates an expected call of GetLocalOutputs
+func (mr *MockWalletMockRecorder) GetLocalOutputs(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLocalOutputs", reflect.TypeOf((*MockWallet)(nil).GetLocalOutputs), arg0, arg1)
+}
+
+// GetLocalUTXOTxsByHeight mocks base method
+func (m *MockWallet) GetLocalUTXOTxsByHeight(arg0 *big.Int) (*types1.UTXOBlock, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetLocalUTXOTxsByHeight", arg0)
+	ret0, _ := ret[0].(*types1.UTXOBlock)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetLocalUTXOTxsByHeight indicates an expected call of GetLocalUTXOTxsByHeight
+func (mr *MockWalletMockRecorder) GetLocalUTXOTxsByHeight(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLocalUTXOTxsByHeight", reflect.TypeOf((*MockWallet)(nil).GetLocalUTXOTxsByHeight), arg0)
+}
+
 // GetMaxOutput mocks base method
 func (m *MockWallet) GetMaxOutput(arg0 common.Address) (*hexutil.Uint64, error) {
 	m.ctrl.T.Helper()
@@ -437,6 +467,21 @@ func (m *MockWallet) SendRawTransaction(arg0 hexutil.Bytes) (common.Hash, error)
 func (mr *MockWalletMockRecorder) SendRawTransaction(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendRawTransaction", reflect.TypeOf((*MockWallet)(nil).SendRawTransaction), arg0)
+}
+
+// SendRawUTXOTransaction mocks base method
+func (m *MockWallet) SendRawUTXOTransaction(arg0 hexutil.Bytes) (common.Hash, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SendRawUTXOTransaction", arg0)
+	ret0, _ := ret[0].(common.Hash)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SendRawUTXOTransaction indicates an expected call of SendRawUTXOTransaction
+func (mr *MockWalletMockRecorder) SendRawUTXOTransaction(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendRawUTXOTransaction", reflect.TypeOf((*MockWallet)(nil).SendRawUTXOTransaction), arg0)
 }
 
 // SetRefreshBlockInterval mocks base method
