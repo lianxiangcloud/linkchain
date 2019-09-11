@@ -635,7 +635,7 @@ func (app *LinkApplication) CommitBlock(block *types.Block, blockParts *types.Pa
 
 	app.LockState()
 	app.checkTxState = processResult.tmpState.Copy()
-	app.mempool.KeyImageRemoveKeys(processResult.txsResult.KeyImages())
+	app.mempool.KeyImageReset()
 	app.lastCoe = GetCoefficient(processResult.tmpState, app.logger)
 	app.logger.Info("GetCoefficient ", "Coefficient", app.lastCoe)
 	types.BlacklistInstance.UpdateBlacklist()

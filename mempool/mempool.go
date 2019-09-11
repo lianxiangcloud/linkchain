@@ -1126,7 +1126,7 @@ func (m *txHeapManager) Exists(hash common.Hash) bool {
 //-------UTXO----------
 func (m *Mempool) KeyImageReset() {
 	m.kImageMtx.Lock()
-	m.kImageCache = make(map[lktypes.Key]struct{})
+	m.kImageCache = make(map[lktypes.Key]struct{}, m.config.UTXOSize)
 	m.kImageMtx.Unlock()
 }
 
@@ -1149,7 +1149,7 @@ func (m *Mempool) KeyImagePush(key lktypes.Key) bool {
 	}
 	m.kImageCache[key] = struct{}{}
 
-	log.Debug("KeyImagePush push image cache", "key", key)
+	log.Debug("KeyImagePush", "key", key)
 	return true
 }
 

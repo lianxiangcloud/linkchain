@@ -1248,7 +1248,10 @@ func (tx *UTXOTransaction) CheckUTXODoubleSpend(censor TxCensor) error {
 func (tx *UTXOTransaction) checkState(censor TxCensor) error {
 	censor.LockState()
 	defer censor.UnlockState()
+
 	aggInputAmount := big.NewInt(0)
+	keyImages := make([]types.Key, 0, len(tx.Inputs))
+
 	for _, txin := range tx.Inputs {
 		switch input := txin.(type) {
 		case *UTXOInput:
@@ -1256,10 +1259,12 @@ func (tx *UTXOTransaction) checkState(censor TxCensor) error {
 				log.Debug("Key image already spent in blockchain", "KeyImage", input.KeyImage, "hash", tx.Hash())
 				return ErrUtxoTxDoubleSpend
 			}
-			if !censor.Mempool().KeyImagePush(input.KeyImage) {
+			if censor.Mempool().KeyImageExists(input.KeyImage) {
 				log.Debug("Key image already spent in other txs", "KeyImage", input.KeyImage, "hash", tx.Hash())
 				return ErrUtxoTxDoubleSpend
 			}
+			keyImages = append(keyImages, input.KeyImage)
+
 		case *AccountInput:
 			//check nonce
 			state := censor.State()
@@ -1321,6 +1326,11 @@ func (tx *UTXOTransaction) checkState(censor TxCensor) error {
 		return ErrUtxoTxFeeTooLow
 	}
 
+	for _, ki := range keyImages {
+		if !censor.Mempool().KeyImagePush(ki) {
+			log.Error("checkState KeyImagePush fail, please check!!!", "key", ki, "txhash", tx.Hash())
+		}
+	}
 	return nil
 }
 
