@@ -1,7 +1,5 @@
 享云链旨在为共享计算、高隐私要求的自由交易场景提供一个高性能的、安全的区块链基础设施。
 
-这里是享云链官方项目wiki。
-
 ---
 
 [LinkChain White Paper](https://www.lianxiangcloud.com/static/download/LinkChainWhitePaper1.0.pdf)
@@ -22,7 +20,7 @@
 
 [rpc服务](./doc/RPC服务.md)
 
-[wallet钱包](./doc/wallet钱包.md)
+[wallet钱包](./wallet/README.md)
 
 [智能合约](./doc/智能合约.md)
 
