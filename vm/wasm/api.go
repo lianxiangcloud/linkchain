@@ -867,6 +867,9 @@ func (t *TCSelfDestruct) Gas(index int64, ops interface{}, args []uint64) (uint6
 			eng.AddFee(fee)
 		} else {
 			fee := gasTokenFee(eng, to, tv[i].Value)
+			if destructGas, overflow = math.SafeAdd(destructGas, fee); overflow {
+				return 0, errGasUintOverflow
+			}
 			eng.AddFee(fee)
 		}
 	}
