@@ -1142,11 +1142,12 @@ func (m *Mempool) KeyImageExists(key lktypes.Key) bool {
 
 func (m *Mempool) KeyImagePush(key lktypes.Key) bool {
 	m.kImageMtx.Lock()
+	defer m.kImageMtx.Unlock()
+
 	if _, ok := m.kImageCache[key]; ok {
 		return false
 	}
 	m.kImageCache[key] = struct{}{}
-	m.kImageMtx.Unlock()
 
 	log.Debug("KeyImagePush push image cache", "key", key)
 	return true
