@@ -480,6 +480,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, byteCodeG
 		}
 		if needRefund {
 			if vmerr != nil {
+				log.Debug("refund all fee", "fee", vmenv.RefundAllFee())
 				st.gas += vmenv.RefundAllFee()
 			} else {
 				st.gas += vmenv.RefundFee()

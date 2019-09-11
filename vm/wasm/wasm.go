@@ -178,6 +178,7 @@ func run(wasm *WASM, c types.Contract, input []byte) ([]byte, uint64, error) {
 	if modgas.Uint64() > 0 {
 		subModGas = uint64(1)
 	}
+	log.Debug("wasm add refundFee", "wasm refundFee", wasm.refundFee, "eng fee", eng.GetFee())
 	wasm.refundFee += eng.GetFee()
 
 	gas := contract.Gas - gasused.Uint64() - subModGas
