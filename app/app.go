@@ -407,7 +407,7 @@ func (app *LinkApplication) verifyTxsOnProcess(block *types.Block) error {
 						for _, out := range tx.Outputs {
 							switch aOutput := out.(type) {
 							case *types.AccountOutput:
-								if types.BlacklistInstance.IsBlackAddress(common.EmptyAddress, aOutput.To, tx.TokenID) {
+								if types.BlacklistInstance.IsBlackAddress(aOutput.To, tx.TokenID) {
 									errRets[coIndex] = &types.ErrBlacklistAddress
 									return
 								}
@@ -419,7 +419,7 @@ func (app *LinkApplication) verifyTxsOnProcess(block *types.Block) error {
 						if err != nil {
 							fromAddr = common.EmptyAddress
 						}
-						if types.BlacklistInstance.IsBlackAddress(fromAddr, common.EmptyAddress, tx.TokenID) {
+						if types.BlacklistInstance.IsBlackAddress(fromAddr, tx.TokenID) {
 							errRets[coIndex] = &types.ErrBlacklistAddress
 							return
 						}

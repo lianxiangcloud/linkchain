@@ -411,7 +411,7 @@ func (mem *Mempool) AddTx(peerID string, tx types.Tx) (err error) {
 			for _, out := range txUtxo.Outputs {
 				switch aOutput := out.(type) {
 				case *types.AccountOutput:
-					if types.BlacklistInstance.IsBlackAddress(common.EmptyAddress, aOutput.To, txUtxo.TokenID) {
+					if types.BlacklistInstance.IsBlackAddress(aOutput.To, txUtxo.TokenID) {
 						mem.cache.Delete(tx.Hash())
 						return types.ErrBlacklistAddress
 					}
@@ -420,7 +420,7 @@ func (mem *Mempool) AddTx(peerID string, tx types.Tx) (err error) {
 		}
 		if (txUtxo.UTXOKind() & types.Ain) == types.Ain {
 			fromAddr, _ := txUtxo.From()
-			if types.BlacklistInstance.IsBlackAddress(fromAddr, common.EmptyAddress, txUtxo.TokenID) {
+			if types.BlacklistInstance.IsBlackAddress(fromAddr, txUtxo.TokenID) {
 				mem.cache.Delete(tx.Hash())
 				return types.ErrBlacklistAddress
 			}
