@@ -21,8 +21,6 @@ import (
 	"fmt"
 	"strings"
 
-	"math/big"
-
 	"github.com/lianxiangcloud/linkchain/accounts/abi"
 	"github.com/lianxiangcloud/linkchain/blockchain"
 	"github.com/lianxiangcloud/linkchain/config"
@@ -36,6 +34,7 @@ import (
 	"github.com/lianxiangcloud/linkchain/vm"
 	"github.com/lianxiangcloud/linkchain/vm/evm"
 	"github.com/lianxiangcloud/linkchain/vm/wasm"
+	"math/big"
 )
 
 const (
@@ -54,15 +53,13 @@ var (
 //
 // StateProcessor implements Processor.
 type StateProcessor struct {
-	bc  *blockchain.BlockStore // Canonical block chain
-	app *LinkApplication
+	bc *blockchain.BlockStore // Canonical block chain
 }
 
 // NewStateProcessor initialises a new StateProcessor.
-func NewStateProcessor(app *LinkApplication, bc *blockchain.BlockStore) *StateProcessor {
+func NewStateProcessor(bc *blockchain.BlockStore) *StateProcessor {
 	return &StateProcessor{
-		bc:  bc,
-		app: app,
+		bc: bc,
 	}
 }
 
@@ -140,10 +137,6 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 			statedb.SetNonce(from, statedb.GetNonce(from)+1)
 			receipts = append(receipts, &types.Receipt{})
 		case *types.UTXOTransaction:
-			if p.isFeeChanged(tx) {
-				receipts = append(receipts, types.NewReceipt(nil, fmt.Errorf("utxo fee changed"), 0))
-				continue
-			}
 			//any account mode enter state process
 			tbr := types.NewTxBalanceRecords()
 			tbr.Type = tx.TypeName()
@@ -376,43 +369,4 @@ func (p *StateProcessor) applyTransaction(statedb *state.StateDB, tx types.Regul
 func HashForIndex(x interface{}) (h common.Hash) {
 	b := ser.MustEncodeToBytes(x)
 	return crypto.Keccak256Hash(b)
-}
-
-func (p *StateProcessor) isFeeChanged(tx *types.UTXOTransaction) bool {
-	isFeeChanged := false
-	accInAmount := big.NewInt(0)
-	for _, txin := range tx.Inputs {
-		switch input := txin.(type) {
-		case *types.AccountInput:
-			accInAmount.Add(accInAmount, input.Amount)
-		default:
-		}
-	}
-	accOutAmount := big.NewInt(0)
-	for _, txout := range tx.Outputs {
-		switch output := txout.(type) {
-		case *types.AccountOutput:
-			accOutAmount.Add(accOutAmount, output.Amount)
-		default:
-		}
-	}
-	neededGas := big.NewInt(0)
-	if accInAmount.Sign() > 0 && accInAmount.Cmp(tx.Fee) > 0 {
-		neededGas.SetUint64(types.CalNewAmountGas(accInAmount.Sub(accInAmount, tx.Fee)))
-	}
-	kind := tx.UTXOKind()
-	if (kind & types.Uin) == types.Uin {
-		if accOutAmount.Sign() > 0 {
-			neededGas.Add(neededGas, big.NewInt(0).SetUint64(types.CalNewAmountGas(accOutAmount)))
-		}
-		if (kind & types.Uout) == types.Uout {
-			utxoGas := p.app.GetUTXOGas()
-			neededGas.Add(neededGas, big.NewInt(0).SetUint64(utxoGas))
-		}
-	}
-	neededFee := neededGas.Mul(neededGas, big.NewInt(0).SetInt64(types.ParGasPrice))
-	if tx.Fee.Cmp(neededFee) < 0 {
-		isFeeChanged = true
-	}
-	return isFeeChanged
 }
