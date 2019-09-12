@@ -69,6 +69,7 @@ type BlockPool struct {
 	// peers
 	peers         map[string]*bpPeer
 	maxPeerHeight uint64
+	blocks        map[uint64]*types.Block
 
 	// atomic
 	numPending int32 // number of requests pending assignment or block response
@@ -85,6 +86,7 @@ func NewBlockPool(start uint64, requestsCh chan<- BlockRequest, errorsCh chan<- 
 		peers: make(map[string]*bpPeer),
 
 		requesters: make(map[uint64]*bpRequester),
+		blocks:     make(map[uint64]*types.Block),
 		height:     start,
 		numPending: 0,
 
@@ -116,12 +118,14 @@ func (pool *BlockPool) OnStop() {
 			delete(pool.requesters, pool.height)
 		}
 	}
+	pool.blocks = make(map[uint64]*types.Block)
 }
 
 func (pool *BlockPool) OnReset() error {
 	pool.Logger.Info("reset blockchain.BlockPool")
 	pool.peers = make(map[string]*bpPeer)
 	pool.requesters = make(map[uint64]*bpRequester)
+	pool.blocks = make(map[uint64]*types.Block)
 	pool.numPending = 0
 	return nil
 }
@@ -231,11 +235,17 @@ func (pool *BlockPool) PeekTwoBlocks() (first *types.Block, second *types.Block)
 	pool.mtx.Lock()
 	defer pool.mtx.Unlock()
 
-	if r := pool.requesters[pool.height]; r != nil {
-		first = r.getBlock()
+	// if r := pool.requesters[pool.height]; r != nil {
+	// 	first = r.getBlock()
+	// }
+	// if r := pool.requesters[pool.height+1]; r != nil {
+	// 	second = r.getBlock()
+	// }
+	if b := pool.blocks[pool.height]; b != nil {
+		first = b
 	}
-	if r := pool.requesters[pool.height+1]; r != nil {
-		second = r.getBlock()
+	if b := pool.blocks[pool.height+1]; b != nil {
+		second = b
 	}
 	return
 }
@@ -254,6 +264,7 @@ func (pool *BlockPool) PopRequest() {
 		*/
 		r.Stop()
 		delete(pool.requesters, pool.height)
+		delete(pool.blocks, pool.height)
 		pool.height++
 	} else {
 		panic(fmt.Sprintf("Expected requester to pop, got nothing at height %v", pool.height))
@@ -267,9 +278,11 @@ func (pool *BlockPool) RedoRequest(height uint64) string {
 	pool.mtx.Lock()
 	defer pool.mtx.Unlock()
 
+	delete(pool.blocks, height)
 	request := pool.requesters[height]
 	// RemovePeer will redo all requesters associated with this peer.
 	pool.removePeer(request.peerID)
+	log.Info("RedoRequest", "height", height, "peer", request.peerID)
 	return request.peerID
 }
 
@@ -292,6 +305,7 @@ func (pool *BlockPool) AddBlock(peerID string, block *types.Block, blockSize int
 	}
 
 	if requester.setBlock(block, peerID) {
+		pool.blocks[block.Height] = block
 		atomic.AddInt32(&pool.numPending, -1)
 		peer := pool.peers[peerID]
 		if peer != nil {
@@ -331,14 +345,17 @@ func (pool *BlockPool) SetPeerHeight(peerID string, height uint64) {
 func (pool *BlockPool) RemovePeer(peerID string) {
 	pool.mtx.Lock()
 	defer pool.mtx.Unlock()
-	pool.Logger.Info("BlockPool RemovePeer removePeer", "peer.id", peerID)
+	pool.Logger.Info("BlockPool RemovePeer", "peer.id", peerID)
 	pool.removePeer(peerID)
 }
 
 func (pool *BlockPool) removePeer(peerID string) {
 	for _, requester := range pool.requesters {
-		if requester.getPeerID() == peerID {
+		pid := requester.getPeerID()
+		if pid == peerID {
 			requester.redo()
+		} else {
+			pool.Logger.Info("BlockPool removePeer", "peer.id", peerID, "req.id", pid)
 		}
 	}
 	if peer, ok := pool.peers[peerID]; ok {
@@ -648,15 +665,19 @@ OUTER_LOOP:
 
 		// Send request and wait.
 		pool.sendRequest(bpr.height, peer.id)
+		log.Info("bpRequester send", "height", bpr.height, "peer", bpr.peerID)
 	WAIT_LOOP:
 		for {
 			select {
 			case <-pool.Quit():
+				log.Info("bpRequester pool.quit", "height", bpr.height, "peer", bpr.peerID)
 				bpr.Stop()
 				return
 			case <-bpr.Quit():
+				log.Info("bpRequester quit", "height", bpr.height, "peer", bpr.peerID)
 				return
 			case <-bpr.redoCh:
+				log.Info("bpRequester redo", "height", bpr.height, "peer", bpr.peerID)
 				bpr.reset()
 				continue OUTER_LOOP
 			case <-bpr.gotBlockCh:
