@@ -110,8 +110,8 @@ func NewLinkApplication(db dbm.DB, bc *blockchain.BlockStore, utxoStore *utxo.Ut
 	}
 
 	app := &LinkApplication{
-		logger:             log.NewNopLogger(),
-		processor:          NewStateProcessor(bc),
+		logger: log.NewNopLogger(),
+		//processor:          NewStateProcessor(bc),
 		vmConfig:           evm.Config{EnablePreimageRecording: false},
 		blockChain:         bc,
 		balanceRecordStore: brs,
@@ -127,6 +127,7 @@ func NewLinkApplication(db dbm.DB, bc *blockchain.BlockStore, utxoStore *utxo.Ut
 		poceedHandle:  poceedHandle,
 		awardHandle:   awardHandle,
 	}
+	app.processor = NewStateProcessor(app, bc)
 	app.lastCoe = GetCoefficient(app.storeState, app.logger)
 	return app, nil
 }
