@@ -807,6 +807,7 @@ func (la *LinkAccount) GetLocalOutputs(startid uint64, size uint64) ([]types.UTX
 		o, err = la.loadOutputDetail(nextid)
 		if err != nil {
 			if err == types.ErrOutputNotFound {
+				nextid++
 				continue
 			}
 			break
