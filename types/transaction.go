@@ -225,8 +225,7 @@ func (tx *Transaction) IllegalGasLimitOrGasPrice(hascode bool) bool {
 		return true
 	}
 	var gasFee uint64
-	iscontract := IsContract(tx.Data())
-	if iscontract {
+	if hascode {
 		gasFee = CalNewContractAmountGas(tx.Value())
 	} else {
 		gasFee = CalNewAmountGas(tx.Value())
@@ -238,6 +237,7 @@ func (tx *Transaction) IllegalGasLimitOrGasPrice(hascode bool) bool {
 			return true
 		}
 	}
+	iscontract := IsContract(tx.Data())
 	if iscontract && tx.To() == nil {
 		return false
 	}

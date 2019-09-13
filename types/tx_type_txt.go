@@ -152,8 +152,7 @@ func (tx *TokenTransaction) IllegalGasLimitOrGasPrice(hascode bool) bool {
 		return true
 	}
 	var gasFee uint64
-	iscontract := IsContract(tx.Data())
-	if iscontract {
+	if hascode {
 		if common.IsLKC(tx.data.TokenAddress) {
 			gasFee = CalNewContractAmountGas(tx.Value())
 		} else {
@@ -172,8 +171,9 @@ func (tx *TokenTransaction) IllegalGasLimitOrGasPrice(hascode bool) bool {
 			return true
 		}
 	}
+	iscontract := IsContract(tx.Data())
 	if iscontract && tx.To() == nil {
-		return false
+		return true
 	}
 	if !hascode && gasFee != tx.Gas() {
 		return true
