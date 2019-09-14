@@ -465,7 +465,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, byteCodeG
 				if isLianke {
 					totalFee = types.CalNewAmountGas(msg.Value())
 				} else {
-					totalFee = types.MinGasLimit
+					totalFee = uint64(types.MinGasLimit)
 				}
 			}
 			if vmerr = st.useGas(totalFee); vmerr != nil {
