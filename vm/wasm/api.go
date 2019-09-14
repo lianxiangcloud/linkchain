@@ -1586,7 +1586,7 @@ func gasTokenFee(eng *vm.Engine, toAddr common.Address, val *big.Int) uint64 {
 	if eng.State.GetContractCode(toAddr.Bytes()) != nil {
 		fee = 0
 	} else {
-		fee = types.MinGasLimit
+		fee = uint64(types.MinGasLimit)
 	}
 	return fee
 }

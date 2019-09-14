@@ -17,14 +17,14 @@ import "math/big"
 */
 
 const (
-	MaxGasLimit  = 5e9     // max gas limit
-	MinGasLimit  = 5e5     // min gas limit
-	MaxFeeCounts = 1024000
+	MaxGasLimit  int64 = 5e9     // max gas limit
+	MinGasLimit  int64 = 5e5     // min gas limit
+	MaxFeeCounts int64 = 1024000
 
-	everLiankeFee         = 5e4  // ever poundage fee unit(gas)
-	everContractLiankeFee = 25e3 // ever poundate contract fee uint(gas)
-	gasToLiankeRate       = 1e7  // lianke = 1e+7 gas
-	GasPrice              = 1e11
+	everLiankeFee         int64 = 5e4  // ever poundage fee unit(gas)
+	everContractLiankeFee int64 = 25e3 // ever poundate contract fee uint(gas)
+	gasToLiankeRate       int64 = 1e7  // lianke = 1e+7 gas
+	GasPrice              int64 = 1e11
 
 )
 
