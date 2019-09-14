@@ -332,9 +332,9 @@ func NewRPCBlockUTXO(b *types.Block, inclTx bool, fullTx bool, tokenOutputSeqs m
 }
 
 type QuickRPCBlock struct {
-	Block      *RPCBlock    `json:"block"`
-	NextHeight *hexutil.Big `json:next_height`
-	MaxHeight  *hexutil.Big `json:max_height`
+	Block      *RPCBlock    `json:"block,omitempty"`
+	NextHeight *hexutil.Big `json:"next_height"`
+	MaxHeight  *hexutil.Big `json:"max_height"`
 }
 
 type RPCBalanceRecord struct {

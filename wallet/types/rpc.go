@@ -11,7 +11,7 @@ import (
 )
 
 type RPCResponse struct {
-	ID      string          `json:"id"`
+	ID      uint64          `json:"id"`
 	Jsonrpc string          `json:"jsonrpc"`
 	Result  json.RawMessage `json:"result"`
 	Error   RPCErr          `json:"error"`

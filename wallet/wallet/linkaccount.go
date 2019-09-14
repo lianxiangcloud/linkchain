@@ -289,8 +289,8 @@ func (la *LinkAccount) RefreshQuick() {
 	la.lock.Lock()
 	defer la.lock.Unlock()
 
-	if la.walletOpen && la.autoRefresh && la.localHeight.Cmp(la.remoteHeight) <= 0 {
-		for la.localHeight.Cmp(la.remoteHeight) <= 0 {
+	if la.walletOpen && la.autoRefresh {
+		for {
 			la.Logger.Debug("RefreshQuick", "localHeight", la.localHeight, "remoteHeight", la.remoteHeight)
 
 			quickBlock, err := GetBlockUTXO(la.localHeight)
@@ -298,14 +298,14 @@ func (la *LinkAccount) RefreshQuick() {
 				la.Logger.Error("RefreshQuick GetBlockUTXO fail", "height", la.localHeight, "err", err)
 				return
 			}
-			nextHeight := (*big.Int)(quickBlock.NextHeight)
-			remoteHeight := (*big.Int)(quickBlock.MaxHeight)
+			nextHeight := quickBlock.NextHeight.ToInt()
+			remoteHeight := quickBlock.MaxHeight.ToInt()
 
 			if quickBlock.Block == nil {
-				if quickBlock.NextHeight == nil || nextHeight.Sign() <= 0 {
-					la.Logger.Info("GetBlockUTXO not available NextHeight", "height", la.localHeight)
-					return
-				}
+				// if quickBlock.NextHeight == nil || nextHeight.Sign() <= 0 {
+				// 	la.Logger.Info("GetBlockUTXO not available NextHeight", "height", la.localHeight)
+				// 	return
+				// }
 				la.localHeight.Set(nextHeight)
 				la.remoteHeight.Set(remoteHeight)
 				continue
@@ -323,10 +323,10 @@ func (la *LinkAccount) RefreshQuick() {
 				return
 			}
 
-			if quickBlock.NextHeight == nil || nextHeight.Sign() <= 0 {
-				la.Logger.Info("GetBlockUTXO not available NextHeight", "height", la.localHeight)
-				return
-			}
+			// if quickBlock.NextHeight == nil || nextHeight.Sign() <= 0 {
+			// 	la.Logger.Info("GetBlockUTXO not available NextHeight", "height", la.localHeight)
+			// 	return
+			// }
 
 			la.localHeight.Set(nextHeight)
 			la.remoteHeight.Set(remoteHeight)

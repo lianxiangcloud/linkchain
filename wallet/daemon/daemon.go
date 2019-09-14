@@ -80,7 +80,7 @@ func CallJSONRPC(method string, params interface{}) ([]byte, error) {
 	requestData := make(map[string]interface{})
 
 	requestData["jsonrpc"] = "2.0"
-	requestData["id"] = "0"
+	requestData["id"] = 1
 	requestData["method"] = method
 	requestData["params"] = params
 
