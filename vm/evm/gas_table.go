@@ -23,6 +23,7 @@ import (
 	"github.com/lianxiangcloud/linkchain/libs/common"
 	"github.com/lianxiangcloud/linkchain/libs/math"
 	"github.com/lianxiangcloud/linkchain/types"
+	"github.com/lianxiangcloud/linkchain/libs/log"
 )
 
 // memoryGasCosts calculates the quadratic gas for memory expansion. It does so
@@ -352,16 +353,20 @@ func gasCall(gt cfg.GasTable, evm *EVM, contract *Contract, stack *Stack, mem *M
 		eip158         = true
 		overflow       = false
 	)
+	log.Debug("gasCall", "gt.Calls", gt.Calls, "gas", gas)
 
 	if eip158 {
 		if transfersValue && evm.StateDB.Empty(address) {
 			gas += cfg.CallNewAccountGas
+			log.Debug("gasCall", "CallNewAccountGas", cfg.CallNewAccountGas, "gas", gas)
 		}
 	} else if !evm.StateDB.Exist(address) {
 		gas += cfg.CallNewAccountGas
+		log.Debug("gasCall", "CallNewAccountGas", cfg.CallNewAccountGas, "gas", gas)
 	}
 	if transfersValue {
 		gas += cfg.CallValueTransferGas
+		log.Debug("gasCall", "CallValueTransferGas", cfg.CallValueTransferGas, "gas", gas)
 	}
 	memoryGas, err := memoryGasCost(mem, memorySize)
 	if err != nil {
@@ -370,6 +375,7 @@ func gasCall(gt cfg.GasTable, evm *EVM, contract *Contract, stack *Stack, mem *M
 	if gas, overflow = math.SafeAdd(gas, memoryGas); overflow {
 		return 0, errGasUintOverflow
 	}
+	log.Debug("gasCall", "memoryGasCost", memoryGas, "gas", gas)
 
 	evm.callGasTemp, err = callGas(gt, contract.Gas, gas, stack.Back(0))
 	if err != nil {
@@ -378,6 +384,7 @@ func gasCall(gt cfg.GasTable, evm *EVM, contract *Contract, stack *Stack, mem *M
 	if gas, overflow = math.SafeAdd(gas, evm.callGasTemp); overflow {
 		return 0, errGasUintOverflow
 	}
+	log.Debug("gasCall", "callGasTemp", evm.callGasTemp, "gas", gas)
 
 	addrInt, valueInt := stack.Back(1), stack.Back(2)
 	toAddr := common.BigToAddress(addrInt)
@@ -390,6 +397,7 @@ func gasCall(gt cfg.GasTable, evm *EVM, contract *Contract, stack *Stack, mem *M
 		evm.fees = append(evm.fees, fee)
 		evm.feeSaved = true
 	}
+	log.Debug("gasCall", "fee", fee, "value", value.String(), "gas", gas)
 
 	return gas, nil
 }
