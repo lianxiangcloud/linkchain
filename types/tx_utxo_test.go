@@ -28,7 +28,7 @@ func getUTXOTx(t *testing.T) *UTXOTransaction {
 		Nonce:  1,
 		Amount: amount,
 	}
-    transferGas := CalNewAmountGas(amount)
+    transferGas := CalNewAmountGas(amount, EverLiankeFee)
     transferFee := big.NewInt(0).Mul(big.NewInt(ParGasPrice), big.NewInt(0).SetUint64(transferGas))
 	utxoDest := &UTXODestEntry{
 		Addr:   lktypes.AccountAddress{},

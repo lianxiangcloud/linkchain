@@ -68,7 +68,7 @@ func newTokenTransaction(tokenAddress common.Address, nonce uint64, to *common.A
 	if gasLimit > 0 {
 		d.GasLimit = gasLimit
 	} else {
-		fee := CalNewAmountGas(amount)
+		fee := CalNewAmountGas(amount, EverLiankeFee)
 		d.GasLimit = fee
 	}
 
@@ -154,13 +154,13 @@ func (tx *TokenTransaction) IllegalGasLimitOrGasPrice(hascode bool) bool {
 	var gasFee uint64
 	if hascode {
 		if common.IsLKC(tx.data.TokenAddress) {
-			gasFee = CalNewContractAmountGas(tx.Value())
+			gasFee = CalNewAmountGas(tx.Value(), EverContractLiankeFee)
 		} else {
 			gasFee = 0
 		}
 	} else {
 		if common.IsLKC(tx.data.TokenAddress) {
-			gasFee = CalNewAmountGas(tx.Value())
+			gasFee = CalNewAmountGas(tx.Value(), EverLiankeFee)
 		} else {
 			gasFee = uint64(MinGasLimit)
 		}

@@ -257,7 +257,7 @@ func getUTXOTx(skey *ecdsa.PrivateKey, nonce uint64, amount *big.Int, t *testing
 		Nonce:  nonce,
 		Amount: amount,
 	}
-	transferGas := types.CalNewAmountGas(amount)
+	transferGas := types.CalNewAmountGas(amount, types.EverLiankeFee)
 	transferFee := big.NewInt(0).Mul(big.NewInt(types.ParGasPrice), big.NewInt(0).SetUint64(transferGas))
 	utxoDest := &types.UTXODestEntry{
 		Addr:   lktypes.AccountAddress{},

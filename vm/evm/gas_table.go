@@ -576,9 +576,9 @@ func gasFee(evm *EVM, toAddr common.Address, val *big.Int) uint64 {
 	}
 	var fee uint64
 	if evm.StateDB.IsContract(toAddr) {
-		fee = types.CalNewAmountGas(val)
+		fee = types.CalNewAmountGas(val, types.EverLiankeFee)
 	} else {
-		fee = types.CalNewContractAmountGas(val)
+		fee = types.CalNewAmountGas(val, types.EverContractLiankeFee)
 	}
 	return fee
 }

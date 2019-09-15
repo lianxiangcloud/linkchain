@@ -1306,13 +1306,13 @@ func (tx *UTXOTransaction) checkState(censor TxCensor) error {
 
 	neededGas := big.NewInt(0)
 	if aggInputAmount.Sign() > 0 && aggInputAmount.Cmp(tx.Fee) > 0 {
-		neededGas.SetUint64(CalNewAmountGas(aggInputAmount.Sub(aggInputAmount, tx.Fee)))
+		neededGas.SetUint64(CalNewAmountGas(aggInputAmount.Sub(aggInputAmount, tx.Fee), EverLiankeFee))
 	}
 
 	kind := tx.UTXOKind()
 	if (kind & Uin) == Uin {
 		if accOutAmount.Sign() > 0 {
-			neededGas.Add(neededGas, big.NewInt(0).SetUint64(CalNewAmountGas(accOutAmount)))
+			neededGas.Add(neededGas, big.NewInt(0).SetUint64(CalNewAmountGas(accOutAmount, EverLiankeFee)))
 		}
 		if (kind & Uout) == Uout {
 			utxoGas := censor.GetUTXOGas()

@@ -117,7 +117,7 @@ func (args *SendTxArgs) SetDefaults(ctx context.Context, b Backend) error {
 	}
 	if args.Gas == nil {
 		args.Gas = new(hexutil.Uint64)
-		*(*uint64)(args.Gas) = types.CalNewAmountGas(args.Value.ToInt())
+		*(*uint64)(args.Gas) = types.CalNewAmountGas(args.Value.ToInt(), types.EverLiankeFee)
 	}
 	if args.GasPrice == nil {
 		price, err := b.SuggestPrice(ctx)

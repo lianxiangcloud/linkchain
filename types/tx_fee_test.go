@@ -8,7 +8,7 @@ import (
 func TestCalNewFee(t *testing.T) {
 	type gasTest struct {
 		val    *big.Int
-		gasFee uint64
+		gasFee int64
 	}
 
 	lianke := new(big.Int).Mul(big.NewInt(GasPrice), big.NewInt(gasToLiankeRate))
@@ -26,8 +26,8 @@ func TestCalNewFee(t *testing.T) {
 
 	// check
 	for _, v := range gasTestMsg {
-		calFee := CalNewAmountGas(v.val)
-		if v.gasFee != calFee {
+		calFee := CalNewAmountGas(v.val, EverLiankeFee)
+		if uint64(v.gasFee) != calFee {
 			t.Fatal("CalNewAmountGas failed.", "val", v.val, "gasFee", v.gasFee, "calFee", calFee)
 		}
 	}
@@ -36,7 +36,7 @@ func TestCalNewFee(t *testing.T) {
 func TestCalNewContractAmountGasNewFee(t *testing.T) {
 	type gasTest struct {
 		val    *big.Int
-		gasFee uint64
+		gasFee int64
 	}
 
 	lianke := new(big.Int).Mul(big.NewInt(GasPrice), big.NewInt(gasToLiankeRate))
@@ -54,8 +54,8 @@ func TestCalNewContractAmountGasNewFee(t *testing.T) {
 
 	// check
 	for _, v := range gasTestMsg {
-		calFee := CalNewContractAmountGas(v.val)
-		if v.gasFee != calFee {
+		calFee := CalNewAmountGas(v.val, EverContractLiankeFee)
+		if uint64(v.gasFee) != calFee {
 			t.Fatal("CalNewAmountGas failed.", "val", v.val, "gasFee", v.gasFee, "calFee", calFee)
 		}
 	}

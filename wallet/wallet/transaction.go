@@ -936,7 +936,7 @@ func (wallet *Wallet) estimateTxFee(transferMoney *big.Int) *big.Int {
 	if transferMoney.Sign() == 0 {
 		return big.NewInt(0)
 	}
-	gasLimit := types.CalNewAmountGas(transferMoney)
+	gasLimit := types.CalNewAmountGas(transferMoney, types.EverLiankeFee)
 	return big.NewInt(0).Mul(big.NewInt(0).SetUint64(gasLimit), big.NewInt(types.GasPrice))
 }
 

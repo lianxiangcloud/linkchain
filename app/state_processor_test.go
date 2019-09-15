@@ -79,7 +79,7 @@ func TestProcess(t *testing.T) {
 	require.Nil(t, err)
 	amount, _ = hexutil.DecodeBig("0x56bc75e2d63100000")
 	tx = blocks[i].Data.Txs[0].(*types.UTXOTransaction)
-	transferGas = types.CalNewAmountGas(amount)
+	transferGas = types.CalNewAmountGas(amount, types.EverLiankeFee)
 	txFee = tx.Fee
 	assert.Equal(t, transferGas, big.NewInt(0).Div(tx.Fee, big.NewInt(types.ParGasPrice)).Uint64())
 	assert.Equal(t, bfBalance.Sub(bfBalance, big.NewInt(0).Add(amount, txFee)), states[i].GetBalance(accounts[0].Address))
@@ -104,7 +104,7 @@ func TestProcess(t *testing.T) {
 	require.Nil(t, err)
 	amount, _ = hexutil.DecodeBig("0x56bc75e2d63100000")
 	tx = blocks[i].Data.Txs[1].(*types.UTXOTransaction)
-	transferGas = types.CalNewAmountGas(amount)
+	transferGas = types.CalNewAmountGas(amount, types.EverLiankeFee)
 	txFee = tx.Fee
 	assert.True(t, transferGas < big.NewInt(0).Div(txFee, big.NewInt(types.ParGasPrice)).Uint64())
 	assert.Equal(t, bfBalance.Sub(bfBalance, big.NewInt(0).Add(amount, txFee)), states[i].GetBalance(accounts[0].Address))
@@ -162,7 +162,7 @@ func TestProcess(t *testing.T) {
 	bfBalance = states[i].GetBalance(accounts[0].Address)
 	testToAddr = common.HexToAddress("0x3")
 	amount = big.NewInt(1e18)
-	transferGas = types.CalNewAmountGas(amount)
+	transferGas = types.CalNewAmountGas(amount, types.EverLiankeFee)
 	transferFee := big.NewInt(0).Mul(big.NewInt(0).SetUint64(transferGas), big.NewInt(types.ParGasPrice))
 
 	blocks[i] = genBlockWithLocalTransaction(i)
@@ -504,7 +504,7 @@ func genBlockWithLocalTransaction(height uint64) *types.Block {
 		//tokenAddress := &common.Address{0}
 		to := testToAddr
 		amount := big.NewInt(1e18)
-		gasLimit = types.CalNewAmountGas(amount)
+		gasLimit = types.CalNewAmountGas(amount, types.EverLiankeFee)
 		signedTx, err := genTx(accounts[0], nonce, &to, amount, nil)
 		if err != nil {
 			panic(err)
@@ -538,7 +538,7 @@ func getUTXOTokenTx(skey *ecdsa.PrivateKey, toAddr common.Address, tokenID commo
 		Nonce:  nonce,
 		Amount: amount,
 	}
-	transferGas := types.CalNewAmountGas(amount) + 100000
+	transferGas := types.CalNewAmountGas(amount, types.EverLiankeFee) + 100000
 	transferFee := big.NewInt(0).Mul(big.NewInt(types.ParGasPrice), big.NewInt(0).SetUint64(transferGas))
 	accountDest := &types.AccountDestEntry{
 		To:     toAddr,

@@ -302,7 +302,7 @@ func genTx(from *keystore.Key, nonce uint64, to *common.Address, amount *big.Int
 	if to != nil {
 		toAddr = *to
 	}
-	gasLimit := types.CalNewAmountGas(amount)
+	gasLimit := types.CalNewAmountGas(amount, types.EverLiankeFee)
 	tx := types.NewTransaction(nonce, toAddr, amount, gasLimit, gasPrice, payload)
 	if err := tx.Sign(types.GlobalSTDSigner, from.PrivateKey); err != nil {
 		return nil, err

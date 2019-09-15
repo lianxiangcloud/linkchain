@@ -135,7 +135,6 @@ func (in *Interpreter) Run(contract *Contract, input []byte, readOnly bool) (ret
 		// to be uint256. Practically much less so feasible.
 		pc   = uint64(0) // program counter
 		cost uint64
-		fee  uint64
 		// copies used by tracer
 		pcCopy  uint64 // needed for the deferred Tracer
 		gasCopy uint64 // for Tracer to log gas remaining before execution
@@ -214,10 +213,6 @@ func (in *Interpreter) Run(contract *Contract, input []byte, readOnly bool) (ret
 				}
 			}
 			return nil, ErrOutOfGas
-		}
-		// save fee
-		if fee != 0 {
-			in.evm.fees = append(in.evm.fees, fee)
 		}
 		if memorySize > 0 {
 			mem.Resize(memorySize)

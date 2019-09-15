@@ -199,7 +199,7 @@ func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit 
 	if gasLimit > 0 {
 		d.GasLimit = gasLimit
 	} else {
-		fee := CalNewAmountGas(amount)
+		fee := CalNewAmountGas(amount, EverLiankeFee)
 		d.GasLimit = fee
 	}
 
@@ -226,9 +226,9 @@ func (tx *Transaction) IllegalGasLimitOrGasPrice(hascode bool) bool {
 	}
 	var gasFee uint64
 	if hascode {
-		gasFee = CalNewContractAmountGas(tx.Value())
+		gasFee = CalNewAmountGas(tx.Value(), EverContractLiankeFee)
 	} else {
-		gasFee = CalNewAmountGas(tx.Value())
+		gasFee = CalNewAmountGas(tx.Value(), EverLiankeFee)
 	}
 
 	if tx.Value().Sign() > 0 {

@@ -217,7 +217,7 @@ func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr
 	}
 
 	if args.To != nil && !state.IsContract(*args.To) {
-		gasFee := types.CalNewAmountGas(args.Value.ToInt())
+		gasFee := types.CalNewAmountGas(args.Value.ToInt(), types.EverLiankeFee)
 		return nil, gasFee, 0, false, nil
 	}
 
