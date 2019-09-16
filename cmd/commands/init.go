@@ -252,7 +252,7 @@ func createGenesisBlock(config *cfg.Config, genDoc *types.GenesisDoc) ([]*types.
 			ChainID:    config.ChainID,
 			Height:     types.BlockHeightZero,
 			Coinbase:   common.HexToAddress("0x0000000000000000000000000000000000000000"),
-			Time:       uint64(1569412800),
+			Time:       uint64(1507737600),
 			NumTxs:     0,
 			TotalTxs:   0,
 			ParentHash: common.EmptyHash,
@@ -261,6 +261,10 @@ func createGenesisBlock(config *cfg.Config, genDoc *types.GenesisDoc) ([]*types.
 		},
 		Data:       &types.Data{},
 		LastCommit: &types.Commit{},
+	}
+
+	if time.Now().Unix() >= 1569409200 {
+		block.Header.Time = uint64(1569409200)
 	}
 
 	if len(contractData) > 0 && config.OnLine {
