@@ -79,7 +79,15 @@ var canAddFutureTxType = map[string]struct{}{
 }
 
 var (
+	// BroadcastTxFunc is called when we broadcast tx
 	BroadcastTxFunc = defaultBroadcastTx
+)
+
+var (
+	// GoodTxRebroadcastTime determines when to rebroadcast goodTx
+	GoodTxRebroadcastTime = 30 * time.Second
+	// GoodTxDropTime determines when to drop goodTx
+	GoodTxDropTime = 60 * time.Second
 )
 
 // Mempool is an ordered in-memory pool for transactions before they are proposed in a consensus
@@ -120,6 +128,9 @@ type Mempool struct {
 	//keyimage cache
 	kImageMtx   sync.RWMutex
 	kImageCache map[lktypes.Key]struct{}
+
+	// goodTxBeats records the elapsed time since this goodTx entered goodTx list
+	goodTxBeats sync.Map
 }
 
 // MemFunc sets an optional parameter on the Mempool.
@@ -175,6 +186,8 @@ func (mem *Mempool) loop() {
 	evict := time.NewTicker(evictionInterval)
 	defer evict.Stop()
 
+	rebroadcast := time.NewTicker(GoodTxRebroadcastTime)
+	defer rebroadcast.Stop()
 	// Keep waiting for and reacting to the various events
 	for {
 		select {
@@ -206,6 +219,34 @@ func (mem *Mempool) loop() {
 				}
 			}
 			mem.proxyMtx.Unlock()
+		case <-rebroadcast.C:
+			filterList := []*clist.CList{mem.goodTxs, mem.utxoTxs, mem.specGoodTxs}
+			var count int
+			for _, txsList := range filterList {
+				for e := txsList.Front(); e != nil; e = e.Next() {
+					memTx := e.Value.(*mempoolTx)
+					t, ok := mem.goodTxBeats.Load(memTx.tx.Hash())
+					if ok != true {
+						mem.goodTxBeats.Store(memTx.tx.Hash(), time.Now())
+						mem.logger.Error("Load GoodTxBeats Error", "hash", memTx.tx.Hash())
+						continue
+					}
+					interval := time.Since(t.(time.Time))
+					if interval < GoodTxRebroadcastTime || !mem.config.Broadcast {
+						// no need to rebroadcast goodTx
+						continue
+					}
+					select {
+					case mem.broadcastTxChan <- &RecieveMessage{PeerID: "", Tx: memTx.tx}:
+					default:
+						mem.logger.Info("broadcastTxChan is full", "size", mem.config.BroadcastChanSize, "hash", memTx.tx.Hash())
+					}
+					count++
+				}
+			}
+			if count > 0 {
+				mem.logger.Info("rebroadcast goodTx", "count", count)
+			}
 		}
 	}
 }
@@ -271,13 +312,12 @@ func (mem *Mempool) Unlock() {
 	mem.proxyMtx.Unlock()
 }
 
-//SetReceiveP2pTx ...
+// SetReceiveP2pTx ...
 func (mem *Mempool) SetReceiveP2pTx(on bool) {
 	mem.config.ReceiveP2pTx = on
 }
 
-//VerifyTxFromCache is used to check whether tx has been verify in mempool by APP
-// func (mem *Mempool) VerifyTxFromCache(hash common.Hash) (*common.Address, bool) {
+// GetTxFromCache ...
 func (mem *Mempool) GetTxFromCache(hash common.Hash) types.Tx {
 	return mem.cache.Get(hash)
 }
@@ -327,14 +367,9 @@ func (mem *Mempool) addUTXOTx(tx types.Tx) (err error) {
 	// @Note: we have already add nonce at tx.CheckState;
 	if err := mem.app.CheckTx(tx, StateCheck); err != nil {
 		if err == types.ErrNonceTooHigh { // has account input
-			if mem.futureTxsCount >= mem.config.FutureSize {
-				return types.ErrMempoolIsFull
-			}
-			if from == common.EmptyAddress {
-				panic("addUTXOTx: from is empty, should not happen")
-			}
+			// no need to check address here
+			// delete cache should be processed outside
 			err = mem.addFutureTx(tx)
-			log.Debug("add UTXOTx to Future", "tx", tx.Hash, "from", from, "err", err)
 		}
 		return err
 	}
@@ -342,13 +377,16 @@ func (mem *Mempool) addUTXOTx(tx types.Tx) (err error) {
 	if isOnlyUtxoInput {
 		mem.addPureUtxoTx(tx)
 	} else {
+		if mem.goodTxs.Len() >= mem.config.Size {
+			err = mem.addFutureTx(tx)
+			return err
+		}
 		mem.addGoodTx(tx, true)
 	}
 	return nil
 }
 
 func (mem *Mempool) addLocalTx(tx types.Tx) (err error) {
-	log.Debug("addLocalTx", "hash", tx.Hash())
 	if err = mem.app.CheckTx(tx, StateCheck); err == nil {
 		if mem.goodTxs.Len() < mem.config.Size {
 			mem.addGoodTx(tx, true)
@@ -356,13 +394,8 @@ func (mem *Mempool) addLocalTx(tx types.Tx) (err error) {
 			err = mem.addFutureTx(tx)
 		}
 	} else if err == types.ErrNonceTooHigh {
-		if mem.futureTxsCount >= mem.config.FutureSize {
-			mem.cache.Delete(tx.Hash())
-			return types.ErrMempoolIsFull
-		}
+		// delete cache should be processed outside	(same as addUTXOTx)
 		err = mem.addFutureTx(tx)
-	} else {
-		mem.logger.Warn("addLocalTx", "CheckTx failed", err, "txHash", tx.Hash().Hex())
 	}
 	return err
 }
@@ -374,15 +407,12 @@ func (mem *Mempool) addLocalSpecTx(tx types.Tx) (err error) {
 		} else {
 			err = types.ErrMempoolIsFull
 		}
-	} else {
-		if err != types.ErrNonceTooHigh {
-			mem.logger.Warn("addLocalSpecTx", "CheckSpecTx failed", err, "tx", tx.TypeName(), "txHash", tx.Hash())
-		}
 	}
 	return err
 }
 
 //AddTx add good txs in a concurrent linked-list
+//@Note: Caller should print the error log
 func (mem *Mempool) AddTx(peerID string, tx types.Tx) (err error) {
 	// CACHE
 	if !mem.cache.Put(tx) {
@@ -443,7 +473,6 @@ func (mem *Mempool) AddTx(peerID string, tx types.Tx) (err error) {
 	case *types.MultiSignAccountTx:
 		err = mem.addLocalSpecTx(tx)
 	default:
-		mem.logger.Error("AddTx fail,Invaild tx type")
 		mem.cache.Delete(tx.Hash())
 		return types.ErrParams
 	}
@@ -454,19 +483,17 @@ func (mem *Mempool) AddTx(peerID string, tx types.Tx) (err error) {
 		select {
 		case mem.broadcastTxChan <- &RecieveMessage{PeerID: peerID, Tx: tx}:
 		default:
-			mem.logger.Info("broadcastTxChan is full", "size", mem.config.BroadcastChanSize, "hash", tx.Hash().Hex())
+			mem.logger.Info("broadcastTxChan is full", "size", mem.config.BroadcastChanSize, "hash", tx.Hash())
 		}
 	}
 	return err
 }
 
+//@Note: Caller should print the error log
 func (mem *Mempool) add(data interface{}) (err error) {
 	switch v := data.(type) {
 	case *RecieveMessage:
 		err = mem.AddTx(v.PeerID, v.Tx)
-		if err != nil && err != types.ErrTxDuplicate && err != types.ErrMempoolIsFull {
-			mem.logger.Error("mempool add data from peers failed", "err", err, "v", v.Tx.Hash())
-		}
 	}
 	return err
 }
@@ -516,25 +543,34 @@ func defaultBroadcastTx(peerID string, tx types.Tx, sw p2p.P2PManager, logger lo
 }
 
 func (mem *Mempool) addSpecGoodTx(tx types.Tx) {
+	// record add to goodTx list time
+	mem.goodTxBeats.Store(tx.Hash(), time.Now())
+
 	addtime := time.Now()
 	memTx := &mempoolTx{tx: tx, addtime: &addtime}
 	mem.specGoodTxs.PushBack(memTx)
-	mem.logger.Debug("Added Specgood transaction", "tx", tx.Hash(), "type", tx.TypeName())
+	mem.logger.Debug("Added Specgood transaction", "hash", tx.Hash(), "type", tx.TypeName())
 	mem.notifyTxsAvailable()
 }
 
 func (mem *Mempool) addPureUtxoTx(tx types.Tx) {
+	// record add to goodTx list time
+	mem.goodTxBeats.Store(tx.Hash(), time.Now())
+
 	memTx := &mempoolTx{tx: tx}
 	mem.utxoTxs.PushBack(memTx)
-	mem.logger.Debug("Added pure utxo transaction", "tx", tx.Hash(), "type", tx.TypeName())
+	mem.logger.Debug("Added pure utxo transaction", "hash", tx.Hash(), "type", tx.TypeName())
 	mem.notifyTxsAvailable()
 }
 
 // addGoodTx add a transaction to goodTxs
 func (mem *Mempool) addGoodTx(tx types.Tx, notPromote bool) {
+	// record add to goodTx list time
+	mem.goodTxBeats.Store(tx.Hash(), time.Now())
+
 	memTx := &mempoolTx{tx: tx}
 	mem.goodTxs.PushBack(memTx)
-	mem.logger.Debug("Added good transaction", "tx", tx.Hash(), "type", tx.TypeName())
+	mem.logger.Debug("Added good transaction", "hash", tx.Hash(), "type", tx.TypeName())
 	mem.metrics.Size.Set(float64(mem.GoodTxsSize()))
 	mem.notifyTxsAvailable()
 
@@ -556,28 +592,29 @@ func (mem *Mempool) addTofutureTxs(from common.Address, tx types.RegularTx) erro
 
 	inserted, _ := mem.futureTxs[from].Add(tx)
 	if !inserted {
-		mem.logger.Warn("futureTxs Add tx duplicate cached", "txNonce", tx.Nonce(), "txHash", tx.Hash())
+		mem.logger.Warn("futureTxs Add tx duplicate cached", "nonce", tx.Nonce(), "hash", tx.Hash())
 		return types.ErrTxDuplicate
 	}
-	mem.logger.Debug("Added future transaction", "tx", tx.Hash().Hex(), "type", tx.TypeName(), "from", from.Hex(), "nonce", tx.Nonce())
-	if mem.config.RemoveFutureTx {
-		mem.futureTxsCount = mem.removeFutureTxs()
-	}
+	mem.logger.Debug("Added future transaction", "hash", tx.Hash(), "type", tx.TypeName(), "from", from, "nonce", tx.Nonce())
+	mem.futureTxsCount++
 	return nil
 }
 
 // addFutureTx add a transaction to futureTxs
 func (mem *Mempool) addFutureTx(tx types.Tx) error {
 	if _, exist := canAddFutureTxType[tx.TypeName()]; !exist {
-		mem.logger.Error("tx is not a Transaction", "tx.Type", tx.TypeName(), "tx", tx)
 		return types.ErrParams
 	}
 	rtx, ok := tx.(types.RegularTx)
 	if !ok {
-		mem.logger.Error("tx is not a Transaction", "tx.Type", tx.TypeName(), "tx", tx)
 		return types.ErrParams
 	}
 	from, _ := tx.From()
+	// TODO:check nonce limit if necessary
+	// check overall limit
+	if mem.futureTxsCount >= mem.config.FutureSize {
+		return types.ErrMempoolIsFull
+	}
 	return mem.addTofutureTxs(from, rtx)
 }
 
@@ -608,7 +645,7 @@ func (mem *Mempool) promoteExecutables(accounts []common.Address) {
 			//remove from cache
 			mem.cache.Delete(tx.Hash())
 			mem.futureTxsCount--
-			mem.logger.Trace("Removed old futureTx", "tx", tx.Hash(), "nonce", tx.Nonce())
+			mem.logger.Trace("Removed old futureTx", "hash", tx.Hash(), "nonce", tx.Nonce())
 		}
 
 		// Gather all executable transactions and promote them
@@ -616,19 +653,14 @@ func (mem *Mempool) promoteExecutables(accounts []common.Address) {
 			startNonce := mem.app.GetNonce(addr)
 			endNonce := startNonce + uint64(need)
 			promoting = list.Ready(startNonce, endNonce)
-			goodSize := mem.GoodTxsSize()
 			for _, tx := range promoting {
-				if goodSize > mem.config.Size { // GoodTx is full
-					break
-				}
-
+				// goodSize will never exceed mem.config.Size
 				if err := mem.app.CheckTx(tx, StateCheck); err != nil {
 					mem.cache.Delete(tx.Hash())
-					mem.logger.Error("promoting transaction", "tx", tx.Hash().Hex(), "err", err)
+					mem.logger.Error("promoting transaction", "hash", tx.Hash(), "err", err)
 				} else {
 					mem.addGoodTx(tx, false)
-					mem.logger.Trace("move futureTx to goodTxs", "tx", tx.Hash().Hex(), "nonce", tx.Nonce())
-					goodSize++
+					mem.logger.Trace("move futureTx to goodTxs", "hash", tx.Hash(), "nonce", tx.Nonce())
 				}
 				mem.futureTxsCount--
 			}
@@ -643,11 +675,11 @@ func (mem *Mempool) promoteExecutables(accounts []common.Address) {
 			for _, tx := range list.Cap(mem.config.AccountQueue) {
 				mem.cache.Delete(tx.Hash())
 				mem.futureTxsCount--
-				mem.logger.Trace("Removed cap-exceeding futureTx", "tx", tx.Hash(), "nonce", tx.Nonce())
+				mem.logger.Trace("Removed cap-exceeding futureTx", "hash", tx.Hash(), "nonce", tx.Nonce())
 			}
 		}
 
-		// Deleteete the entire queue entry if it became empty.
+		// Delete the entire queue entry if it became empty.
 		if list.Empty() {
 			delete(mem.futureTxs, addr)
 			delete(mem.beats, addr)
@@ -712,7 +744,7 @@ func (mem *Mempool) removeFutureTx(addr common.Address, etx types.RegularTx) {
 		}
 		mem.cache.Delete(etx.Hash())
 		mem.futureTxsCount--
-		mem.logger.Debug("removeFutureTx", "tx", etx.Hash().Hex(), "nonce", etx.Nonce())
+		mem.logger.Debug("removeFutureTx", "hash", etx.Hash(), "nonce", etx.Nonce())
 	}
 }
 
@@ -725,7 +757,8 @@ func (mem *Mempool) TxsAvailable() <-chan struct{} {
 
 func (mem *Mempool) notifyTxsAvailable() {
 	if mem.GoodTxsSize() == 0 && mem.SpecGoodTxsSize() == 0 && mem.UTXOTxsSize() == 0 {
-		panic("notified txs available but mempool is empty!")
+		mem.logger.Error("notified txs available but mempool is empty!")
+		return
 	}
 	if mem.txsAvailable != nil && !mem.notifiedTxsAvailable {
 		// channel cap is 1, so this will send once
@@ -757,7 +790,7 @@ func (mem *Mempool) Reap(maxTxs int) types.Txs {
 	}
 
 	utxoTxs := mem.collectTxs(mem.utxoTxs, mem.config.UTXOSize)     // get all pure utxo txs
-	specTxs := mem.collectTxs(mem.specGoodTxs, mem.config.SpecSize) //get all special Txs
+	specTxs := mem.collectTxs(mem.specGoodTxs, mem.config.SpecSize) // get all special txs
 
 	maxTxs = maxTxs - len(specTxs) - len(utxoTxs)
 	txs := mem.collectTxs(mem.goodTxs, maxTxs)
@@ -820,9 +853,7 @@ func (mem *Mempool) Update(height uint64, txs types.Txs) error {
 	mem.promoteExecutables(nil)
 
 	if mem.GoodTxsSize() > 0 || mem.SpecGoodTxsSize() > 0 || mem.UTXOTxsSize() > 0 {
-		mem.logger.Info("mem.notifyTxsAvailable start")
 		mem.notifyTxsAvailable()
-		mem.logger.Info("mem.notifyTxsAvailable end")
 	}
 	mem.metrics.Size.Set(float64(mem.GoodTxsSize()))
 	return nil
@@ -837,6 +868,23 @@ func (mem *Mempool) filterTxs(blockTxsMap map[string]struct{}) {
 			if _, ok := blockTxsMap[memTx.tx.Hash().String()]; ok {
 				txsList.Remove(e)
 				mem.cache.DelayDelete(memTx.tx.Hash())
+				mem.goodTxBeats.Delete(memTx.tx.Hash()) // remove goodTx enter time
+				e.DetachPrev()
+				continue
+			}
+			// Check if we need delete goodTx
+			t, ok := mem.goodTxBeats.Load(memTx.tx.Hash())
+			if !ok {
+				mem.goodTxBeats.Store(memTx.tx.Hash(), time.Now())
+				mem.logger.Error("Load GoodTxBeats Error", "hash", memTx.tx.Hash())
+				continue
+			}
+			interval := time.Since(t.(time.Time))
+			if interval >= GoodTxDropTime { // need to drop goodTx
+				txsList.Remove(e)
+				mem.cache.Delete(memTx.tx.Hash())
+				mem.goodTxBeats.Delete(memTx.tx.Hash()) // remove goodTx enter time
+				mem.logger.Info("filterTxs: Drop GoodTx for Timeout", "hash", memTx.tx.Hash(), "Beat", t.(time.Time))
 				e.DetachPrev()
 			}
 		}
@@ -854,6 +902,7 @@ func (mem *Mempool) recheckUtxoTxs() {
 		mem.utxoTxs.Remove(e)
 		e.DetachPrev()
 		mem.cache.Delete(memTx.tx.Hash())
+		mem.goodTxBeats.Delete(memTx.tx.Hash()) // remove goodTx enter time
 		mem.logger.Debug("removeUtxoTx when recheck", "hash", memTx.tx.Hash(), "err", err)
 	}
 	mem.logger.Info("recheckUtxoTxs end", "len", mem.UTXOTxsSize())
@@ -884,6 +933,7 @@ func (mem *Mempool) recheckTxs() {
 			}
 			txsList.Remove(e)
 			e.DetachPrev()
+			mem.goodTxBeats.Delete(memTx.tx.Hash()) // remove goodTx enter time
 			if err != nil {
 				mem.cache.Delete(memTx.tx.Hash())
 			}
@@ -908,8 +958,8 @@ func (mem *Mempool) recheckSpecTxs() {
 		mem.specGoodTxs.Remove(e)
 		e.DetachPrev()
 		mem.cache.Delete(memTx.tx.Hash())
-		name, hash := memTx.tx.TypeName, memTx.tx.Hash().String()
-		mem.logger.Debug("remove SpecGoodTx when recheck", "type", name, "hash", hash, "err", err, "timeout", timeout)
+		mem.goodTxBeats.Delete(memTx.tx.Hash()) // remove goodTx enter time
+		mem.logger.Debug("remove SpecGoodTx when recheck", "type", memTx.tx.TypeName(), "hash", memTx.tx.Hash(), "err", err, "timeout", timeout)
 	}
 	mem.logger.Info("recheckSpecTxs end", "len", mem.SpecGoodTxsSize())
 }

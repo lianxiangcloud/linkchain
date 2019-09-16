@@ -25,6 +25,7 @@ const (
 
 	maxMsgSize                 = 1048576 // 1MB TODO make it configurable
 	peerCatchupSleepIntervalMS = 100     // If peer is behind, sleep this amount
+	ReceiveCacheMaxLength      = 10000   // Max Length of Receive
 )
 
 var (
@@ -115,8 +116,16 @@ func defaultHandReceiveMsg(memR *MempoolReactor, msg MempoolMessage, src p2p.Pee
 		msg.Tx = nil
 		if tx.TypeName() == types.TxMultiSignAccount {
 			memR.Logger.Debug("Receive TxMultiSignTx")
+			if memR.mutisignCacheRev.Len() >= ReceiveCacheMaxLength { // mutisignCacheRev Reach ReceiveCacheMaxLength Limit
+				memR.Logger.Info("mutisignCacheRev Reach Limit, Drop Tx", "src", src.ID(), "hash", msg.Tx.Hash())
+				return
+			}
 			memR.mutisignCacheRev.PushBack(&RecieveMessage{src.ID(), tx})
 		} else {
+			if memR.cacheRev.Len() >= ReceiveCacheMaxLength { // cacheRev Reach ReceiveCacheMaxLength Limit
+				memR.Logger.Info("cacheRev Reach Limit, Drop Tx", "src", src.ID(), "hash", msg.Tx.Hash())
+				return
+			}
 			memR.cacheRev.PushBack(&RecieveMessage{src.ID(), tx})
 		}
 	case TxHashMessage:
@@ -209,11 +218,11 @@ func (memR *MempoolReactor) handleReceiveTx(isMultisignTx bool) {
 			default:
 				memR.Logger.Info("error msg type")
 			}
-
-			err := memR.Mempool.add(v)
-			if err == types.ErrMempoolIsFull {
-				revTxList.PushBack(v)
-				time.Sleep(1 * time.Second)
+			// transaction not successfully added to mempool will be dropped instead of re-entering
+			if err := memR.Mempool.add(v); err != nil {
+				if err != types.ErrTxDuplicate && err != types.ErrMempoolIsFull {
+					memR.Logger.Error("mempool add data from peers failed", "err", err, "hash", v.(*RecieveMessage).Tx.Hash(), "cacheLen", revTxList.Len())
+				}
 			}
 			addTxCh <- struct{}{}
 		}
