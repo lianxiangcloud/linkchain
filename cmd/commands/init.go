@@ -252,7 +252,7 @@ func createGenesisBlock(config *cfg.Config, genDoc *types.GenesisDoc) ([]*types.
 			ChainID:    config.ChainID,
 			Height:     types.BlockHeightZero,
 			Coinbase:   common.HexToAddress("0x0000000000000000000000000000000000000000"),
-			Time:       uint64(1507737600),
+			Time:       uint64(1569412800),
 			NumTxs:     0,
 			TotalTxs:   0,
 			ParentHash: common.EmptyHash,
