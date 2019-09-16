@@ -40,13 +40,12 @@ var _ types.TxCensor = &LinkApplication{}
 // of gas used in the process and return an error if any of the internal rules
 // failed.
 type Processor interface {
-	Process(block *types.Block, statedb *state.StateDB, cfg evm.Config) (types.Receipts, []*types.Log, uint64, []types.Tx, []*types.UTXOOutputData, []*lctypes.Key, *types.BlockBalanceRecords, error)
+	Process(block *types.Block, statedb *state.StateDB, cfg evm.Config) (types.Receipts, []*types.Log, uint64, []types.Tx, []*types.UTXOOutputData, []*lctypes.Key, error)
 }
 
 type ProcessResult struct {
 	logs      []*types.Log
 	receipts  *types.Receipts
-	tbrBlock  *types.BlockBalanceRecords
 	txsResult types.TxsResult
 	tmpState  *state.StateDB
 	height    uint64
@@ -474,8 +473,8 @@ func (app *LinkApplication) processBlock(block *types.Block, processResult *Proc
 		}
 		app.logger.Info("processBlock: verifyTxsOnProcess done", "height", block.Height, "blockHash", block.Hash())
 	}
-
-	receipts, logs, gasUsed, specialTxs, utxoOutputs, keyImages, tbrBlock, err := app.processor.Process(block, processResult.tmpState, app.vmConfig)
+	types.BlockBalanceRecordsInstance.Reset()
+	receipts, logs, gasUsed, specialTxs, utxoOutputs, keyImages, err := app.processor.Process(block, processResult.tmpState, app.vmConfig)
 	if err != nil {
 		app.logger.Error("processBlock: process failed when Process", "blockHash", block.Hash(), "err", err)
 		return
@@ -504,7 +503,6 @@ func (app *LinkApplication) processBlock(block *types.Block, processResult *Proc
 
 	processResult.logs = logs
 	processResult.receipts = &receipts
-	processResult.tbrBlock = tbrBlock
 	processResult.txsResult.GasUsed = gasUsed
 	processResult.txsResult.ReceiptHash = receipts.Hash()
 	processResult.txsResult.SetCandidates(app.lastTxsResult.Candidates)
@@ -611,8 +609,8 @@ func (app *LinkApplication) CommitBlock(block *types.Block, blockParts *types.Pa
 	processResult.tmpState.Database().TrieDB().Commit(trieRoot, false)
 	processResult.tmpState.Reset(trieRoot)
 	processResult.txsResult.TrieRoot = trieRoot
-	processResult.tbrBlock.SetBlockHash(block.Hash())
-	processResult.tbrBlock.SetBlockTime(block.Time())
+	types.BlockBalanceRecordsInstance.SetBlockHash(block.Hash())
+	types.BlockBalanceRecordsInstance.SetBlockTime(block.Time())
 	// app.logger.Info("Save balance records", "block_height", block.Height, "records", string(processResult.tbrBlock.Json()))
 
 	canList := app.updateCandidatesbyOrder(processResult, block.LastCommit.Hash())
@@ -625,9 +623,7 @@ func (app *LinkApplication) CommitBlock(block *types.Block, blockParts *types.Pa
 	if canList != nil {
 		processResult.txsResult.UpdateCandidates(canList)
 	}
-	app.balanceRecordStore.Save(block.Height, processResult.tbrBlock)
-	processResult.tbrBlock.Clear()
-
+	app.balanceRecordStore.Save(block.Height, types.BlockBalanceRecordsInstance)
 	app.blockChain.SaveBlock(block, blockParts, seenCommit, processResult.GetReceipts(), processResult.GetTxsResult())
 	app.utxoStore.SaveUtxo(processResult.txsResult.KeyImages(), processResult.txsResult.UTXOOutputs(), block.Height)
 
@@ -1028,16 +1024,39 @@ func CallWasmContract(wasm *wasm.WASM, sender, contractAddr common.Address, amou
 		return nil, fmt.Errorf("exec.NewApp fail: %s", err)
 	}
 
+	payloads := make([]types.Payload, 0)
+	tbr := types.NewTxBalanceRecords()
+	tbr.SetOptions(common.EmptyHash, types.TxNormal, payloads, 0, gas, big.NewInt(types.GasPrice), sender, contractAddr, common.EmptyAddress)
+
 	app.EntryFunc = vm.APPEntry
 	ret, err := eng.Run(app, innerContract.Input)
 	if err != nil {
 		return nil, fmt.Errorf("eng.Run fail: err=%s", err)
 	}
 
+	otxs := wasm.GetOTxs()
+	defer func(sender common.Address, tbr *types.TxBalanceRecords) {
+		if tbr.IsBalanceRecordEmpty() {
+			return
+		}
+		var br types.BalanceRecord
+		if sender == common.EmptyAddress {
+			br = types.GenBalanceRecord(common.EmptyAddress, config.ContractFoundationAddr, types.NoAddress, types.AccountAddress, types.TxFee, common.EmptyAddress, big.NewInt(0))
+		} else {
+			br = types.GenBalanceRecord(sender, config.ContractFoundationAddr, types.AccountAddress, types.AccountAddress, types.TxFee, common.EmptyAddress, big.NewInt(0))
+		}
+		tbr.AddBalanceRecord(br)
+		types.BlockBalanceRecordsInstance.AddTxBalanceRecord(tbr)
+	}(sender, tbr)
+
 	vmem := app.VM.VMemory()
 	result, err := vmem.GetString(ret)
 	if err != nil {
 		return nil, fmt.Errorf("vmem.GetString fail: err=%v", err)
+	}
+
+	for _, otx := range otxs {
+		tbr.AddBalanceRecord(otx)
 	}
 
 	return result, nil

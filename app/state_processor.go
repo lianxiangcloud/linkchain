@@ -70,7 +70,7 @@ func NewStateProcessor(bc *blockchain.BlockStore) *StateProcessor {
 // Process returns the receipts and logs accumulated during the process and
 // returns the amount of gas that was used in the process. If any of the
 // transactions failed to execute due to insufficient gas it will return an error.
-func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg evm.Config) (types.Receipts, []*types.Log, uint64, []types.Tx, []*types.UTXOOutputData, []*lctypes.Key, *types.BlockBalanceRecords, error) {
+func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg evm.Config) (types.Receipts, []*types.Log, uint64, []types.Tx, []*types.UTXOOutputData, []*lctypes.Key, error) {
 	var (
 		length      = len(block.Data.Txs)
 		receipts    = make(types.Receipts, 0)
@@ -80,7 +80,6 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		specialTxs  = []types.Tx{}
 		utxoOutputs = make([]*types.UTXOOutputData, 0)
 		keyImages   = make([]*lctypes.Key, 0)
-		tbrBlock    = types.NewBlockBalanceRecords()
 	)
 
 	vmenv := vm.NewVM()
@@ -105,7 +104,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 
 			if err != nil {
 				log.Error("applytransaction", "height", block.Height, "idx", idx, "tx", txRaw.Hash().String(), "receipt", receipt.Hash().String(), "err", err)
-				return nil, nil, 0, nil, nil, nil, nil, err
+				return nil, nil, 0, nil, nil, nil, err
 			}
 			payloads := make([]types.Payload, 0)
 			if tx.(types.RegularTx).Data() != nil {
@@ -127,7 +126,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 				to = *toPtr
 			}
 			tbr.SetOptions(tx.Hash(), tx.TypeName(), payloads, nonce, gasLimit, gasPrice, from, to, tokenId)
-			tbrBlock.AddTxBalanceRecord(tbr)
+			types.BlockBalanceRecordsInstance.AddTxBalanceRecord(tbr)
 			receipts = append(receipts, receipt)
 			allLogs = append(allLogs, receipt.Logs...)
 		case *types.MultiSignAccountTx:
@@ -151,7 +150,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 				receipt, otxs, err = p.applyUTXOTransaction(statedb, tx, usedGas, &vmenv)
 				if err != nil {
 					log.Error("applytransaction", "height", block.Height, "idx", idx, "tx", txRaw.Hash().String(), "receipt", receipt.Hash().String(), "err", err)
-					return nil, nil, 0, nil, nil, nil, nil, err
+					return nil, nil, 0, nil, nil, nil, err
 				}
 				for _, br := range otxs {
 					tbr.AddBalanceRecord(br)
@@ -210,17 +209,17 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 				tbr.SetOptions(tx.Hash(), tx.TypeName(), payloads, 0, gasLimit, gasPrice, common.EmptyAddress,
 					common.EmptyAddress, common.EmptyAddress)
 			}
-			tbrBlock.AddTxBalanceRecord(tbr)
+			types.BlockBalanceRecordsInstance.AddTxBalanceRecord(tbr)
 			receipts = append(receipts, receipt)
 			utxoOutputs = append(utxoOutputs, tx.GetOutputData(block.Height)...)
 			keyImages = append(keyImages, tx.GetInputKeyImages()...)
 		default:
 			err := fmt.Errorf("unknow tx type")
-			return nil, nil, 0, nil, nil, nil, nil, err
+			return nil, nil, 0, nil, nil, nil, err
 		}
 	}
 
-	return receipts, allLogs, *usedGas, specialTxs, utxoOutputs, keyImages, tbrBlock, nil
+	return receipts, allLogs, *usedGas, specialTxs, utxoOutputs, keyImages, nil
 }
 
 func (p *StateProcessor) applyUTXOTransaction(statedb *state.StateDB, tx *types.UTXOTransaction, usedGas *uint64, vmenv *vm.VmFactory) (*types.Receipt, []types.BalanceRecord, error) {

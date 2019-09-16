@@ -1,6 +1,7 @@
 package types
 
 import (
+	"sync"
 	"math/big"
 	"encoding/json"
 
@@ -15,6 +16,7 @@ const (
 
 var (
 	SaveBalanceRecord bool = false
+	BlockBalanceRecordsInstance *BlockBalanceRecords
 )
 
 type Payload []byte
@@ -23,6 +25,7 @@ type BlockBalanceRecords struct {
 	TxRecords []*TxBalanceRecords `json:"tx_records"`
 	BlockHash common.Hash         `json:"block_hash"`
 	BlockTime uint64              `json:"block_time"`
+	mu        sync.Mutex
 }
 
 type TxBalanceRecords struct {
@@ -46,6 +49,12 @@ type BalanceRecord struct {
 	Type            string         `json:"type"`
 	TokenID         common.Address `json:"token_id"`
 	Amount          *big.Int       `json:"amount"`
+}
+
+func init() {
+	BlockBalanceRecordsInstance = &BlockBalanceRecords{
+		TxRecords: make([]*TxBalanceRecords, 0),
+	}
 }
 
 func NewTxBalanceRecords() *TxBalanceRecords {
@@ -75,7 +84,17 @@ func NewBlockBalanceRecords() *BlockBalanceRecords {
 	}
 }
 
+func (b *BlockBalanceRecords) Reset() {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.BlockHash = common.EmptyHash
+	b.BlockTime = 0
+	b.TxRecords = make([]*TxBalanceRecords, 0)
+}
+
 func (b *BlockBalanceRecords) Json() []byte {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	jb, err := json.Marshal(b)
 	if err != nil {
 		panic(err)
@@ -84,18 +103,20 @@ func (b *BlockBalanceRecords) Json() []byte {
 }
 
 func (b *BlockBalanceRecords) AddTxBalanceRecord(t *TxBalanceRecords)  {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	b.TxRecords = append(b.TxRecords, t)
 }
 
-func (b *BlockBalanceRecords) Clear() {
-	b.TxRecords = make([]*TxBalanceRecords, 0)
-}
-
 func (b *BlockBalanceRecords) SetBlockHash(blockHash common.Hash) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	b.BlockHash = blockHash
 }
 
 func (b *BlockBalanceRecords) SetBlockTime(blockTime uint64) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	b.BlockTime = blockTime
 }
 
@@ -114,6 +135,10 @@ func (t *TxBalanceRecords) SetOptions(hash common.Hash, typenane string, payload
 
 func (t *TxBalanceRecords) AddBalanceRecord(br BalanceRecord) {
 	t.Records = append(t.Records, br)
+}
+
+func (t *TxBalanceRecords) IsBalanceRecordEmpty() bool {
+	return len(t.Records) == 0
 }
 
 func (t *TxBalanceRecords) ClearBalanceRecord() {
