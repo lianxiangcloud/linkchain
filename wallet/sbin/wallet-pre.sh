@@ -69,6 +69,8 @@ function Restart(){
 
   Start
 
+  sleep 1
+  
   Check
 }
 

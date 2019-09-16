@@ -157,64 +157,76 @@ func (w *Wallet) refreshUTXOGas() {
 }
 
 // GetBalance rpc get balance
-func (w *Wallet) GetBalance(index uint64, token *common.Address) (*big.Int, error) {
-	if w.IsWalletClosed() {
-		return nil, wtypes.ErrWalletNotOpen
+func (w *Wallet) GetBalance(index uint64, token *common.Address, addr *common.Address) (*big.Int, error) {
+	lkaccount := w.getLKAccountByAddress(addr)
+	if lkaccount != nil {
+		return lkaccount.GetBalance(index, token), nil
 	}
-	return w.currAccount.GetBalance(index, token), nil
+
+	return nil, wtypes.ErrWalletNotOpen
 }
 
 // GetAddress rpc get address
-func (w *Wallet) GetAddress(index uint64) (string, error) {
-	if w.IsWalletClosed() {
-		return "", wtypes.ErrWalletNotOpen
+func (w *Wallet) GetAddress(index uint64, addr *common.Address) (string, error) {
+	lkaccount := w.getLKAccountByAddress(addr)
+	if lkaccount != nil {
+		return lkaccount.GetAddress(index)
 	}
-	return w.currAccount.GetAddress(index)
+
+	return "", wtypes.ErrWalletNotOpen
 }
 
 // GetHeight rpc get height
-func (w *Wallet) GetHeight() (localHeight *big.Int, remoteHeight *big.Int) {
-	if w.IsWalletClosed() {
-		rh, err := RefreshMaxBlock()
-		if err != nil {
-			w.Logger.Error("GetHeight,RefreshMaxBlock fail", "err", err)
-			return big.NewInt(0), big.NewInt(0)
-		}
-		return big.NewInt(0), rh
+func (w *Wallet) GetHeight(addr *common.Address) (localHeight *big.Int, remoteHeight *big.Int) {
+	lkaccount := w.getLKAccountByAddress(addr)
+	if lkaccount != nil {
+		return lkaccount.GetHeight()
 	}
-	return w.currAccount.GetHeight()
+
+	rh, err := RefreshMaxBlock()
+	if err != nil {
+		w.Logger.Error("GetHeight,RefreshMaxBlock fail", "err", err)
+		return big.NewInt(0), big.NewInt(0)
+	}
+	return big.NewInt(0), rh
 }
 
 // CreateSubAccount return new sub address and sub index
-func (w *Wallet) CreateSubAccount(maxSub uint64) error {
-	if w.IsWalletClosed() {
-		return wtypes.ErrWalletNotOpen
+func (w *Wallet) CreateSubAccount(maxSub uint64, addr *common.Address) error {
+	lkaccount := w.getLKAccountByAddress(addr)
+	if lkaccount != nil {
+		return lkaccount.CreateSubAccount(maxSub)
 	}
-	return w.currAccount.CreateSubAccount(maxSub)
+
+	return wtypes.ErrWalletNotOpen
 }
 
 // AutoRefreshBlockchain set autoRefresh
-func (w *Wallet) AutoRefreshBlockchain(autoRefresh bool) error {
-	if w.IsWalletClosed() {
-		return wtypes.ErrWalletNotOpen
+func (w *Wallet) AutoRefreshBlockchain(autoRefresh bool, addr *common.Address) error {
+	lkaccount := w.getLKAccountByAddress(addr)
+	if lkaccount != nil {
+		return lkaccount.AutoRefreshBlockchain(autoRefresh)
 	}
-	return w.currAccount.AutoRefreshBlockchain(autoRefresh)
+	return wtypes.ErrWalletNotOpen
 }
 
 // GetAccountInfo return eth_account and utxo_accounts
-func (w *Wallet) GetAccountInfo(tokenID *common.Address) (*types.GetAccountInfoResult, error) {
-	if w.IsWalletClosed() {
-		return nil, wtypes.ErrWalletNotOpen
+func (w *Wallet) GetAccountInfo(tokenID *common.Address, addr *common.Address) (*types.GetAccountInfoResult, error) {
+	lkaccount := w.getLKAccountByAddress(addr)
+	if lkaccount != nil {
+		return lkaccount.GetAccountInfo(tokenID)
 	}
-	return w.currAccount.GetAccountInfo(tokenID)
+	return nil, wtypes.ErrWalletNotOpen
 }
 
 // RescanBlockchain ,reset wallet block and transfer info
-func (w *Wallet) RescanBlockchain() error {
-	if w.IsWalletClosed() {
-		return wtypes.ErrWalletNotOpen
+func (w *Wallet) RescanBlockchain(addr *common.Address) error {
+	lkaccount := w.getLKAccountByAddress(addr)
+	if lkaccount != nil {
+		return lkaccount.RescanBlockchain()
 	}
-	return w.currAccount.RescanBlockchain()
+
+	return wtypes.ErrWalletNotOpen
 }
 
 // GetWalletEthAddress ,return wallet eth address
@@ -262,55 +274,84 @@ func (w *Wallet) getGOutIndex(token common.Address) uint64 {
 	return w.currAccount.GetGOutIndex(token)
 }
 
-// Status return wallet status
-func (w *Wallet) Status() *types.StatusResult {
-	if w.IsWalletClosed() {
-		rh, err := RefreshMaxBlock()
-		if err != nil {
-			w.Logger.Error("GetHeight,RefreshMaxBlock fail", "err", err)
-			rh = big.NewInt(0)
-		}
-		chainVersion, err := GetChainVersion()
-		if err != nil {
-			w.Logger.Error("Status getChainVersion fail", "err", err)
-			chainVersion = "0.0.0"
-		}
-		return &types.StatusResult{
-			RemoteHeight:         (*hexutil.Big)(rh),
-			LocalHeight:          (*hexutil.Big)(big.NewInt(0)),
-			WalletOpen:           false,
-			AutoRefresh:          false,
-			WalletVersion:        WalletVersion,
-			ChainVersion:         chainVersion,
-			EthAddress:           common.EmptyAddress,
-			RefreshBlockInterval: 0,
-		}
+func (w *Wallet) defaultStatus(addr *common.Address) *types.StatusResult {
+	rh, err := RefreshMaxBlock()
+	if err != nil {
+		w.Logger.Error("GetHeight,RefreshMaxBlock fail", "err", err)
+		rh = big.NewInt(0)
 	}
-	return w.currAccount.Status()
+	chainVersion, err := GetChainVersion()
+	if err != nil {
+		w.Logger.Error("Status getChainVersion fail", "err", err)
+		chainVersion = "0.0.0"
+	}
+	if addr == nil {
+		addr = &common.EmptyAddress
+	}
+	return &types.StatusResult{
+		RemoteHeight:         (*hexutil.Big)(rh),
+		LocalHeight:          (*hexutil.Big)(big.NewInt(defaultInitBlockHeight)),
+		WalletOpen:           false,
+		AutoRefresh:          false,
+		WalletVersion:        WalletVersion,
+		ChainVersion:         chainVersion,
+		EthAddress:           *addr,
+		RefreshBlockInterval: 0,
+	}
+}
+
+// Status return wallet status
+func (w *Wallet) Status(addr *common.Address) *types.StatusResult {
+	lkaccount := w.getLKAccountByAddress(addr)
+	if lkaccount != nil {
+		return lkaccount.Status()
+	}
+
+	return w.defaultStatus(addr)
+}
+
+func (w *Wallet) getLKAccountByAddress(addr *common.Address) *LinkAccount {
+	if w.IsWalletClosed() {
+		return nil
+	}
+	if addr == nil || *addr == common.EmptyAddress {
+		return w.currAccount
+	}
+	lkaccount, ok := w.addrMap[*addr]
+	if ok {
+		return lkaccount
+	}
+	return nil
 }
 
 // GetTxKey return transaction's tx secKey
-func (w *Wallet) GetTxKey(hash *common.Hash) (*lkctypes.Key, error) {
-	if w.IsWalletClosed() {
-		return nil, wtypes.ErrWalletNotOpen
+func (w *Wallet) GetTxKey(hash *common.Hash, addr *common.Address) (*lkctypes.Key, error) {
+	lkaccount := w.getLKAccountByAddress(addr)
+	if lkaccount != nil {
+		return lkaccount.GetTxKey(hash)
 	}
-	return w.currAccount.GetTxKey(hash)
+
+	return nil, wtypes.ErrWalletNotOpen
 }
 
 // GetMaxOutput return tokenID max output idx
-func (w *Wallet) GetMaxOutput(tokenID common.Address) (*hexutil.Uint64, error) {
-	if w.IsWalletClosed() {
-		return nil, wtypes.ErrWalletNotOpen
+func (w *Wallet) GetMaxOutput(tokenID common.Address, addr *common.Address) (*hexutil.Uint64, error) {
+	lkaccount := w.getLKAccountByAddress(addr)
+	if lkaccount != nil {
+		return lkaccount.GetMaxOutput(tokenID)
 	}
-	return w.currAccount.GetMaxOutput(tokenID)
+
+	return nil, wtypes.ErrWalletNotOpen
 }
 
 // GetUTXOTx return UTXOTransaction
-func (w *Wallet) GetUTXOTx(hash common.Hash) (*tctypes.UTXOTransaction, error) {
-	if w.IsWalletClosed() {
-		return nil, wtypes.ErrWalletNotOpen
+func (w *Wallet) GetUTXOTx(hash common.Hash, addr *common.Address) (*tctypes.UTXOTransaction, error) {
+	lkaccount := w.getLKAccountByAddress(addr)
+	if lkaccount != nil {
+		return lkaccount.GetUTXOTx(hash)
 	}
-	return w.currAccount.GetUTXOTx(hash)
+
+	return nil, wtypes.ErrWalletNotOpen
 }
 
 // SelectAddress return
@@ -327,26 +368,29 @@ func (w *Wallet) SelectAddress(addr common.Address) error {
 }
 
 // SetRefreshBlockInterval return
-func (w *Wallet) SetRefreshBlockInterval(interval time.Duration) error {
-	if w.IsWalletClosed() {
-		return wtypes.ErrWalletNotOpen
+func (w *Wallet) SetRefreshBlockInterval(interval time.Duration, addr *common.Address) error {
+	lkaccount := w.getLKAccountByAddress(addr)
+	if lkaccount != nil {
+		lkaccount.SetRefreshBlockInterval(interval)
+		return nil
 	}
-	w.currAccount.SetRefreshBlockInterval(interval)
-	return nil
+	return wtypes.ErrWalletNotOpen
 }
 
 // GetLocalUTXOTxsByHeight return
-func (w *Wallet) GetLocalUTXOTxsByHeight(height *big.Int) (*types.UTXOBlock, error) {
-	if w.IsWalletClosed() {
-		return nil, wtypes.ErrWalletNotOpen
+func (w *Wallet) GetLocalUTXOTxsByHeight(height *big.Int, addr *common.Address) (*types.UTXOBlock, error) {
+	lkaccount := w.getLKAccountByAddress(addr)
+	if lkaccount != nil {
+		return lkaccount.GetLocalUTXOTxsByHeight(height)
 	}
-	return w.currAccount.GetLocalUTXOTxsByHeight(height)
+	return nil, wtypes.ErrWalletNotOpen
 }
 
 // GetLocalOutputs return
-func (w *Wallet) GetLocalOutputs(startid uint64, size uint64) ([]types.UTXOOutputDetail, error) {
-	if w.IsWalletClosed() {
-		return nil, wtypes.ErrWalletNotOpen
+func (w *Wallet) GetLocalOutputs(ids []hexutil.Uint64, addr *common.Address) ([]types.UTXOOutputDetail, error) {
+	lkaccount := w.getLKAccountByAddress(addr)
+	if lkaccount != nil {
+		return lkaccount.GetLocalOutputs(ids)
 	}
-	return w.currAccount.GetLocalOutputs(startid, size)
+	return nil, wtypes.ErrWalletNotOpen
 }

@@ -8,7 +8,6 @@ import (
 	"github.com/lianxiangcloud/linkchain/libs/common"
 	lkctypes "github.com/lianxiangcloud/linkchain/libs/cryptonote/types"
 	dbm "github.com/lianxiangcloud/linkchain/libs/db"
-	"github.com/lianxiangcloud/linkchain/libs/hexutil"
 	"github.com/lianxiangcloud/linkchain/libs/ser"
 	tctypes "github.com/lianxiangcloud/linkchain/types"
 	"github.com/lianxiangcloud/linkchain/wallet/types"
@@ -28,7 +27,7 @@ const (
 	keyBlockTxs         = "blockTxs"
 )
 
-func (la *LinkAccount) save(ids []uint64, blockHash common.Hash, myTxs []types.UTXOTransaction) error {
+func (la *LinkAccount) save(ids []uint64, blockHash common.Hash, localBlock *types.UTXOBlock) error {
 	batch := la.walletDB.NewBatch()
 
 	if la.saveLocalHeight(batch) != nil ||
@@ -36,7 +35,7 @@ func (la *LinkAccount) save(ids []uint64, blockHash common.Hash, myTxs []types.U
 		la.saveAccountSubCnt(batch) != nil ||
 		(len(ids) > 0 && la.saveTransfers(batch, ids) != nil) ||
 		la.saveBlockHash(batch, la.localHeight, blockHash) != nil ||
-		la.saveBlockTxs(batch, la.localHeight, myTxs) != nil {
+		la.saveBlockTxs(batch, localBlock) != nil {
 		la.Logger.Error("Refresh batchSave fail", "height", la.localHeight)
 		return fmt.Errorf("save fail")
 	}
@@ -362,11 +361,9 @@ func (la *LinkAccount) loadBlockTxs(height *big.Int) (*types.UTXOBlock, error) {
 	}
 	return &block, nil
 }
-func (la *LinkAccount) saveBlockTxs(b dbm.Batch, height *big.Int, myTxs []types.UTXOTransaction) error {
-	key := la.getBlockTxsKey(height)
-	block := types.UTXOBlock{Height: (*hexutil.Big)(height), Txs: myTxs}
-	// val, err := ser.EncodeToBytes(block)
-	val, err := json.Marshal(block)
+func (la *LinkAccount) saveBlockTxs(b dbm.Batch, localBlock *types.UTXOBlock) error {
+	key := la.getBlockTxsKey(localBlock.Height.ToInt())
+	val, err := json.Marshal(localBlock)
 	if err != nil {
 		la.Logger.Error("saveBlockTxs EncodeToBytes fail", "err", err)
 		return err

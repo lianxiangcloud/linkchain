@@ -151,8 +151,8 @@ func (s *PublicTransactionPoolAPI) SendUTXOTransactionSplit(ctx context.Context,
 }
 
 // BlockHeight get block height
-func (s *PublicTransactionPoolAPI) BlockHeight(ctx context.Context) (*wtypes.BlockHeightResult, error) {
-	localHeight, remoteHeight := s.wallet.GetHeight()
+func (s *PublicTransactionPoolAPI) BlockHeight(ctx context.Context, addr *common.Address) (*wtypes.BlockHeightResult, error) {
+	localHeight, remoteHeight := s.wallet.GetHeight(addr)
 
 	return &wtypes.BlockHeightResult{LocalHeight: (*hexutil.Big)(localHeight), RemoteHeight: (*hexutil.Big)(remoteHeight)}, nil
 }
@@ -163,11 +163,11 @@ func (s *PublicTransactionPoolAPI) Balance(ctx context.Context, args wtypes.Bala
 		args.TokenID = &common.EmptyAddress
 	}
 
-	address, err := s.wallet.GetAddress(uint64(args.AccountIndex))
+	address, err := s.wallet.GetAddress(uint64(args.AccountIndex), args.Addr)
 	if err != nil {
 		return nil, err
 	}
-	balance, err := s.wallet.GetBalance(uint64(args.AccountIndex), args.TokenID)
+	balance, err := s.wallet.GetBalance(uint64(args.AccountIndex), args.TokenID, args.Addr)
 	if err != nil {
 		return nil, err
 	}
@@ -176,8 +176,8 @@ func (s *PublicTransactionPoolAPI) Balance(ctx context.Context, args wtypes.Bala
 }
 
 // CreateSubAccount create sub account to max sub index
-func (s *PublicTransactionPoolAPI) CreateSubAccount(ctx context.Context, maxSub hexutil.Uint64) (bool, error) {
-	err := s.wallet.CreateSubAccount(uint64(maxSub))
+func (s *PublicTransactionPoolAPI) CreateSubAccount(ctx context.Context, maxSub hexutil.Uint64, addr *common.Address) (bool, error) {
+	err := s.wallet.CreateSubAccount(uint64(maxSub), addr)
 	if err != nil {
 		return false, err
 	}
@@ -185,8 +185,8 @@ func (s *PublicTransactionPoolAPI) CreateSubAccount(ctx context.Context, maxSub 
 }
 
 // Balance get account Balance
-func (s *PublicTransactionPoolAPI) AutoRefreshBlockchain(ctx context.Context, autoRefresh bool) (bool, error) {
-	err := s.wallet.AutoRefreshBlockchain(autoRefresh)
+func (s *PublicTransactionPoolAPI) AutoRefreshBlockchain(ctx context.Context, autoRefresh bool, addr *common.Address) (bool, error) {
+	err := s.wallet.AutoRefreshBlockchain(autoRefresh, addr)
 	if err != nil {
 		return false, err
 	}
@@ -194,11 +194,11 @@ func (s *PublicTransactionPoolAPI) AutoRefreshBlockchain(ctx context.Context, au
 }
 
 // GetAccountInfo get all sub accounts Balance
-func (s *PublicTransactionPoolAPI) GetAccountInfo(ctx context.Context, tokenID *common.Address) (*wtypes.GetAccountInfoResult, error) {
+func (s *PublicTransactionPoolAPI) GetAccountInfo(ctx context.Context, tokenID *common.Address, addr *common.Address) (*wtypes.GetAccountInfoResult, error) {
 	if tokenID == nil {
 		tokenID = &common.EmptyAddress
 	}
-	ret, err := s.wallet.GetAccountInfo(tokenID)
+	ret, err := s.wallet.GetAccountInfo(tokenID, addr)
 	if err != nil {
 		return nil, err
 	}
@@ -206,8 +206,8 @@ func (s *PublicTransactionPoolAPI) GetAccountInfo(ctx context.Context, tokenID *
 }
 
 // RescanBlockchain reset wallet block and transfer info
-func (s *PublicTransactionPoolAPI) RescanBlockchain(ctx context.Context) (bool, error) {
-	err := s.wallet.RescanBlockchain()
+func (s *PublicTransactionPoolAPI) RescanBlockchain(ctx context.Context, addr *common.Address) (bool, error) {
+	err := s.wallet.RescanBlockchain(addr)
 	if err != nil {
 		return false, err
 	}
@@ -215,14 +215,14 @@ func (s *PublicTransactionPoolAPI) RescanBlockchain(ctx context.Context) (bool, 
 }
 
 // Status return wallet status
-func (s *PublicTransactionPoolAPI) Status(ctx context.Context) (*wtypes.StatusResult, error) {
-	status := s.wallet.Status()
+func (s *PublicTransactionPoolAPI) Status(ctx context.Context, addr *common.Address) (*wtypes.StatusResult, error) {
+	status := s.wallet.Status(addr)
 	return status, nil
 }
 
 // GetTxKey return tx key
-func (s *PublicTransactionPoolAPI) GetTxKey(ctx context.Context, hash common.Hash) (*lkctypes.Key, error) {
-	return s.wallet.GetTxKey(&hash)
+func (s *PublicTransactionPoolAPI) GetTxKey(ctx context.Context, hash common.Hash, addr *common.Address) (*lkctypes.Key, error) {
+	return s.wallet.GetTxKey(&hash, addr)
 }
 
 // CheckTxKey Check a transaction in the blockchain with its secret key.
@@ -235,8 +235,8 @@ func (s *PublicTransactionPoolAPI) GetTxKey(ctx context.Context, hash common.Has
 // }
 
 // GetMaxOutput return max output
-func (s *PublicTransactionPoolAPI) GetMaxOutput(ctx context.Context, tokenID common.Address) (*hexutil.Uint64, error) {
-	return s.wallet.GetMaxOutput(tokenID)
+func (s *PublicTransactionPoolAPI) GetMaxOutput(ctx context.Context, tokenID common.Address, addr *common.Address) (*hexutil.Uint64, error) {
+	return s.wallet.GetMaxOutput(tokenID, addr)
 }
 
 // GetProofKey return proof key
@@ -244,7 +244,7 @@ func (s *PublicTransactionPoolAPI) GetProofKey(ctx context.Context, args wtypes.
 	if len(args.Addr) != wtypes.UTXO_ADDR_STR_LEN && len(args.Addr) != common.AddressLength*2 && len(args.Addr) != common.AddressLength*2+2 {
 		return nil, wtypes.ErrArgsInvalid
 	}
-	tx, err := s.wallet.GetUTXOTx(args.Hash)
+	tx, err := s.wallet.GetUTXOTx(args.Hash, args.EthAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -256,7 +256,7 @@ func (s *PublicTransactionPoolAPI) GetProofKey(ctx context.Context, args wtypes.
 		if err != nil {
 			return nil, err
 		}
-		txKey, err := s.wallet.GetTxKey(&args.Hash)
+		txKey, err := s.wallet.GetTxKey(&args.Hash, args.EthAddr)
 		if err != nil {
 			return nil, err
 		}
@@ -286,7 +286,7 @@ func (s *PublicTransactionPoolAPI) GetProofKey(ctx context.Context, args wtypes.
 		return nil, wtypes.ErrArgsInvalid
 	}
 	addr := common.HexToAddress(args.Addr)
-	txKey, err := s.wallet.GetTxKey(&args.Hash)
+	txKey, err := s.wallet.GetTxKey(&args.Hash, args.EthAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -311,7 +311,7 @@ func (s *PublicTransactionPoolAPI) CheckProofKey(ctx context.Context, args wtype
 	if len(args.Addr) != wtypes.UTXO_ADDR_STR_LEN && len(args.Addr) != common.AddressLength*2 && len(args.Addr) != common.AddressLength*2+2 {
 		return nil, wtypes.ErrArgsInvalid
 	}
-	tx, err := s.wallet.GetUTXOTx(args.Hash)
+	tx, err := s.wallet.GetUTXOTx(args.Hash, args.EthAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -397,21 +397,21 @@ func (s *PublicTransactionPoolAPI) SelectAddress(ctx context.Context, addr commo
 }
 
 // SetRefreshBlockInterval set wallet curr account
-func (s *PublicTransactionPoolAPI) SetRefreshBlockInterval(ctx context.Context, interval time.Duration) (bool, error) {
+func (s *PublicTransactionPoolAPI) SetRefreshBlockInterval(ctx context.Context, interval time.Duration, addr *common.Address) (bool, error) {
 	if interval <= time.Duration(0) {
 		return false, fmt.Errorf("interval must be greater than 0")
 	}
 	sec := interval * time.Second
-	err := s.wallet.SetRefreshBlockInterval(sec)
+	err := s.wallet.SetRefreshBlockInterval(sec, addr)
 	return err == nil, err
 }
 
 // GetLocalUTXOTxsByHeight return
-func (s *PublicTransactionPoolAPI) GetLocalUTXOTxsByHeight(ctx context.Context, height *hexutil.Big) (*wtypes.UTXOBlock, error) {
-	return s.wallet.GetLocalUTXOTxsByHeight((*big.Int)(height))
+func (s *PublicTransactionPoolAPI) GetLocalUTXOTxsByHeight(ctx context.Context, height *hexutil.Big, addr *common.Address) (*wtypes.UTXOBlock, error) {
+	return s.wallet.GetLocalUTXOTxsByHeight((*big.Int)(height), addr)
 }
 
 // GetLocalOutputs return
-func (s *PublicTransactionPoolAPI) GetLocalOutputs(ctx context.Context, startid hexutil.Uint64, size hexutil.Uint64) ([]wtypes.UTXOOutputDetail, error) {
-	return s.wallet.GetLocalOutputs(uint64(startid), uint64(size))
+func (s *PublicTransactionPoolAPI) GetLocalOutputs(ctx context.Context, args wtypes.LocalOutputsArgs) ([]wtypes.UTXOOutputDetail, error) {
+	return s.wallet.GetLocalOutputs(args.IDs, args.Addr)
 }

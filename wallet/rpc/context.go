@@ -49,22 +49,22 @@ func (c *Context) SetLogger(logger log.Logger) {
 type Wallet interface {
 	CreateUTXOTransaction(from common.Address, nonce uint64, subaddrs []uint64, dests []types.DestEntry,
 		tokenID common.Address, refundAddr common.Address, extra []byte) ([]*types.UTXOTransaction, error)
-	GetBalance(index uint64, token *common.Address) (*big.Int, error)
-	GetHeight() (localHeight *big.Int, remoteHeight *big.Int)
-	GetAddress(index uint64) (string, error)
+	GetBalance(index uint64, token *common.Address, addr *common.Address) (*big.Int, error)
+	GetHeight(addr *common.Address) (localHeight *big.Int, remoteHeight *big.Int)
+	GetAddress(index uint64, addr *common.Address) (string, error)
 	Transfer(txs []string) (ret []wtypes.SendTxRet)
 	OpenWallet(walletfile string, password string) error
-	CreateSubAccount(maxSub uint64) error
-	AutoRefreshBlockchain(autoRefresh bool) error
-	GetAccountInfo(tokenID *common.Address) (*wtypes.GetAccountInfoResult, error)
-	RescanBlockchain() error
+	CreateSubAccount(maxSub uint64, addr *common.Address) error
+	AutoRefreshBlockchain(autoRefresh bool, addr *common.Address) error
+	GetAccountInfo(tokenID *common.Address, addr *common.Address) (*wtypes.GetAccountInfoResult, error)
+	RescanBlockchain(addr *common.Address) error
 	GetWalletEthAddress() (*common.Address, error)
-	Status() *wtypes.StatusResult
-	GetTxKey(hash *common.Hash) (*lkctypes.Key, error)
-	GetMaxOutput(tokenID common.Address) (*hexutil.Uint64, error)
-	GetUTXOTx(hash common.Hash) (*types.UTXOTransaction, error)
+	Status(addr *common.Address) *wtypes.StatusResult
+	GetTxKey(hash *common.Hash, addr *common.Address) (*lkctypes.Key, error)
+	GetMaxOutput(tokenID common.Address, addr *common.Address) (*hexutil.Uint64, error)
+	GetUTXOTx(hash common.Hash, addr *common.Address) (*types.UTXOTransaction, error)
 	SelectAddress(addr common.Address) error
-	SetRefreshBlockInterval(interval time.Duration) error
+	SetRefreshBlockInterval(interval time.Duration, addr *common.Address) error
 	LockAccount(addr common.Address) error
 	// CheckTxKey(hash *common.Hash, txKey *lkctypes.Key, destAddr string) (*hexutil.Uint64, *hexutil.Big, error)
 	//
@@ -82,6 +82,6 @@ type Wallet interface {
 	EthEstimateGas(args wtypes.CallArgs) (*hexutil.Uint64, error)
 	SendRawTransaction(encodedTx hexutil.Bytes) (common.Hash, error)
 	SendRawUTXOTransaction(encodedTx hexutil.Bytes) (common.Hash, error)
-	GetLocalUTXOTxsByHeight(height *big.Int) (*wtypes.UTXOBlock, error)
-	GetLocalOutputs(startid uint64, size uint64) ([]wtypes.UTXOOutputDetail, error)
+	GetLocalUTXOTxsByHeight(height *big.Int, addr *common.Address) (*wtypes.UTXOBlock, error)
+	GetLocalOutputs(ids []hexutil.Uint64, addr *common.Address) ([]wtypes.UTXOOutputDetail, error)
 }

@@ -85,14 +85,15 @@ cp ../tests/UTC--2019-07-08T10-03-04.871669363Z--a73810e519e1075010678d706533486
 ### ltk_blockHeight
 
 功能：获取钱包当前同步的区块高度  
-参数：无  
+参数：  
+addr 字符串，十六进制 指定要操作的钱包账户，默认为最后解锁的账户（可选）  
 返回：  
     remote_height 字符串，十六进制，链节点高度  
     local_height 字符串，十六进制，钱包处理区块高度  
 示例：  
 
 ```shell
-curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"ltk_blockHeight","params":[]}' -H 'Content-Type: application/json'|json_pp
+curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"ltk_blockHeight","params":["0xa73810e519e1075010678d706533486d8ecc8000"]}' -H 'Content-Type: application/json'|json_pp
 {
    "jsonrpc" : "2.0",
    "id" : "0",
@@ -106,7 +107,9 @@ curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"l
 ### ltk_createSubAccount
 
 功能：按指定最大子地址数，创建子账户  
-参数：maxSubIdx 字符串，十六进制 最大子账户数  
+参数：  
+maxSubIdx 字符串，十六进制 最大子账户数  
+addr 字符串，十六进制 指定要操作的钱包账户，默认为最后解锁的账户（可选）  
 返回：  
    bool 执行是否成功
 示例：
@@ -126,6 +129,7 @@ curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"l
 参数：
     index 字符串，十六进制，子账户序号  
     token 字符串，十六进制，资产token标识，默认为"0x0000000000000000000000000000000000000000" 链克  
+    addr 字符串，十六进制 指定要操作的钱包账户，默认为最后解锁的账户（可选）  
 返回：  
     balance 字符串，十六进制，账户余额  
     address 账户地址，可以作为签交易的to地址  
@@ -150,6 +154,7 @@ curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"l
 功能：查询所有子账户信息  
 参数：  
    token 字符串，十六进制，资产token标识，默认为"0x0000000000000000000000000000000000000000" 链克  
+   addr 字符串，十六进制 指定要操作的钱包账户，默认为最后解锁的账户（可选）  
 返回：  
    total_balance 账户总余额
    token 字符串，十六进制，资产token标识，默认为"0x0000000000000000000000000000000000000000" 链克  
@@ -215,7 +220,8 @@ curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","method":"ltk_select
 
 功能：设置钱包获取新区块高度的间隔
 参数：  
-    interval 正整数，十进制，区块刷新间隔，单位：秒
+    interval 正整数，十进制，区块刷新间隔，单位：秒  
+    addr 字符串，十六进制 指定要操作的钱包账户，默认为最后解锁的账户（可选）  
 返回：  
     true 设置成功，false 设置失败  
 示例：
@@ -234,6 +240,7 @@ curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","method":"ltk_setRef
 功能：设置钱包自动刷新区块数据属性  
 参数：  
     true 允许自动刷新，false 禁止自动刷新  
+    addr 字符串，十六进制 指定要操作的钱包账户，默认为最后解锁的账户（可选）  
 返回：  
     true 设置成功，false 设置失败  
 示例：
@@ -251,7 +258,7 @@ curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","method":"ltk_autoRe
 
 功能：重新扫描区块(对当前选中的账户生效)  
 参数：  
-    无  
+    addr 字符串，十六进制 指定要操作的钱包账户，默认为最后解锁的账户（可选）  
 返回：  
     true 设置成功，false 设置失败  
 示例：
@@ -269,7 +276,7 @@ curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"l
 
 功能：获取钱包当前状态  
 参数：  
-    无  
+    addr 字符串，十六进制 指定要操作的钱包账户，默认为最后解锁的账户（可选）  
 返回：  
     local_height 字符串，十六进制，钱包同步的区块高度  
     remote_height 字符串，十六进制，连接的peer节点高度  
@@ -449,6 +456,7 @@ curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"l
 功能：获取交易私钥  
 参数：  
     交易hash  
+    addr 字符串，十六进制 指定要操作的钱包账户，默认为最后解锁的账户（可选）  
 返回：  
     交易私钥 字符串  
 示例：
@@ -467,6 +475,7 @@ curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","method":"ltk_getTxK
 功能：获取交易私钥  
 参数：  
     tokenID string，0x0000000000000000000000000000000000000000 表示链克  
+    addr 字符串，十六进制 指定要操作的钱包账户，默认为最后解锁的账户（可选）  
 返回：  
     maxOutput 字符串,十六进制。该token对应的output个数。  
 示例：
@@ -579,6 +588,7 @@ curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"p
 参数：  
 hash 交易hash  
 addr utxo地址
+eth_addr 字符串，十六进制 指定要操作的钱包账户，默认为最后解锁的账户（可选）  
 返回：  
      proof_key 字符串
 示例：
@@ -599,8 +609,9 @@ curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"l
 功能：验证交易是否包含转账
 参数：  
 hash 交易hash  
-addr utxo地址
-key  验证私钥
+addr utxo地址  
+key  验证私钥  
+eth_addr 字符串，十六进制 指定要操作的钱包账户，默认为最后解锁的账户（可选）  
 返回：  
      hash 交易hash
      addr 收款utxo地址
@@ -626,12 +637,12 @@ curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"l
 
 ### ltk_getBlockTransactionCountByNumber
 
-功能：查询区块中交易数
+功能：查询区块中交易数  
 参数：  
-blockNumber 字符串，十六进制 区块高度
+blockNumber 字符串，十六进制 区块高度  
 返回：  
-     txCount 字符串，十六进制 区块中包含的交易数
-示例：
+     txCount 字符串，十六进制 区块中包含的交易数  
+示例：  
 
 ```shell
 curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"ltk_getBlockTransactionCountByNumber","params":["0x2"]}' -H 'Content-Type: application/json'|json_pp  
@@ -644,12 +655,12 @@ curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"l
 
 ### ltk_getBlockTransactionCountByHash
 
-功能：查询区块中交易数
+功能：查询区块中交易数  
 参数：  
-blockHash 字符串，十六进制 区块哈希
+blockHash 字符串，十六进制 区块哈希  
 返回：  
-     txCount 字符串，十六进制 区块中包含的交易数
-示例：
+     txCount 字符串，十六进制 区块中包含的交易数  
+示例：  
 
 ```shell
 curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"ltk_getBlockTransactionCountByHash","params":["0x93de14f0a3ecc931f508bd155d67d79c59146c18caf48573cfa45dbc8b7556d8"]}' -H 'Content-Type: application/json'|json_pp  
@@ -662,12 +673,12 @@ curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"l
 
 ### ltk_getTransactionByBlockNumberAndIndex
 
-功能：查询区块中交易数
+功能：查询区块中交易数  
 参数：  
-blockHash 字符串，十六进制 区块哈希
+blockHash 字符串，十六进制 区块哈希  
 返回：  
-     txCount 字符串，十六进制 区块中包含的交易数
-示例：
+     txCount 字符串，十六进制 区块中包含的交易数  
+示例：  
 
 ```shell
 curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"ltk_getTransactionByBlockNumberAndIndex","params":["0x1","0x0"]}' -H 'Content-Type: application/json'|json_pp  
@@ -784,13 +795,13 @@ curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"l
 
 ### ltk_getTransactionByBlockHashAndIndex
 
-功能：用区块哈希与交易index查询交易
+功能：用区块哈希与交易index查询交易  
 参数：  
-blockHash 字符串，十六进制 区块哈希
-index  字符串，十六进制 交易在区块中的序号
+blockHash 字符串，十六进制 区块哈希  
+index  字符串，十六进制 交易在区块中的序号  
 返回：  
      参考**ltk_getTransactionByBlockNumberAndIndex**
-示例：
+示例：  
 
 ```shell
 curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"ltk_getTransactionByBlockHashAndIndex","params":["0x93de14f0a3ecc931f508bd155d67d79c59146c18caf48573cfa45dbc8b7556d8","0x0"]}' -H 'Content-Type: application/json'|json_pp
@@ -798,13 +809,13 @@ curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"l
 
 ### ltk_getRawTransactionByBlockNumberAndIndex
 
-功能：用区块哈希与交易index查询交易
+功能：用区块哈希与交易index查询交易  
 参数：  
-blockNumber 字符串，十六进制 区块编号
-index  字符串，十六进制 交易在区块中的序号
+blockNumber 字符串，十六进制 区块编号  
+index  字符串，十六进制 交易在区块中的序号  
 返回：  
-     raw 字符串，十六进制 交易raw
-示例：
+     raw 字符串，十六进制 交易raw  
+示例：  
 
 ```shell
 curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"ltk_getRawTransactionByBlockNumberAndIndex","params":["0x1","0x0"]}' -H 'Content-Type: application/json'|json_pp
@@ -817,13 +828,13 @@ curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"l
 
 ### ltk_getRawTransactionByBlockHashAndIndex
 
-功能：用区块哈希与交易index查询交易raw
+功能：用区块哈希与交易index查询交易raw  
 参数：  
-blockHash 字符串，十六进制 区块哈希
-index  字符串，十六进制 交易在区块中的序号
+blockHash 字符串，十六进制 区块哈希  
+index  字符串，十六进制 交易在区块中的序号  
 返回：  
-     raw 字符串，十六进制 交易raw
-示例：
+     raw 字符串，十六进制 交易raw  
+示例：  
 
 ```shell
 curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"ltk_getRawTransactionByBlockHashAndIndex","params":["0x93de14f0a3ecc931f508bd155d67d79c59146c18caf48573cfa45dbc8b7556d8","0x0"]}' -H 'Content-Type: application/json'|json_pp
@@ -836,13 +847,13 @@ curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"l
 
 ### ltk_getTransactionCount
 
-功能：查询账户交易nonce值
+功能：查询账户交易nonce值  
 参数：  
-address 字符串，十六进制 eth格式账户地址
+address 字符串，十六进制 eth格式账户地址  
 blockNumber  字符串， 区块中的序号，目前只支持 "latest"  
 返回：  
-     nonce 字符串，十六进制 账户的交易nonce值
-示例：
+     nonce 字符串，十六进制 账户的交易nonce值  
+示例：  
 
 ```shell
 curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"ltk_getTransactionCount","params":["0xa73810e519e1075010678d706533486d8ecc8000","latest"]}' -H 'Content-Type: application/json'|json_pp
@@ -855,12 +866,12 @@ curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"l
 
 ### ltk_getTransactionByHash
 
-功能：根据交易哈希查询交易结构
+功能：根据交易哈希查询交易结构  
 参数：  
-hash 字符串，十六进制 交易哈希
+hash 字符串，十六进制 交易哈希  
 返回：  
-     参考**ltk_getTransactionByBlockNumberAndIndex**
-示例：
+     参考**ltk_getTransactionByBlockNumberAndIndex**  
+示例：  
 
 ```shell
 curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"ltk_getTransactionByHash","params":["0x2f9c05caefe4372118d951a58e5f6992c597d0bb063b63d3aa0399c0f1e520d6"]}' -H 'Content-Type: application/json'|json_pp
@@ -868,12 +879,12 @@ curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"l
 
 ### ltk_getRawTransactionByHash
 
-功能：根据交易哈希查询交易raw
+功能：根据交易哈希查询交易raw  
 参数：  
-hash 字符串，十六进制 交易哈希
+hash 字符串，十六进制 交易哈希  
 返回：  
-     raw 字符串，十六进制 交易raw
-示例：
+     raw 字符串，十六进制 交易raw  
+示例：  
 
 ```shell
 curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"ltk_getRawTransactionByHash","params":["0x2f9c05caefe4372118d951a58e5f6992c597d0bb063b63d3aa0399c0f1e520d6"]}' -H 'Content-Type: application/json'|json_pp
@@ -886,11 +897,11 @@ curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"l
 
 ### ltk_getTransactionReceipt
 
-功能：根据交易哈希查询交易凭证
+功能：根据交易哈希查询交易凭证  
 参数：  
-hash 字符串，十六进制 交易哈希
+hash 字符串，十六进制 交易哈希  
 返回：  
-示例：
+示例：  
 
 ```shell
 curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"ltk_getTransactionReceipt","params":["0x2f9c05caefe4372118d951a58e5f6992c597d0bb063b63d3aa0399c0f1e520d6"]}' -H 'Content-Type: application/json'|json_pp
@@ -917,7 +928,7 @@ curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"l
 
 ### ltk_estimateGas
 
-功能：根据交易哈希查询交易raw
+功能：根据交易哈希查询交易raw  
 参数：  
 from 字符串，十六进制 转账from地址  
 to  字符串，十六进制 转账to地址  
@@ -926,7 +937,7 @@ data 字符串，十六进制 合约参数
 nonce 字符串，十六进制 from账户的交易序号  
 返回：  
      交易所需要的gas值，字符串，十六进制  
-示例：
+示例：  
 
 ```shell
 curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"ltk_estimateGas","params":[{"from":"0xa73810e519e1075010678d706533486d8ecc8000","to":"0xa73810e519e1075010678d706533486d8ecc8001","value":"0x4563918244f40000000","data":"0x4563918244f40000","nonce":"0x1"}]}' -H 'Content-Type: application/json'|json_pp
@@ -951,7 +962,7 @@ gasPrice 字符串，十六进制 gasPrice
 返回：  
      tx 交易结构内容  
      raw 字符串，十六进制 签名后的交易  
-示例：
+示例：  
 
 ```shell
 curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"ltk_signTransaction","params":[{"from":"0xa73810e519e1075010678d706533486d8ecc8000","to":"0xa73810e519e1075010678d706533486d8ecc8001","value":"0x4563918244f40000000","data":"0x4563918244f40000","nonce":"0x4","gas":"0x3d090000","gasPrice":"0x174876e800"}]}' -H 'Content-Type: application/json'|json_pp
@@ -1017,12 +1028,14 @@ curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"l
 功能：通过区块高度查询跟自己相关的解密后的UTXO交易记录  
 参数：  
 height 字符串，十六进制，区块高度  
+addr 字符串，十六进制 指定要操作的钱包账户，默认为最后解锁的账户（可选）  
 返回：  
 
 - txs 交易数组  
     - token_id token标识符，目前只支持  0x0000000000000000000000000000000000000000 链克  
     - hash 字符串，交易hash  
     - fee 字符串，十六进制，交易费用  
+    - tx_flag 整数，交易转入转出标记 1 - 转入，2- 转出，3-转入转出  
     - inputs 交易输入  
         - account类型输入  
             - from 字符串，账户地址  
@@ -1039,36 +1052,39 @@ height 字符串，十六进制，区块高度
             - otaddr 字符串，一次性交易地址  
             - global_index 字符串，十六进制 UTXO的全局索引  
 - height 字符串，十六进制，区块高度  
+- timestamp 字符串，十六进制，区块时间戳  
 示例：  
 
 ```shell
-curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"ltk_getLocalUTXOTxsByHeight","params":["0x2"]}' -H 'Content-Type: application/json'|json_pp
+curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"ltk_getLocalUTXOTxsByHeight","params":["0x12b54a"]}' -H 'Content-Type: application/json'|json_pp
 {
-   "jsonrpc" : "2.0",
-   "id" : "0",
    "result" : {
       "txs" : [
          {
+            "token_id" : "0x0000000000000000000000000000000000000000",
             "outputs" : [
                {
-                  "otaddr" : "0xe3996932c7cc995842585988010013cce86e9387e59f03ef224847a234e0c616",
-                  "global_index" : "0x1"
+                  "otaddr" : "0x415a2b409504a0e6cdffa1e1bf33605465e0ccaee47f0e944399a7f73031ec38",
+                  "global_index" : "0x3998c"
                }
             ],
-            "token_id" : "0x0000000000000000000000000000000000000000",
-            "fee" : "0x56bc75e2d63100000",
-            "hash" : "0x5777d7d34506fb411038f9aef591044cabadb7fb9a3524031a7190177b2d6279",
+            "tx_flag" : 3,
+            "fee" : "0x429d069189e0000",
+            "hash" : "0xf0820e63dd580e3637c4d8af7c2be23acab997f149f9c1c78c45189474985e8c",
             "inputs" : [
                {
+                  "amount" : "0x344d4a284540e0000",
                   "from" : "0xa73810e519e1075010678d706533486d8ecc8000",
-                  "amount" : "0x4419f88f1a2c7900000",
-                  "nonce" : "0x1"
+                  "nonce" : "0x1ce10"
                }
             ]
          }
       ],
-      "height" : "0x2"
-   }
+      "timestamp" : "0x5d7f2686",
+      "height" : "0x12b54a"
+   },
+   "id" : "0",
+   "jsonrpc" : "2.0"
 }
 ```
 
@@ -1077,8 +1093,8 @@ curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"l
 功能：查询跟自己相关的output数据  
 参数：  
 
-- startid 字符串，十六进制 起始的output global_index  
-- size 字符串，十六进制 最大返回output个数  
+- ids 字符串，十六进制 output global_index数组  
+- addr 字符串，十六进制 指定要操作的钱包账户，默认为最后解锁的账户（可选）  
 
 返回：  
 
@@ -1091,18 +1107,18 @@ curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"l
 示例：  
 
 ```shell
-curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"ltk_getLocalOutputs","params":["0x0","0x1"]}' -H 'Content-Type: application/json'|json_pp
+curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"ltk_getLocalOutputs","params":[{"ids":["0x3997e"]}]}' -H 'Content-Type: application/json'|json_pp
 {
    "result" : [
       {
-         "token_id" : "0x0000000000000000000000000000000000000000",
+         "remark" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+         "amount" : "0x340aad21b3b700000",
          "sub_addr_index" : "0x0",
-         "remark" : "0xa73810e519e1075010678d706533486d8ecc8000000000000000000000000000",
-         "amount" : "0x21e19e0c9bab2400000",
-         "global_index" : "0x0"
+         "token_id" : "0x0000000000000000000000000000000000000000",
+         "global_index" : "0x39980"
       }
    ],
-   "id" : "0",
-   "jsonrpc" : "2.0"
+   "jsonrpc" : "2.0",
+   "id" : "0"
 }
 ```

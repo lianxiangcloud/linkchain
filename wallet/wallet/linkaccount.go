@@ -22,6 +22,9 @@ import (
 const (
 	defaultRefreshBlockInterval = 5 * time.Second
 	defaultMaxSubAccount        = uint64(5000)
+	// 1 - 转入，2- 转出，3-转入转出
+	txin  uint8 = 0x1
+	txout uint8 = 0x2
 )
 
 var (
@@ -249,15 +252,16 @@ func (la *LinkAccount) checkBlock(block *rtypes.RPCBlock) error {
 
 // Refresh wallet
 func (la *LinkAccount) Refresh() {
-	la.lock.Lock()
-	defer la.lock.Unlock()
+	for {
+		la.lock.Lock()
 
-	if la.walletOpen && la.autoRefresh && la.localHeight.Cmp(la.remoteHeight) <= 0 {
-		for la.localHeight.Cmp(la.remoteHeight) <= 0 {
+		if la.walletOpen && la.autoRefresh && la.localHeight.Cmp(la.remoteHeight) <= 0 {
+
 			la.Logger.Debug("Refresh", "localHeight", la.localHeight, "remoteHeight", la.remoteHeight)
 			block, err := GetBlockUTXOsByNumber(la.localHeight)
 			if err != nil {
 				la.Logger.Error("Refresh getBlockUTXOsByNumber fail", "height", la.localHeight, "err", err)
+				la.lock.Unlock()
 				return
 			}
 
@@ -265,37 +269,51 @@ func (la *LinkAccount) Refresh() {
 			err = la.checkBlock(block)
 			if err != nil {
 				la.Logger.Error("Refresh CheckBlock fail", "height", la.localHeight, "err", err)
+				la.lock.Unlock()
 				return
 			}
 
 			ids, myTxs, err := la.processBlock(block)
 			if err != nil {
 				la.Logger.Error("Refresh processBlock fail", "height", la.localHeight, "err", err)
+				la.lock.Unlock()
 				return
 			}
 
-			err = la.save(ids, *block.Hash, myTxs)
+			localBlock := &types.UTXOBlock{
+				Height: (*hexutil.Big)(new(big.Int).Set(block.Height.ToInt())),
+				Time:   (*hexutil.Big)(new(big.Int).Set(block.Time.ToInt())),
+				Txs:    myTxs,
+			}
+
+			err = la.save(ids, *block.Hash, localBlock)
 			if err != nil {
 				la.Logger.Error("Refresh la.save fail", "height", la.localHeight, "err", err)
-				return
+
 			}
 			la.localHeight.Add(la.localHeight, big.NewInt(1))
+			la.lock.Unlock()
+		} else {
+			la.lock.Unlock()
+			return
 		}
+
 	}
+
 }
 
 // RefreshQuick wallet
 func (la *LinkAccount) RefreshQuick() {
-	la.lock.Lock()
-	defer la.lock.Unlock()
+	for {
+		la.lock.Lock()
 
-	if la.walletOpen && la.autoRefresh {
-		for {
+		if la.walletOpen && la.autoRefresh {
 			la.Logger.Debug("RefreshQuick", "localHeight", la.localHeight, "remoteHeight", la.remoteHeight)
 
 			quickBlock, err := GetBlockUTXO(la.localHeight)
 			if err != nil {
 				la.Logger.Error("RefreshQuick GetBlockUTXO fail", "height", la.localHeight, "err", err)
+				la.lock.Unlock()
 				return
 			}
 			nextHeight := quickBlock.NextHeight.ToInt()
@@ -308,18 +326,27 @@ func (la *LinkAccount) RefreshQuick() {
 				// }
 				la.localHeight.Set(nextHeight)
 				la.remoteHeight.Set(remoteHeight)
+				la.lock.Unlock()
 				continue
 			}
 
 			ids, myTxs, err := la.processBlock(quickBlock.Block)
 			if err != nil {
 				la.Logger.Error("RefreshQuick processBlock fail", "height", la.localHeight, "err", err)
+				la.lock.Unlock()
 				return
 			}
 
-			err = la.save(ids, *quickBlock.Block.Hash, myTxs)
+			localBlock := &types.UTXOBlock{
+				Height: (*hexutil.Big)(new(big.Int).Set(quickBlock.Block.Height.ToInt())),
+				Time:   (*hexutil.Big)(new(big.Int).Set(quickBlock.Block.Time.ToInt())),
+				Txs:    myTxs,
+			}
+
+			err = la.save(ids, *quickBlock.Block.Hash, localBlock)
 			if err != nil {
 				la.Logger.Error("RefreshQuick la.save fail", "height", la.localHeight, "err", err)
+				la.lock.Unlock()
 				return
 			}
 
@@ -330,6 +357,11 @@ func (la *LinkAccount) RefreshQuick() {
 
 			la.localHeight.Set(nextHeight)
 			la.remoteHeight.Set(remoteHeight)
+
+			la.lock.Unlock()
+		} else {
+			la.lock.Unlock()
+			return
 		}
 	}
 }
@@ -370,6 +402,7 @@ func (la *LinkAccount) processNewTransaction(tx *tctypes.UTXOTransaction, height
 	myTx.TokenID = tx.TokenID
 	myTx.Hash = tx.Hash()
 	myTx.Fee = (*hexutil.Big)(new(big.Int).Set(tx.Fee))
+	myTx.TxFlag = uint8(0)
 
 	// output
 	received := big.NewInt(0)
@@ -481,6 +514,7 @@ func (la *LinkAccount) processNewTransaction(tx *tctypes.UTXOTransaction, height
 			tids = append(tids, uint64(tid))
 
 			myTx.Outputs = append(myTx.Outputs, types.UTXOOutput{OTAddr: (common.Hash)(ro.OTAddr), GlobalIndex: (hexutil.Uint64)(tid)})
+			myTx.TxFlag = myTx.TxFlag | txout
 
 			la.Logger.Info("processNewTransaction output", "KeyImage", uod.KeyImage.String(), "subaddrIndex", subaddrIndex, "tx.RKey", tx.RKey, "uod.Amount", uod.Amount.String())
 
@@ -490,6 +524,7 @@ func (la *LinkAccount) processNewTransaction(tx *tctypes.UTXOTransaction, height
 		case *tctypes.AccountOutput:
 			if bytes.Equal(ro.To[:], la.account.EthAddress[:]) {
 				needSaveTx = true
+				myTx.TxFlag = myTx.TxFlag | txout
 			}
 			myTx.Outputs = append(myTx.Outputs, types.AccountOutput{To: ro.To, Amount: (*hexutil.Big)(ro.Amount), Data: (hexutil.Bytes)(ro.Data)})
 
@@ -504,12 +539,13 @@ func (la *LinkAccount) processNewTransaction(tx *tctypes.UTXOTransaction, height
 		case *tctypes.UTXOInput:
 
 			gidx := uint64(0)
-			localImage := false
 
 			keyimage := ri.KeyImage
 			iTransfer, ok := la.keyImages[keyimage]
 			if ok {
 				needSaveTx = true
+				myTx.TxFlag = myTx.TxFlag | txin
+
 				uod := la.Transfers[iTransfer]
 				amount := uod.Amount
 				uod.Spent = true
@@ -520,9 +556,8 @@ func (la *LinkAccount) processNewTransaction(tx *tctypes.UTXOTransaction, height
 				la.updateBalance(tx.TokenID, uod.SubAddrIndex, false, amount)
 				la.Logger.Info("processNewTransaction", "utxoTotalBalance", la.utxoTotalBalance, "iTransfer", iTransfer, "amount", amount.String())
 				gidx = uod.GlobalIndex
-				localImage = true
 			}
-			myTx.Inputs = append(myTx.Inputs, types.UTXOInput{GlobalIndex: hexutil.Uint64(gidx), LocalImage: localImage})
+			myTx.Inputs = append(myTx.Inputs, types.UTXOInput{GlobalIndex: hexutil.Uint64(gidx)})
 		case *tctypes.AccountInput:
 			from, err := tx.From()
 			if err != nil {
@@ -531,6 +566,7 @@ func (la *LinkAccount) processNewTransaction(tx *tctypes.UTXOTransaction, height
 			}
 			if bytes.Equal(from[:], la.account.EthAddress[:]) {
 				needSaveTx = true
+				myTx.TxFlag = myTx.TxFlag | txin
 			}
 			myTx.Inputs = append(myTx.Inputs, types.AccountInput{From: from, Nonce: hexutil.Uint64(ri.Nonce), Amount: (*hexutil.Big)(ri.Amount)})
 
@@ -791,23 +827,14 @@ func (la *LinkAccount) GetLocalUTXOTxsByHeight(height *big.Int) (*types.UTXOBloc
 }
 
 // GetLocalOutputs return UTXOTransaction
-func (la *LinkAccount) GetLocalOutputs(startid uint64, size uint64) ([]types.UTXOOutputDetail, error) {
-	// if !la.walletOpen {
-	// 	return nil, types.ErrWalletNotOpen
-	// }
+func (la *LinkAccount) GetLocalOutputs(ids []hexutil.Uint64) ([]types.UTXOOutputDetail, error) {
 	var err error
 	outputs := make([]types.UTXOOutputDetail, 0)
-	succCnt := uint64(0)
-	nextid := startid
-	for succCnt < size {
-		if nextid < startid || nextid > la.gOutIndex[LinkToken] {
-			break
-		}
+	for _, nextid := range ids {
 		var o *tctypes.UTXOOutputDetail
-		o, err = la.loadOutputDetail(nextid)
+		o, err = la.loadOutputDetail(uint64(nextid))
 		if err != nil {
 			if err == types.ErrOutputNotFound {
-				nextid++
 				continue
 			}
 			break
@@ -820,8 +847,6 @@ func (la *LinkAccount) GetLocalOutputs(startid uint64, size uint64) ([]types.UTX
 			Remark:       (hexutil.Bytes)(o.Remark[:]),
 		}
 		outputs = append(outputs, rpcUTXOOutputDetail)
-		succCnt++
-		nextid++
 	}
 	return outputs, err
 }

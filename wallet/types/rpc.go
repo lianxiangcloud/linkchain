@@ -82,6 +82,7 @@ type BlockHeightResult struct {
 type BalanceArgs struct {
 	AccountIndex hexutil.Uint64  `json:"index"`
 	TokenID      *common.Address `json:"token"`
+	Addr         *common.Address `json:"addr"`
 }
 
 type BalanceResult struct {
@@ -181,8 +182,9 @@ type StatusResult struct {
 }
 
 type ProofKeyArgs struct {
-	Hash common.Hash `json:"hash"`
-	Addr string      `json:"addr"`
+	Hash    common.Hash     `json:"hash"`
+	Addr    string          `json:"addr"`
+	EthAddr *common.Address `json:"eth_addr"`
 }
 
 type ProofKeyRet struct {
@@ -190,9 +192,10 @@ type ProofKeyRet struct {
 }
 
 type VerifyProofKeyArgs struct {
-	Hash common.Hash `json:"hash"`
-	Addr string      `json:"addr"`
-	Key  string      `json:"key"`
+	Hash    common.Hash     `json:"hash"`
+	Addr    string          `json:"addr"`
+	Key     string          `json:"key"`
+	EthAddr *common.Address `json:"eth_addr"`
 }
 
 type VerifyProofKey struct {
@@ -232,6 +235,7 @@ type CallArgs struct {
 
 type UTXOBlock struct {
 	Height *hexutil.Big      `json:"height"`
+	Time   *hexutil.Big      `json:"timestamp"`
 	Txs    []UTXOTransaction `json:"txs"`
 }
 
@@ -247,7 +251,7 @@ type UTXOTransaction struct {
 	TokenID common.Address `json:"token_id"` //current version one Tx support only one token
 	Fee     *hexutil.Big   `json:"fee"`      //fee charge only LKC, without unit (different from gas)
 	Hash    common.Hash    `json:"hash"`
-	// Height  *hexutil.Big   `json:"height"`
+	TxFlag  uint8          `json:"tx_flag"` // 1 - 转入，2- 转出，3-转入转出
 }
 
 type AccountInput struct {
@@ -258,7 +262,6 @@ type AccountInput struct {
 
 type UTXOInput struct {
 	GlobalIndex hexutil.Uint64 `json:"global_index"`
-	LocalImage  bool
 }
 
 type AccountOutput struct {
@@ -279,4 +282,9 @@ type UTXOOutputDetail struct {
 	SubAddrIndex hexutil.Uint64 `json:"sub_addr_index"`
 	TokenID      common.Address `json:"token_id"`
 	Remark       hexutil.Bytes  `json:"remark"`
+}
+
+type LocalOutputsArgs struct {
+	IDs  []hexutil.Uint64 `json:"ids"`
+	Addr *common.Address  `json:"addr"`
 }
