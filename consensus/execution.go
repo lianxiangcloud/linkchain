@@ -176,7 +176,7 @@ func fireEvents(logger log.Logger, eventBus types.BlockEventPublisher, block *ty
 
 func blockValidatorsMetricsReport(status NewStatus, blockHeight uint64) {
 	_, current := status.GetValidators()
-	fmt.Println(current.GetProposer().PubKey)
+	log.Debug("current proposer", "height", blockHeight, "pubkey", current.GetProposer().PubKey)
 	metrics.PrometheusMetricInstance().SetCurrentProposerPubkey(current.GetProposer().PubKey)
 
 	// Record every block's validators list ,only report when the node sis proposer
