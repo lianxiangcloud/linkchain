@@ -264,6 +264,7 @@ func (pool *BlockPool) PopRequest() {
 		*/
 		r.Stop()
 		delete(pool.requesters, pool.height)
+		atomic.AddInt32(&pool.numPending, -1)
 		delete(pool.blocks, pool.height)
 		pool.height++
 	} else {
@@ -306,7 +307,6 @@ func (pool *BlockPool) AddBlock(peerID string, block *types.Block, blockSize int
 
 	if requester.setBlock(block, peerID) {
 		pool.blocks[block.Height] = block
-		atomic.AddInt32(&pool.numPending, -1)
 		peer := pool.peers[peerID]
 		if peer != nil {
 			peer.decrPending(blockSize)
@@ -355,7 +355,7 @@ func (pool *BlockPool) removePeer(peerID string) {
 		if pid == peerID {
 			requester.redo()
 		} else {
-			pool.Logger.Info("BlockPool removePeer", "peer.id", peerID, "req.id", pid)
+			pool.Logger.Info("BlockPool removePeer", "peer.id", peerID, "req.id", pid, "req.height", requester.height)
 		}
 	}
 	if peer, ok := pool.peers[peerID]; ok {
@@ -619,10 +619,6 @@ func (bpr *bpRequester) reset() {
 	bpr.mtx.Lock()
 	defer bpr.mtx.Unlock()
 
-	if bpr.block != nil && bpr.pool != nil {
-		atomic.AddInt32(&bpr.pool.numPending, 1)
-	}
-
 	bpr.peerID = ""
 	bpr.block = nil
 }
@@ -645,6 +641,7 @@ OUTER_LOOP:
 		// Pick a peer to send request to.
 		var peer *bpPeer
 		pool := bpr.getPool()
+		count := 0
 	PICK_PEER_LOOP:
 		for {
 			if !bpr.IsRunning() || pool == nil || !pool.IsRunning() {
@@ -654,8 +651,13 @@ OUTER_LOOP:
 			peer = pool.pickIncrAvailablePeer(bpr.height)
 			if peer == nil {
 				//log.Info("No peers available", "height", height)
+				count++
+				if count >= 30 {
+					log.Debug("No peers available", "height", bpr.height)
+					count = 0
+				}
 				time.Sleep(requestIntervalMS * time.Millisecond)
-				continue PICK_PEER_LOOP
+				continue
 			}
 			break PICK_PEER_LOOP
 		}
