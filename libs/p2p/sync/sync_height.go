@@ -153,6 +153,24 @@ func (sm *SyncHeightManager) connectToNewSeeds(newSeeds []*common.Node) {
 		}
 	}
 
+	newPeers := sm.sw.Peers().List()
+	var num = 0
+	if len(peers) == len(newPeers) {
+	Loop:
+		for i := 0; i < len(peers); i++ {
+			for j := 0; j < len(newPeers); j++ {
+				if peers[i].ID() == newPeers[j].ID() {
+					num++
+					continue Loop
+				}
+			}
+		}
+		if len(peers) == num {
+			sm.logger.Info("old seeds are the same with the new seeds,keep the connection with old seeds", "num", num)
+			return
+		}
+	}
+
 	for _, peer := range peers {
 		sm.sw.StopPeerForError(peer, "network change,Close old Connection")
 	}
