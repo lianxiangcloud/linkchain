@@ -3,6 +3,7 @@ package service
 import (
 	"fmt"
 	"net"
+	"runtime"
 	"strings"
  	"github.com/lianxiangcloud/linkchain/config"
 	"github.com/lianxiangcloud/linkchain/libs/log"
@@ -107,7 +108,11 @@ func (s *Service) startIPC() error {
 		return nil // IPC disabled.
 	}
 
-	listener, handler, err := rpc.StartIPCEndpoint(s.conf.IPCFile(), s.apis)
+	IPCFile := s.conf.IpcEndpoint
+	if runtime.GOOS != "windows" {
+		IPCFile = s.conf.IPCFile()
+	}
+	listener, handler, err := rpc.StartIPCEndpoint(IPCFile, s.apis)
 	if err != nil {
 		return err
 	}
