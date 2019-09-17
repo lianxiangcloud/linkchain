@@ -111,6 +111,10 @@ func (memR *MempoolReactor) RemovePeer(peer p2p.Peer, reason interface{}) {
 func defaultHandReceiveMsg(memR *MempoolReactor, msg MempoolMessage, src p2p.Peer) {
 	switch msg := msg.(type) {
 	case TxMessage:
+		if !memR.config.ReceiveP2pTx {
+			memR.Logger.Debug("MempoolReactor Receive return", "ReceiveP2pTx", memR.config.ReceiveP2pTx)
+			return
+		}
 		memR.Logger.Debug("Receive", "src", src.ID(), "hash", msg.Tx.Hash())
 		tx := msg.Tx
 		msg.Tx = nil
@@ -156,10 +160,6 @@ func defaultHandReceiveMsg(memR *MempoolReactor, msg MempoolMessage, src p2p.Pee
 // Receive implements Reactor.
 // It adds any received transactions to the cache.
 func (memR *MempoolReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) {
-	if !memR.config.ReceiveP2pTx {
-		memR.Logger.Debug("MempoolReactor Receive return", "ReceiveP2pTx", memR.config.ReceiveP2pTx)
-		return
-	}
 	msg, err := decodeMsg(msgBytes)
 	if err != nil {
 		memR.Logger.Error("Error decoding message", "src", src, "chId", chID, "msg", msg, "err", err, "bytes", msgBytes)
