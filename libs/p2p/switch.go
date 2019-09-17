@@ -713,18 +713,19 @@ func (sw *Switch) listenerRoutine(l Listener) {
 		// ignore connection if we already have enough
 		// leave room for MinNumOutboundPeers
 		var maxInPeers int
+		var OutboundPeers int
 		if netutil.IsLAN(remoteIP) {
 			sw.Logger.Debug("it is local network", "remoteIP", remoteIP.String())
 			maxInPeers = sw.config.MaxNumPeers / 2
 		} else {
-			var OutboundPeers int
 			if sw.ntab != nil {
 				OutboundPeers = sw.ntab.GetMaxDialOutNum()
 			}
 			maxInPeers = sw.config.MaxNumPeers - OutboundPeers
 		}
-		if maxInPeers <= sw.peers.Size() {
-			sw.Logger.Info("Ignoring inbound connection: already have enough peers", "address", inConn.RemoteAddr().String(), "numPeers", sw.peers.Size(), "max", maxInPeers)
+		if maxInPeers <= (sw.peers.Size() - OutboundPeers) {
+			sw.Logger.Info("Ignoring inbound connection: already have enough peers", "address", inConn.RemoteAddr().String(),
+				"numPeers", sw.peers.Size(), "OutboundPeers", OutboundPeers, "maxin", maxInPeers)
 			inConn.Close()
 			continue
 		}
