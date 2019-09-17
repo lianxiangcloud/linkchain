@@ -355,10 +355,6 @@ func (cs *ConsensusState) OnReset() error {
 	cs.done = make(chan struct{})
 	cs.wal = nilWAL{}
 	cs.stepRecover = false
-	// When switch out consensus, reset the step and round info,so that consensus can
-	// replay all steps when switch back,If not so, the step will stop, since state step >=
-	// replay timeout tock when height not changed
-	cs.updateRoundStep(0, cstypes.RoundStepNewHeight)
 	err := cs.evsw.Reset()
 	if err != nil {
 		cs.Logger.Error("Error reset state.evsw", "err", err)
@@ -686,7 +682,7 @@ func (cs *ConsensusState) updateToStatus(status NewStatus) {
 	// We don't want to reset e.g. the Votes, but we still want to
 	// signal the new round step, because other services (eg. mempool)
 	// depend on having an up-to-date peer status!
-	if !cs.status.IsEmpty() && (status.LastBlockHeight <= cs.status.LastBlockHeight) {
+	if !cs.status.IsEmpty() && (status.LastBlockHeight < cs.status.LastBlockHeight) {
 		cs.Logger.Info("Ignoring updateToStatus()", "newHeight", status.LastBlockHeight+1, "oldHeight", cs.status.LastBlockHeight+1)
 		cs.newStep()
 		return
