@@ -217,10 +217,10 @@ func (st *StateTransition) UTXOTransitionDb() (ret []byte, usedGas uint64, byteC
 			st.useGas(st.gas)
 			if (msg.UTXOKind() & types.Ain) == types.Ain {
 				st.state.SubTokenBalance(msg.MsgFrom(), msg.TokenAddress(), msg.Value())
-                if !common.IsLKC(msg.TokenAddress()) {
-                    paidFee := big.NewInt(0).Mul(big.NewInt(0).SetUint64(msg.Gas()), big.NewInt(types.ParGasPrice))
-				    st.state.SubBalance(msg.MsgFrom(), paidFee)
-                }
+				if !common.IsLKC(msg.TokenAddress()) {
+					paidFee := big.NewInt(0).Mul(big.NewInt(0).SetUint64(msg.Gas()), big.NewInt(types.ParGasPrice))
+					st.state.SubBalance(msg.MsgFrom(), paidFee)
+				}
 
 				br := types.GenBalanceRecord(msg.MsgFrom(), common.EmptyAddress, types.AccountAddress, types.PrivateAddress, types.TxTransfer, msg.TokenAddress(), recordAmount)
 				st.vmenv.AddOtx(br)
@@ -316,7 +316,7 @@ func (st *StateTransition) UTXOTransitionDb() (ret []byte, usedGas uint64, byteC
 		}
 
 		if (msg.UTXOKind() & types.Ain) == types.Ain {
-			log.Debug("UTXOTransitionDb sub accountInput's amount", "from", msg.MsgFrom(), "token", msg.TokenAddress().String(),  "value", msg.Value())
+			log.Debug("UTXOTransitionDb sub accountInput's amount", "from", msg.MsgFrom(), "token", msg.TokenAddress().String(), "value", msg.Value())
 			st.state.SubTokenBalance(msg.MsgFrom(), msg.TokenAddress(), msg.Value())
 			if !common.IsLKC(msg.TokenAddress()) {
 				paidFee := big.NewInt(0).Mul(big.NewInt(0).SetUint64(msg.Gas()), big.NewInt(types.ParGasPrice))

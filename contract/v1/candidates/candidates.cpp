@@ -123,8 +123,8 @@ public:
                 if(coinbaseAddrs.find(c.coinbase) != coinbaseAddrs.end()){
                     TC_RequireWithMsg(false, "Coinbase repeat");
                 }
-            	coinbaseAddrs.erase(candiInfo.coinbase);
-	    }
+				coinbaseAddrs.erase(candiInfo.coinbase);
+            }
         }
 
         cand.set(Candjson, c.pub_key);
