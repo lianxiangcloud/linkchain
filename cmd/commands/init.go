@@ -281,20 +281,6 @@ func createGenesisBlock(config *cfg.Config, genDoc *types.GenesisDoc) ([]*types.
 			if _, err := app.CallWasmContract(wasm, sender, contractAddr, amount, []byte(cData.input), logger); err != nil {
 				return nil, err
 			}
-			// save balance record
-			payloads := make([]types.Payload, 0)
-			tbr := types.NewTxBalanceRecords()
-			tbr.SetOptions(common.EmptyHash, types.TxNormal, payloads, 0, uint64(math.MaxUint64),
-				big.NewInt(types.GasPrice), sender, contractAddr, common.EmptyAddress)
-			txBr := types.GenBalanceRecord(sender, contractAddr, types.AccountAddress, types.AccountAddress, types.TxTransfer, common.EmptyAddress, amount)
-			tbr.AddBalanceRecord(txBr)
-			otxs := wasm.GetOTxs()
-			for _, otx := range otxs {
-				tbr.AddBalanceRecord(otx)
-			}
-			br := types.GenBalanceRecord(sender, cfg.ContractFoundationAddr, types.AccountAddress, types.AccountAddress, types.TxFee, common.EmptyAddress, big.NewInt(0))
-			tbr.AddBalanceRecord(br)
-			types.BlockBalanceRecordsInstance.AddTxBalanceRecord(tbr)
 		}
 		if ok := checkDeposit(storeState); !ok {
 			return nil, fmt.Errorf("checkDeposit fail")
@@ -494,5 +480,17 @@ func checkPledgeAccount(st *state.StateDB) bool {
 
 	st.SubBalance(oldPledgeAddress, deposit)
 	st.AddBalance(cfg.ContractPledgeAddr, deposit)
+
+	// save balance record
+	payloads := make([]types.Payload, 0)
+	tbr := types.NewTxBalanceRecords()
+	tbr.SetOptions(common.EmptyHash, types.TxNormal, payloads, 0, uint64(math.MaxUint64),
+		big.NewInt(types.GasPrice), oldPledgeAddress, cfg.ContractPledgeAddr, common.EmptyAddress)
+	txBr := types.GenBalanceRecord(oldPledgeAddress, cfg.ContractPledgeAddr, types.AccountAddress, types.AccountAddress, types.TxTransfer, common.EmptyAddress, deposit)
+	tbr.AddBalanceRecord(txBr)
+	br := types.GenBalanceRecord(oldPledgeAddress, cfg.ContractFoundationAddr, types.AccountAddress, types.AccountAddress, types.TxFee, common.EmptyAddress, big.NewInt(0))
+	tbr.AddBalanceRecord(br)
+	types.BlockBalanceRecordsInstance.AddTxBalanceRecord(tbr)
+
 	return true
 }
