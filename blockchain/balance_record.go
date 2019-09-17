@@ -43,7 +43,10 @@ func (b *BalanceRecordStore) Get(blockHeight uint64) *types.BlockBalanceRecords 
 		return nil
 	}
 	blr := &types.BlockBalanceRecords{}
-	ser.DecodeBytes(val, blr)
+	err := ser.DecodeBytes(val, blr)
+	if err != nil {
+		panic(err)
+	}
 	return blr
 }
 
