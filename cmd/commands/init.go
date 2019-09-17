@@ -20,6 +20,7 @@ import (
 	"github.com/lianxiangcloud/linkchain/types"
 	"github.com/lianxiangcloud/linkchain/vm/evm"
 	"github.com/lianxiangcloud/linkchain/vm/wasm"
+	"github.com/lianxiangcloud/linkchain/libs/math"
 	"github.com/spf13/cobra"
 	"github.com/xunleichain/tc-wasm/vm"
 )
@@ -267,6 +268,7 @@ func createGenesisBlock(config *cfg.Config, genDoc *types.GenesisDoc) ([]*types.
 		block.Header.Time = uint64(1569409200)
 	}
 
+	types.SaveBalanceRecord = config.SaveBalanceRecord
 	if len(contractData) > 0 && config.OnLine {
 		contextWasm := wasm.NewWASMContext(types.CopyHeader(block.Header), blockStore, nil, config.WasmGasRate)
 		wasm := wasm.NewWASM(contextWasm, storeState, evm.Config{EnablePreimageRecording: false})
@@ -279,6 +281,20 @@ func createGenesisBlock(config *cfg.Config, genDoc *types.GenesisDoc) ([]*types.
 			if _, err := app.CallWasmContract(wasm, sender, contractAddr, amount, []byte(cData.input), logger); err != nil {
 				return nil, err
 			}
+			// save balance record
+			payloads := make([]types.Payload, 0)
+			tbr := types.NewTxBalanceRecords()
+			tbr.SetOptions(common.EmptyHash, types.TxNormal, payloads, 0, uint64(math.MaxUint64),
+				big.NewInt(types.GasPrice), sender, contractAddr, common.EmptyAddress)
+			txBr := types.GenBalanceRecord(sender, contractAddr, types.AccountAddress, types.AccountAddress, types.TxTransfer, common.EmptyAddress, amount)
+			tbr.AddBalanceRecord(txBr)
+			otxs := wasm.GetOTxs()
+			for _, otx := range otxs {
+				tbr.AddBalanceRecord(otx)
+			}
+			br := types.GenBalanceRecord(sender, cfg.ContractFoundationAddr, types.AccountAddress, types.AccountAddress, types.TxFee, common.EmptyAddress, big.NewInt(0))
+			tbr.AddBalanceRecord(br)
+			types.BlockBalanceRecordsInstance.AddTxBalanceRecord(tbr)
 		}
 		if ok := checkDeposit(storeState); !ok {
 			return nil, fmt.Errorf("checkDeposit fail")
@@ -302,10 +318,10 @@ func createGenesisBlock(config *cfg.Config, genDoc *types.GenesisDoc) ([]*types.
 	fmt.Printf("genesisBlock ChainID:%v Height:%d block.Hash:%v\n", block.ChainID, block.Height, block.Hash().String())
 	blockStore.SaveBlock(block, block.MakePartSet(defaultParams.BlockGossip.BlockPartSizeBytes), nil, nil, &txsResult)
 
-	bbr := types.NewBlockBalanceRecords()
-	bbr.SetBlockTime(block.Time())
-	bbr.SetBlockHash(block.Hash())
-	balanceRecordStore.Save(block.Height, bbr)
+	types.BlockBalanceRecordsInstance.SetBlockTime(block.Time())
+	types.BlockBalanceRecordsInstance.SetBlockHash(block.Hash())
+	balanceRecordStore.Save(block.Height, types.BlockBalanceRecordsInstance)
+	types.BlockBalanceRecordsInstance.Reset()
 
 	return vals, nil
 }
@@ -463,11 +479,13 @@ func checkPledgeAccount(st *state.StateDB) bool {
 	b := st.GetBalance(oldPledgeAddress)
 	if b.Sign() == 0 {
 		fmt.Println("Warn:Old EVM pledge account balance is 0! May not transfer stateDB")
+		types.BlockBalanceRecordsInstance.Reset()
 		return true
 	}
 	deposit := big.NewInt(0).Mul(big.NewInt(subDeposit), big.NewInt(cfg.Ether))
 	if b.Cmp(deposit) < 0 {
 		fmt.Println("Error:Old EVM pledge account balance not enough!", "pledge balacne", b, "should be", deposit)
+		types.BlockBalanceRecordsInstance.Reset()
 		return false
 	}
 	if b.Cmp(deposit) > 0 {

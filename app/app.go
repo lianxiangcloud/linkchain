@@ -1004,6 +1004,24 @@ func AllocAward(wasm *wasm.WASM, logger log.Logger) error {
 	input := "allocAward|{}"
 	logger.Info("allocAward")
 	_, err := CallWasmContract(wasm, common.EmptyAddress, config.ContractFoundationAddr, big.NewInt(0), []byte(input), logger)
+
+	if err == nil {
+		payloads := make([]types.Payload, 0)
+		tbr := types.NewTxBalanceRecords()
+		tbr.SetOptions(common.EmptyHash, types.TxNormal, payloads, 0, uint64(math.MaxUint64),
+			big.NewInt(types.GasPrice), common.EmptyAddress, config.ContractFoundationAddr, common.EmptyAddress)
+		otxs := wasm.GetOTxs()
+		for _, otx := range otxs {
+			tbr.AddBalanceRecord(otx)
+		}
+		if tbr.IsBalanceRecordEmpty() {
+			return nil
+		}
+		br := types.GenBalanceRecord(common.EmptyAddress, config.ContractFoundationAddr, types.NoAddress, types.AccountAddress, types.TxFee, common.EmptyAddress, big.NewInt(0))
+		tbr.AddBalanceRecord(br)
+		types.BlockBalanceRecordsInstance.AddTxBalanceRecord(tbr)
+	}
+
 	return err
 }
 
@@ -1024,40 +1042,15 @@ func CallWasmContract(wasm *wasm.WASM, sender, contractAddr common.Address, amou
 		return nil, fmt.Errorf("exec.NewApp fail: %s", err)
 	}
 
-	payloads := make([]types.Payload, 0)
-	tbr := types.NewTxBalanceRecords()
-	tbr.SetOptions(common.EmptyHash, types.TxNormal, payloads, 0, gas, big.NewInt(types.GasPrice), sender, contractAddr, common.EmptyAddress)
-
 	app.EntryFunc = vm.APPEntry
 	ret, err := eng.Run(app, innerContract.Input)
 	if err != nil {
 		return nil, fmt.Errorf("eng.Run fail: err=%s", err)
 	}
-
-	otxs := wasm.GetOTxs()
-	defer func(sender common.Address, tbr *types.TxBalanceRecords) {
-		if tbr.IsBalanceRecordEmpty() {
-			return
-		}
-		var br types.BalanceRecord
-		if sender == common.EmptyAddress {
-			br = types.GenBalanceRecord(common.EmptyAddress, config.ContractFoundationAddr, types.NoAddress, types.AccountAddress, types.TxFee, common.EmptyAddress, big.NewInt(0))
-		} else {
-			br = types.GenBalanceRecord(sender, config.ContractFoundationAddr, types.AccountAddress, types.AccountAddress, types.TxFee, common.EmptyAddress, big.NewInt(0))
-		}
-		tbr.AddBalanceRecord(br)
-		types.BlockBalanceRecordsInstance.AddTxBalanceRecord(tbr)
-	}(sender, tbr)
-
 	vmem := app.VM.VMemory()
 	result, err := vmem.GetString(ret)
 	if err != nil {
 		return nil, fmt.Errorf("vmem.GetString fail: err=%v", err)
 	}
-
-	for _, otx := range otxs {
-		tbr.AddBalanceRecord(otx)
-	}
-
 	return result, nil
 }
