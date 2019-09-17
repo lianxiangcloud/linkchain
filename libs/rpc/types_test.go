@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/lianxiangcloud/linkchain/libs/math"
+	"github.com/lianxiangcloud/linkchain/types"
 )
 
 func TestBlockNumberJSONUnmarshal(t *testing.T) {
@@ -42,7 +43,7 @@ func TestBlockNumberJSONUnmarshal(t *testing.T) {
 		10: {`"ff"`, true, BlockNumber(0)},
 		11: {`"pending"`, false, PendingBlockNumber},
 		12: {`"latest"`, false, LatestBlockNumber},
-		13: {`"earliest"`, false, EarliestBlockNumber},
+		13: {`"earliest"`, false, BlockNumber(types.BlockHeightZero)},
 		14: {`someString`, true, BlockNumber(0)},
 		15: {`""`, true, BlockNumber(0)},
 		16: {``, true, BlockNumber(0)},

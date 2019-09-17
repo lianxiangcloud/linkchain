@@ -24,6 +24,7 @@ import (
 	"sync"
 
 	"github.com/lianxiangcloud/linkchain/libs/hexutil"
+	"github.com/lianxiangcloud/linkchain/types"
 	"gopkg.in/fatih/set.v0"
 )
 
@@ -138,7 +139,7 @@ func (bn *BlockNumber) UnmarshalJSON(data []byte) error {
 
 	switch input {
 	case "earliest":
-		*bn = EarliestBlockNumber
+		*bn = BlockNumber(types.BlockHeightZero)
 		return nil
 	case "latest":
 		*bn = LatestBlockNumber
@@ -165,7 +166,7 @@ func (bn *BlockNumber) UnmarshalJSON(data []byte) error {
 
 func (bn BlockNumber) String() string {
 	switch bn {
-	case EarliestBlockNumber:
+	case BlockNumber(types.BlockHeightZero):
 		return "earliest"
 	case LatestBlockNumber:
 		return "latest"
