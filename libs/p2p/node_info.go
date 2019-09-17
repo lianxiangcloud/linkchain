@@ -23,8 +23,9 @@ func MaxNodeInfoSize() int {
 // NodeInfo is the basic node information exchanged
 // between two peers during the P2P handshake.
 type NodeInfo struct {
-	PubKey     crypto.PubKeyEd25519 `json:"pub_key"`
-	ListenAddr string               `json:"listen_addr"` // listen tcp addr,accepting tcp protocol incoming
+	PubKey      crypto.PubKeyEd25519 `json:"pub_key"`
+	CachePeerID string
+	ListenAddr  string `json:"listen_addr"` // listen tcp addr,accepting tcp protocol incoming
 
 	// Check compatibility.
 	// Channels are HexBytes so easier to read as JSON
@@ -159,8 +160,16 @@ func (info NodeInfo) String() string {
 }
 
 // ID returns the peer's Uniquely identifies
-func (info NodeInfo) ID() string {
-	return common.TransPubKeyToStringID(info.PubKey)
+func (info *NodeInfo) ID() string {
+	if info == nil {
+		return ""
+	}
+	if info.CachePeerID != "" {
+		return info.CachePeerID
+	} else {
+		info.CachePeerID = common.TransPubKeyToStringID(info.PubKey)
+		return info.CachePeerID
+	}
 }
 
 func splitVersion(version string) (string, string, string, error) {

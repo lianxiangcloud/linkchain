@@ -860,8 +860,8 @@ func (sw *Switch) addPeer(pc peerConn, isInCon bool) error {
 	if err := sw.localNodeInfo.CompatibleWith(peerNodeInfo); err != nil {
 		return err
 	}
-
-	peer := newPeer(pc, sw.mConfig, peerNodeInfo, sw.reactorsByCh, sw.chDescs, sw.StopPeerForError)
+	peerNodeInfo.CachePeerID = "" //reset CachePeerID
+	peer := newPeer(pc, sw.mConfig, &peerNodeInfo, sw.reactorsByCh, sw.chDescs, sw.StopPeerForError)
 	peer.SetLogger(sw.Logger.With("peer", addr))
 
 	peer.Logger.Info("Successful handshake with peer", "peerNodeInfo", peerNodeInfo)

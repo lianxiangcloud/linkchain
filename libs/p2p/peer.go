@@ -41,7 +41,7 @@ type peer struct {
 	// peer's node info and the channel it knows about
 	// channels = nodeInfo.Channels
 	// cached to avoid copying nodeInfo in hasChannel
-	nodeInfo NodeInfo
+	nodeInfo *NodeInfo
 	channels []byte
 
 	// User data
@@ -51,7 +51,7 @@ type peer struct {
 func newPeer(
 	pc peerConn,
 	mConfig tmconn.MConnConfig,
-	nodeInfo NodeInfo,
+	nodeInfo *NodeInfo,
 	reactorsByCh map[byte]Reactor,
 	chDescs []*tmconn.ChannelDescriptor,
 	onPeerError func(Peer, interface{}),
@@ -186,7 +186,7 @@ func (p *peer) IsPersistent() bool {
 
 // NodeInfo returns a copy of the peer's NodeInfo.
 func (p *peer) NodeInfo() NodeInfo {
-	return p.nodeInfo
+	return *p.nodeInfo
 }
 
 // OriginalAddr returns the original address, which was used to connect with
