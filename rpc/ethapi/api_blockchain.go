@@ -217,7 +217,12 @@ func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr
 	}
 
 	if args.To != nil && !state.IsContract(*args.To) {
-		gasFee := types.CalNewAmountGas(args.Value.ToInt(), types.EverLiankeFee)
+		var gasFee uint64
+		if common.IsLKC(args.TokenAddress) {
+			gasFee = types.CalNewAmountGas(args.Value.ToInt(), types.EverLiankeFee)
+		} else {
+			gasFee = uint64(types.MinGasLimit)
+		}
 		return nil, gasFee, 0, false, nil
 	}
 
