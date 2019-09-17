@@ -7,8 +7,9 @@
 #define ContractFoundationAddr "0x00000000000000000000466f756e646174696f6e"
 #define RKEY  "right"
 
-#define InitialPledgeAmount "500000"
-#define WinOutPledgeAmount "5000000"
+#define E18 "000000000000000000"
+#define InitialPledgeAmount "500000" E18
+#define WinOutPledgeAmount "5000000" E18
 
 enum ElectorStatus {
     DEFAULT,  
@@ -145,6 +146,8 @@ void Pledge::participate(const tc::Address& elector, const tc::BInt& amount, con
 	TC_RequireWithMsg(shareRate <= 100, "share percent is over 100");
 	TC_RequireWithMsg(!orderID.get(orderid), "Orderid is exist");
     TC_RequireWithMsg(tc::App::getInstance()->value() >= initialPledgeAmount, "Initial pledge amount should bigger than 500000 ether");
+	TC_Prints(amount.toString());
+	TC_Prints(tc::App::getInstance()->value().toString());
 	TC_RequireWithMsg(amount == tc::App::getInstance()->value(), "Value Not Equal Amount");
     TC_RequireWithMsg(StopPledgeAct.get() == false, "pledge Action Stoped");
 

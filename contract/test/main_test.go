@@ -22,8 +22,24 @@ var contractAddr = map[string]common.Address{
 	"validators":  config.ContractValidatorsAddr,
 }
 
+var OneLink = new(big.Int)
+var InitAmount = new(big.Int)
+var WinoutAmount = new(big.Int)
+
 var testAddr0 = "0x54fb1c7d0f011dd63b08f85ed7b518ab82028100"
 var foundCall = "0x0000000000000000000000000000000000000000"
+
+func TestMain(m *testing.M) {
+	OneLink.SetString("1000000000000000000", 10) // octal
+	InitAmount.SetInt64(500000)
+	WinoutAmount.SetInt64(5000000)
+	InitAmount.Mul(InitAmount, OneLink) // octal
+	WinoutAmount.Mul(WinoutAmount, OneLink)
+
+	fmt.Println(WinoutAmount.String())
+	fmt.Println("beg" + InitAmount.String() + "end")
+	m.Run()
+}
 
 func RegiesterCommittee(st *state.StateDB) *wasm.Contract {
 	inputs := []string{
@@ -387,8 +403,8 @@ func TestCommitteeChangeRights(t *testing.T) {
 
 func pledgeInit(st *state.StateDB, elector string, orderId uint64, t *testing.T) {
 	pledgeContract := Regiester("pledge")
-	input := `participate|{"0":"` + elector + `","1":"5000000","2":` + strconv.FormatUint(orderId, 10) + `,"3":91}`
-	_, err := CallContract(st, elector, pledgeContract, input, big.NewInt(5000000))
+	input := `participate|{"0":"` + elector + `","1":"` + WinoutAmount.String() + `","2":` + strconv.FormatUint(orderId, 10) + `,"3":91}`
+	_, err := CallContract(st, elector, pledgeContract, input, WinoutAmount)
 	if err != nil {
 		t.Fail()
 	}
@@ -466,11 +482,11 @@ func TestPledgeNormal(t *testing.T) {
 	}
 
 	for _, coinbase := range supportCoinbase {
-		addPledge(st, coinbase, candidateCoinbase[0], big.NewInt(5000000), orderId, t)
+		addPledge(st, coinbase, candidateCoinbase[0], WinoutAmount, orderId, t)
 		orderId += 1
 	}
 	for _, coinbase := range supportCoinbase {
-		addPledge(st, coinbase, candidateCoinbase[1], big.NewInt(5000000), orderId, t)
+		addPledge(st, coinbase, candidateCoinbase[1], InitAmount, orderId, t)
 		orderId += 1
 	}
 	CallContractByInput(st, pledgeContract, "getDeposit|{}")
@@ -497,8 +513,8 @@ func TestPledgeVote(t *testing.T) {
 	CallContractByInput(st, pledgeContract, initInputs)
 	CallContractByInput(st, validatorsContract, initInputs)
 
-	input := `participate|{"0":"0x54fb1c7d0f011dd63b08f85ed7b518ab82028101","1":"5000000","2":123,"3":90}`
-	_, err := CallContract(st, testAddr0, pledgeContract, input, big.NewInt(5000000))
+	input := `participate|{"0":"0x54fb1c7d0f011dd63b08f85ed7b518ab82028101","1":"` + WinoutAmount.String() + `","2":123,"3":90}`
+	_, err := CallContract(st, testAddr0, pledgeContract, input, WinoutAmount)
 	if err != nil {
 		t.Fail()
 	}
@@ -587,20 +603,20 @@ func TestFoundationNormal(t *testing.T) {
 	}
 
 	for _, coinbase := range supportCoinbase {
-		addPledge(st, coinbase, candidateCoinbase[0], big.NewInt(1000000), orderId, t)
+		addPledge(st, coinbase, candidateCoinbase[0], new(big.Int).Mul(OneLink, big.NewInt(1000000)), orderId, t)
 		orderId += 1
 	}
 
-	addPledge(st, supportCoinbase[0], candidateCoinbase[0], big.NewInt(1000000), orderId, t)
+	addPledge(st, supportCoinbase[0], candidateCoinbase[0], new(big.Int).Mul(OneLink, big.NewInt(1000000)), orderId, t)
 	orderId += 1
 
 	for _, coinbase := range supportCoinbase {
-		addPledge(st, coinbase, candidateCoinbase[1], big.NewInt(1000000), orderId, t)
+		addPledge(st, coinbase, candidateCoinbase[1], new(big.Int).Mul(OneLink, big.NewInt(1000000)), orderId, t)
 		orderId += 1
 	}
 
 	for _, coinbase := range supportCoinbase {
-		addPledge(st, coinbase, candidateCoinbase[2], big.NewInt(1000000), orderId, t)
+		addPledge(st, coinbase, candidateCoinbase[2], new(big.Int).Mul(OneLink, big.NewInt(1000000)), orderId, t)
 		orderId += 1
 	}
 
