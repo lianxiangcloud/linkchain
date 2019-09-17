@@ -164,13 +164,23 @@ func (pool *BlockPool) removeTimedoutPeers() {
 			curRate := peer.recvMonitor.Status().CurRate
 			// curRate can be 0 on start
 			if curRate != 0 && curRate < minRecvRate {
-				err := errors.New("peer is not sending us data fast enough")
-				pool.sendError(err, peer.id)
-				pool.Logger.Error("SendTimeout", "peer", peer.id,
-					"reason", err,
-					"curRate", fmt.Sprintf("%d KB/s", curRate/1024),
-					"minRate", fmt.Sprintf("%d KB/s", minRecvRate/1024))
-				peer.didTimeout = true
+				noBlock := true
+				for _, r := range pool.requesters {
+					if r.getPeerID() == peer.id && r.getBlock() != nil {
+						noBlock = false
+						break
+					}
+				}
+
+				if noBlock {
+					err := errors.New("peer is not sending us data fast enough")
+					pool.sendError(err, peer.id)
+					pool.Logger.Error("SendTimeout", "peer", peer.id,
+						"reason", err,
+						"curRate", fmt.Sprintf("%d KB/s", curRate/1024),
+						"minRate", fmt.Sprintf("%d KB/s", minRecvRate/1024))
+					peer.didTimeout = true
+				}
 			}
 		}
 		if peer.didTimeout {
