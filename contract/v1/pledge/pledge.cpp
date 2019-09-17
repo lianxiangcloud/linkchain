@@ -146,8 +146,6 @@ void Pledge::participate(const tc::Address& elector, const tc::BInt& amount, con
 	TC_RequireWithMsg(shareRate <= 100, "share percent is over 100");
 	TC_RequireWithMsg(!orderID.get(orderid), "Orderid is exist");
     TC_RequireWithMsg(tc::App::getInstance()->value() >= initialPledgeAmount, "Initial pledge amount should bigger than 500000 ether");
-	TC_Prints(amount.toString());
-	TC_Prints(tc::App::getInstance()->value().toString());
 	TC_RequireWithMsg(amount == tc::App::getInstance()->value(), "Value Not Equal Amount");
     TC_RequireWithMsg(StopPledgeAct.get() == false, "pledge Action Stoped");
 
