@@ -72,7 +72,6 @@ func rebuildLastState(db dbm.DB, file *os.File) error {
 		return err
 	}
 	size := fi.Size()
-	fmt.Println("keyValue: rebuildLastState wal size", size)
 	if size < 1 {
 		return nil
 	}
@@ -90,7 +89,7 @@ func rebuildLastState(db dbm.DB, file *os.File) error {
 	}
 
 	var key, value []byte
-	var n, count uint32
+	var n uint32
 
 	bat := db.NewBatch()
 	for len(buf) > 0 {
@@ -107,10 +106,8 @@ func rebuildLastState(db dbm.DB, file *os.File) error {
 		} else {
 			bat.Delete(key)
 		}
-		count++
 	}
 	bat.Write()
-	fmt.Println("keyValue: rebuildLastState kv pairs", count)
 	return nil
 }
 
@@ -127,7 +124,6 @@ func NewKeyValueDBWithCache(db dbm.DB, cache int, isTrie bool, height uint64) Da
 			panic(fmt.Errorf("open %s failed, err: %v", filename, err))
 		}
 		kvh := loadHeight(db)
-		fmt.Println("kvStateHeight is", kvh, "blockStoreHeight is", height)
 		switch kvh {
 		case height:
 			// last block saved ok
