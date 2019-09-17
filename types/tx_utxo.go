@@ -239,7 +239,7 @@ func (tx UTXOTransaction) TokenAddress() common.Address {
 	return tx.TokenID
 }
 
-func (tx UTXOTransaction) Hash() common.Hash {
+func (tx *UTXOTransaction) Hash() common.Hash {
 	hash := transactionHash(&tx.hash, tx)
 	return hash
 }
