@@ -205,24 +205,33 @@ func (la *LinkAccount) printBalance() {
 	}
 }
 
+func (la *LinkAccount) resetRemoteHeight() error {
+	h, err := RefreshMaxBlock()
+	if err != nil {
+		la.Logger.Error("refreshLoop RefreshMaxBlock", "err", err)
+		return err
+	}
+	if h.Cmp(la.remoteHeight) > 0 {
+		la.remoteHeight = h
+	}
+	return nil
+}
+
 func (la *LinkAccount) refreshLoop() {
 	refreshMaxBlock := time.NewTimer(la.refreshBlockInterval)
 
 	for {
 		select {
 		case <-refreshMaxBlock.C:
+			err := la.resetRemoteHeight()
+			if err != nil {
+				refreshMaxBlock.Reset(la.refreshBlockInterval)
+				continue
+			}
+
 			if la.syncQuick {
 				la.RefreshQuick()
 			} else {
-				h, err := RefreshMaxBlock()
-				if err != nil {
-					la.Logger.Error("refreshLoop RefreshMaxBlock", "err", err)
-					refreshMaxBlock.Reset(la.refreshBlockInterval)
-					continue
-				}
-				if h.Cmp(la.remoteHeight) > 0 {
-					la.remoteHeight = h
-				}
 				la.printBalance()
 				la.Refresh()
 			}
@@ -318,6 +327,16 @@ func (la *LinkAccount) RefreshQuick() {
 			}
 			nextHeight := quickBlock.NextHeight.ToInt()
 			remoteHeight := quickBlock.MaxHeight.ToInt()
+
+			if remoteHeight.Cmp(nextHeight) < 0 {
+				la.Logger.Error("RefreshQuick remoteHeight.Cmp(nextHeight) < 0, not ready to refresh", "remoteHeight", remoteHeight, "nextHeight", nextHeight)
+				la.lock.Unlock()
+				return
+			}
+
+			if nextHeight.Cmp(la.localHeight) <= 0 {
+				nextHeight.Add(la.localHeight, big.NewInt(1))
+			}
 
 			if quickBlock.Block == nil {
 				// if quickBlock.NextHeight == nil || nextHeight.Sign() <= 0 {
@@ -722,6 +741,7 @@ func (la *LinkAccount) RescanBlockchain() error {
 	}
 
 	la.localHeight.SetInt64(defaultInitBlockHeight)
+	la.remoteHeight.SetInt64(defaultInitBlockHeight)
 	la.utxoTotalBalance = make(map[common.Address]*big.Int)
 	la.gOutIndex = make(map[common.Address]uint64)
 	la.keyImages = make(map[lkctypes.Key]uint64)
