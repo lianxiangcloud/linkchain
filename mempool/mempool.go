@@ -433,6 +433,13 @@ func (mem *Mempool) AddTx(peerID string, tx types.Tx) (err error) {
 	mem.proxyMtx.Lock()
 	defer mem.proxyMtx.Unlock()
 
+	if tx.TypeName() != types.TxMultiSignAccount &&
+		mem.futureTxsCount >= mem.config.FutureSize &&
+		mem.goodTxs.Len() >= mem.config.Size {
+		mem.cache.Delete(tx.Hash())
+		return types.ErrMempoolIsFull
+	}
+
 	switch tx.(type) {
 	case *types.UTXOTransaction:
 		// blacklist check
