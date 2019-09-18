@@ -321,7 +321,7 @@ func (la *LinkAccount) RefreshQuick() {
 
 			quickBlock, err := GetBlockUTXO(la.localHeight)
 			if err != nil {
-				la.Logger.Error("RefreshQuick GetBlockUTXO fail", "height", la.localHeight, "err", err)
+				la.Logger.Info("RefreshQuick GetBlockUTXO fail", "height", la.localHeight, "err", err)
 				la.lock.Unlock()
 				return
 			}
@@ -329,7 +329,7 @@ func (la *LinkAccount) RefreshQuick() {
 			remoteHeight := quickBlock.MaxHeight.ToInt()
 
 			if remoteHeight.Cmp(nextHeight) < 0 {
-				la.Logger.Error("RefreshQuick remoteHeight.Cmp(nextHeight) < 0, not ready to refresh", "remoteHeight", remoteHeight, "nextHeight", nextHeight)
+				la.Logger.Info("RefreshQuick remoteHeight.Cmp(nextHeight) < 0, not ready to refresh", "remoteHeight", remoteHeight, "nextHeight", nextHeight)
 				la.lock.Unlock()
 				return
 			}
