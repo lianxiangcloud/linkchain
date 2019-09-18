@@ -529,7 +529,7 @@ func (b *ApiBackend) Stats() (int, int, int) {
 }
 
 func (b *ApiBackend) PrometheusMetrics() string {
-	return metrics.PrometheusMetricInstance().GetMetrics()
+	return metrics.PrometheusMetricInstance.GetMetrics()
 }
 
 func (b *ApiBackend) GetUTXOGas() uint64 {

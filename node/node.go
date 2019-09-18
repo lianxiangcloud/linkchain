@@ -182,8 +182,8 @@ func NewNode(config *cfg.Config,
 	blockStore.SetCrossState(txService)
 
 	// Init Prometheus Metrics
-	metrics.PrometheusMetricInstance().Init(config, privValidator.GetPubKey(), logger.With("module", "prometheus_metrics"))
-	metrics.PrometheusMetricInstance().SetRole(localNodeType)
+	metrics.PrometheusMetricInstance.Init(config, privValidator.GetPubKey(), logger.With("module", "prometheus_metrics"))
+	metrics.PrometheusMetricInstance.SetRole(localNodeType)
 
 	// Get Consensus Status
 	statusDB, err := dbProvider(&DBContext{"consensus_state", config})

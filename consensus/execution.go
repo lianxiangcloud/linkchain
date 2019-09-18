@@ -177,10 +177,10 @@ func fireEvents(logger log.Logger, eventBus types.BlockEventPublisher, block *ty
 func blockValidatorsMetricsReport(status NewStatus, blockHeight uint64) {
 	_, current := status.GetValidators()
 	log.Debug("current proposer", "height", blockHeight, "pubkey", current.GetProposer().PubKey)
-	metrics.PrometheusMetricInstance().SetCurrentProposerPubkey(current.GetProposer().PubKey)
+	metrics.PrometheusMetricInstance.SetCurrentProposerPubkey(current.GetProposer().PubKey)
 
 	// Record every block's validators list ,only report when the node sis proposer
-	if metrics.PrometheusMetricInstance().ProposerPubkeyEquals() {
+	if metrics.PrometheusMetricInstance.ProposerPubkeyEquals() {
 		currentValidators := status.Validators.Validators
 		validatorStr := ""
 		for _, validator := range currentValidators {
@@ -189,7 +189,7 @@ func blockValidatorsMetricsReport(status NewStatus, blockHeight uint64) {
 		if len(validatorStr) > 0 {
 			validatorStr = validatorStr[:len(validatorStr)-1]
 		}
-		blockValidatorsListMetric := metrics.PrometheusMetricInstance().GenBlockValidatorsListMetric(validatorStr, blockHeight)
-		metrics.PrometheusMetricInstance().AddMetrics(blockValidatorsListMetric)
+		blockValidatorsListMetric := metrics.PrometheusMetricInstance.GenBlockValidatorsListMetric(validatorStr, blockHeight)
+		metrics.PrometheusMetricInstance.AddMetrics(blockValidatorsListMetric)
 	}
 }

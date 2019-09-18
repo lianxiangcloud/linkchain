@@ -32,16 +32,13 @@ type prometheusMetric struct {
 	currentBlockProposerPubkey crypto.PubKey
 }
 
-var p *prometheusMetric
+var PrometheusMetricInstance *prometheusMetric
 
-func PrometheusMetricInstance() *prometheusMetric {
-	if p == nil {
-		p = &prometheusMetric{
-			minute: -1,
-		}
-		go p.runMetricsCleaner()
+func init() {
+	PrometheusMetricInstance = &prometheusMetric{
+		minute: -1,
 	}
-	return p
+	go PrometheusMetricInstance.runMetricsCleaner()
 }
 
 func (p *prometheusMetric) Init(cfg *config.Config, pubkey crypto.PubKey, logger log.Logger) {
@@ -126,4 +123,9 @@ func (p *prometheusMetric) GenBlockHeightMetric(generateBlockTime string, blockH
 func (p *prometheusMetric) GenBlockValidatorsListMetric(validatorsListStr string, blockHeight uint64) string {
 	return fmt.Sprintf("link_BlockValidatorsList{hostname=\"%s\",role=\"%d\",ip_port=\"%s\",validators_list=\"%s\"} %d\n",
 		p.hostname, p.roleType, p.httpEndpoint, validatorsListStr, blockHeight)
+}
+
+func (p *prometheusMetric) GenNetInfo(peerName string, peerRole types.NodeType, peerVersion string) string {
+	return fmt.Sprintf("link_NetInfo{hostname=\"%s\",role=\"%d\",ip_port=\"%s\",peerName=\"%s\",peerRole=\"%s\",peerVersion=\"%s\"} 0\n",
+		p.hostname, p.roleType, p.httpEndpoint, peerName, peerRole, peerVersion)
 }

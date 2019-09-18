@@ -6,6 +6,7 @@ import (
 	"github.com/lianxiangcloud/linkchain/types"
 	dbm "github.com/lianxiangcloud/linkchain/libs/db"
 	"github.com/lianxiangcloud/linkchain/libs/ser"
+	"github.com/lianxiangcloud/linkchain/libs/log"
 )
 
 
@@ -32,7 +33,8 @@ func (b *BalanceRecordStore) Save(blockHeight uint64, bbr *types.BlockBalanceRec
 	key := calBlockBalanceRecordsKey(blockHeight)
 	val, err := ser.EncodeToBytes(bbr)
 	if err != nil {
-		panic(err)
+		log.Error("BalanceRecordStore Save EncodeToBytes exec failed.", "err", err.Error())
+		return
 	}
 	b.db.Set(key, val)
 }
@@ -45,7 +47,8 @@ func (b *BalanceRecordStore) Get(blockHeight uint64) *types.BlockBalanceRecords 
 	blr := &types.BlockBalanceRecords{}
 	err := ser.DecodeBytes(val, blr)
 	if err != nil {
-		panic(err)
+		log.Error("BalanceRecordStore Get DecodeByte exec failed.", "err", err.Error())
+		return nil
 	}
 	return blr
 }

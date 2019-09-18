@@ -25,7 +25,7 @@ var (
 
 func init() {
 	pk := crypto.GenPrivKeyEd25519FromSecret([]byte("test"))
-	metrics.PrometheusMetricInstance().Init(cfg.DefaultConfig(),pk.PubKey(),log.Root())
+	metrics.PrometheusMetricInstance.Init(cfg.DefaultConfig(),pk.PubKey(),log.Root())
 }
 func TestApplyBlock(t *testing.T) {
 

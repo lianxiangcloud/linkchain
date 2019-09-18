@@ -337,16 +337,14 @@ func (m *metrics) sendMetricsToMetricsCollector(promethuesMetrics string) {
 	url := m.configs.MetricsCollectorUrl
 	data := nurl.Values{}
 	data.Add(sendMetricsArgName, promethuesMetrics)
-	req, err := http.NewRequest("POST", url, strings.NewReader(data.Encode()))
+	resp, err := http.PostForm(url, data)
 	if err != nil {
-		log.Error("new request failed.", "err", err.Error())
+		log.Error("http PostForm exec failed..", "err", err.Error())
+		return
 	}
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Error("client.Do failed", "err", err.Error())
+	if resp != nil {
+		resp.Body.Close()
 	}
-	defer resp.Body.Close()
 }
 
 func waitAMoment() {
