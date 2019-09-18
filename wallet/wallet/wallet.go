@@ -61,10 +61,13 @@ func NewWallet(config *cfg.Config,
 	// wallet.BaseService = *cmn.NewBaseService(logger, "Wallet", wallet)
 	wallet.Logger = logger
 
-	// update default init block height
-	if config.Daemon.InitHeight > defaultInitBlockHeight {
-		defaultInitBlockHeight = config.Daemon.InitHeight
+	height, err := GenesisBlockNumber()
+	if err != nil {
+		wallet.Logger.Error("GenesisBlockNumber fail", "err", err)
+		return nil, err
 	}
+	defaultInitBlockHeight = uint64(*height)
+	wallet.Logger.Info("NewWallet", "defaultInitBlockHeight", defaultInitBlockHeight)
 
 	return wallet, nil
 }
@@ -290,7 +293,7 @@ func (w *Wallet) defaultStatus(addr *common.Address) *types.StatusResult {
 	}
 	return &types.StatusResult{
 		RemoteHeight:         (*hexutil.Big)(rh),
-		LocalHeight:          (*hexutil.Big)(big.NewInt(defaultInitBlockHeight)),
+		LocalHeight:          (*hexutil.Big)(new(big.Int).SetUint64(defaultInitBlockHeight)),
 		WalletOpen:           false,
 		AutoRefresh:          false,
 		WalletVersion:        WalletVersion,

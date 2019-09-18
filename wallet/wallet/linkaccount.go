@@ -29,7 +29,7 @@ const (
 
 var (
 	LinkToken              = common.EmptyAddress
-	defaultInitBlockHeight = int64(0)
+	defaultInitBlockHeight = uint64(0)
 )
 
 type transferContainer []*tctypes.UTXOOutputDetail
@@ -61,8 +61,8 @@ type LinkAccount struct {
 // NewLinkAccount return a LinkAccount
 func NewLinkAccount(walletDB dbm.DB, logger log.Logger, keystoreFile string, password string) (*LinkAccount, error) {
 	la := &LinkAccount{
-		remoteHeight:         big.NewInt(defaultInitBlockHeight),
-		localHeight:          big.NewInt(defaultInitBlockHeight),
+		remoteHeight:         new(big.Int).SetUint64(defaultInitBlockHeight),
+		localHeight:          new(big.Int).SetUint64(defaultInitBlockHeight),
 		utxoTotalBalance:     make(map[common.Address]*big.Int),
 		AccBalance:           make(map[common.Address]balanceMap),
 		gOutIndex:            make(map[common.Address]uint64),
@@ -643,7 +643,7 @@ func (la *LinkAccount) GetHeight() (localHeight *big.Int, remoteHeight *big.Int)
 	la.lock.Lock()
 	defer la.lock.Unlock()
 
-	if la.localHeight.Cmp(big.NewInt(defaultInitBlockHeight)) == 0 {
+	if la.localHeight.Cmp(new(big.Int).SetUint64(defaultInitBlockHeight)) == 0 {
 		return la.localHeight, la.remoteHeight
 	}
 	return new(big.Int).Sub(la.localHeight, big.NewInt(1)), la.remoteHeight
@@ -740,8 +740,8 @@ func (la *LinkAccount) RescanBlockchain() error {
 		la.AccBalance = make(map[common.Address]balanceMap)
 	}
 
-	la.localHeight.SetInt64(defaultInitBlockHeight)
-	la.remoteHeight.SetInt64(defaultInitBlockHeight)
+	la.localHeight.SetUint64(defaultInitBlockHeight)
+	la.remoteHeight.SetUint64(defaultInitBlockHeight)
 	la.utxoTotalBalance = make(map[common.Address]*big.Int)
 	la.gOutIndex = make(map[common.Address]uint64)
 	la.keyImages = make(map[lkctypes.Key]uint64)

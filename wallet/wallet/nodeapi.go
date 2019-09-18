@@ -693,3 +693,27 @@ func GetBlockUTXO(height *big.Int) (*rtypes.QuickRPCBlock, error) {
 
 	return &quickBlock, nil
 }
+
+// GenesisBlockNumber return genesisBlock init height
+func GenesisBlockNumber() (*hexutil.Uint64, error) {
+	p := make([]interface{}, 0)
+	body, err := daemon.CallJSONRPC("eth_genesisBlockNumber", p)
+	if err != nil || body == nil || len(body) == 0 {
+		return nil, wtypes.ErrNoConnectionToDaemon
+	}
+
+	var jsonRes wtypes.RPCResponse
+	if err = json.Unmarshal(body, &jsonRes); err != nil {
+		return nil, fmt.Errorf("GenesisBlockNumber json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+	}
+	if jsonRes.Error.Code != 0 {
+		return nil, fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
+	}
+
+	var blockNumber hexutil.Uint64
+	if err = json.Unmarshal(jsonRes.Result, &blockNumber); err != nil {
+		return nil, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+	}
+
+	return &blockNumber, nil
+}

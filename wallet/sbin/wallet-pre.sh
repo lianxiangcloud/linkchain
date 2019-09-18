@@ -42,9 +42,8 @@ function Start(){
   cmd=${binpath}/${binfile}
   #peer_rpc="http://127.0.0.1:61000"
   peer_rpc="https://c32024s1.lianxiangcloud.com:10443"
-  height=1086101
 
-  nohup $binfile node --test_net --daemon.sync_quick  --log_level "debug" --home ${home}  --daemon.peer_rpc $peer_rpc --daemon.init_height $height --detach true  >>${logpath}/attach.log  2>&1 &
+  nohup $binfile node --test_net --daemon.sync_quick  --log_level "debug" --home ${home}  --daemon.peer_rpc $peer_rpc --detach true  >>${logpath}/attach.log  2>&1 &
 }
 
 function Stop(){

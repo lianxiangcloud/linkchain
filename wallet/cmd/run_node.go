@@ -24,7 +24,6 @@ func AddNodeFlags(cmd *cobra.Command) {
 
 	cmd.Flags().String("daemon.peer_rpc", config.Daemon.PeerRPC, "peer rpc url")
 	cmd.Flags().Bool("daemon.sync_quick", config.Daemon.SyncQuick, "wallet sync block use quick api")
-	cmd.Flags().Int64("daemon.init_height", config.Daemon.InitHeight, "wallet init block height")
 
 	// rpc flags
 	cmd.Flags().StringSlice("rpc.http_modules", config.RPC.HTTPModules, "API's offered over the HTTP-RPC interface")
