@@ -112,6 +112,9 @@ type SendTxArgs struct {
 
 // setDefaults is a helper function that fills in default values for unspecified tx fields.
 func (args *SendTxArgs) SetDefaults(ctx context.Context, b Backend) error {
+	if args.To == nil && args.TokenAddress != common.EmptyAddress {
+		return errors.New("can not create contract with token amount")
+	}
 	if args.Value == nil {
 		args.Value = new(hexutil.Big)
 	}
