@@ -66,8 +66,8 @@ const (
 	Bn256ScalarMulGas       uint64 = 40000  // Gas needed for an elliptic curve scalar multiplication
 	Bn256PairingBaseGas     uint64 = 100000 // Base price for an elliptic curve pairing check
 	Bn256PairingPerPointGas uint64 = 80000  // Per-point price for an elliptic curve pairing check
-	IssueGsa uint64 = 25000 //Gas needed for issue tokens in contract account
-) 
+	IssueGsa                uint64 = 25000  //Gas needed for issue tokens in contract account
+)
 
 var (
 	DifficultyBoundDivisor = big.NewInt(2048)   // The bound divisor of the difficulty, used in the update calculations.
@@ -91,7 +91,21 @@ var (
 	ContractValidatorsAddr = common.BytesToAddress([]byte("Validators"))
 	//ContractBlacklistAddr 0x0000000000000000000000426c61636b6c697374
 	ContractBlacklistAddr = common.BytesToAddress([]byte("Blacklist"))
+	//ContractConsCommitteeAddr = 0x00000000000000436f6e73436f6d6d6974746565
+	ContractConsCommitteeAddr = common.BytesToAddress([]byte("ConsCommittee"))
 )
+
+//InnerContracts indicates all of inner contracts above
+var InnerContracts = map[common.Address]struct{}{
+	ContractCandidatesAddr:    struct{}{},
+	ContractCoefficientAddr:   struct{}{},
+	ContractCommitteeAddr:     struct{}{},
+	ContractFoundationAddr:    struct{}{},
+	ContractPledgeAddr:        struct{}{},
+	ContractValidatorsAddr:    struct{}{},
+	ContractBlacklistAddr:     struct{}{},
+	ContractConsCommitteeAddr: struct{}{},
+}
 
 var (
 	//TwoConsecutive Two Consecutive times
