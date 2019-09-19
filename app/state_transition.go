@@ -455,18 +455,10 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, byteCodeG
 		isNewFeeRule := st.state.IsContract(*msg.To()) && msg.Value().Sign() > 0
 		isLianke := common.IsLKC(msg.TokenAddress())
 		if isNewFeeRule {
-			if st.state.IsContract(*msg.To()) {
-				if isLianke {
-					totalFee = types.CalNewAmountGas(msg.Value(), types.EverContractLiankeFee)
-				} else {
-					totalFee = 0
-				}
+			if isLianke {
+				totalFee = types.CalNewAmountGas(msg.Value(), types.EverContractLiankeFee)
 			} else {
-				if isLianke {
-					totalFee = types.CalNewAmountGas(msg.Value(), types.EverLiankeFee)
-				} else {
-					totalFee = uint64(types.MinGasLimit)
-				}
+				totalFee = 0
 			}
 			if vmerr = st.useGas(totalFee); vmerr != nil {
 				// st.useGas(st.gas)
