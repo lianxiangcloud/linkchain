@@ -424,13 +424,20 @@ func pledgeInit(st *state.StateDB, elector string, orderId uint64, t *testing.T)
 func addPledge(st *state.StateDB, support string, elector string, value *big.Int, orderId uint64, t *testing.T) {
 	pledgeContract := Regiester("pledge")
 
-	input := `deposit|{"0":"` + elector + `","1":"` + value.String() + `","2":` + strconv.FormatUint(orderId, 10) + `}`
-	_, err := CallContract(st, support, pledgeContract, input, value)
+	input := `setElectorStatus|{"0":"` + elector + `","1":3}`
+	_, err := CallContractByInput(st, pledgeContract, input)
+	if err != nil {
+		t.Fail()
+	}
+
+	input = `deposit|{"0":"` + elector + `","1":"` + value.String() + `","2":` + strconv.FormatUint(orderId, 10) + `}`
+	_, err = CallContract(st, support, pledgeContract, input, value)
 	if err != nil {
 		t.Fail()
 	}
 
 	inputs := []string{
+		`setElectorStatus|{"0":"` + elector + `","1":4}`,
 		`getElectorInfo|{"0":"` + elector + `"}`,
 		`getDeposit|{}`,
 	}

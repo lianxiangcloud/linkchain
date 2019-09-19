@@ -10,6 +10,9 @@
 #define ContractCandidatesAddr "0x0000000000000000000043616e64696461746573"
 #define ContractValidatorAddr "0x0000000000000000000056616c696461746f7273"
 
+#define E18 "000000000000000000"
+#define AllocMinDeposit "10000" E18
+
 struct Validator {
 	std::string pub_key;
 	int64 voting_power;
@@ -180,7 +183,7 @@ void getStockMap(const tc::Address& candidates, std::map<tc::Address, tc::BInt>&
 	    PledgeRecord record; 
 		GetPledgeRecord(index, record);
 		tc::BInt amount = GetSupportStock(candidates, record.sender);
-		if (amount >= 10000){
+		if (amount >= tc::BInt(AllocMinDeposit)){
 			if (stockMap[record.sender] != amount){
 				stockMap[record.sender] = amount;
 				supportTotalAmount += amount;

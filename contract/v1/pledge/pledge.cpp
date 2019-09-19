@@ -174,7 +174,7 @@ void Pledge::deposit(const tc::Address& elector, const tc::BInt& amount, const u
     ElectorStatus status = (ElectorStatus)ElectorsMap.get(elector).status;
     auto elec = ElectorsMap.get(elector);
 
-    TC_RequireWithMsg(status == ElectorStatus::GOING || status == ElectorStatus::WINOUT, "Candidate node status is not on going");
+    TC_RequireWithMsg(status == ElectorStatus::GOING, "Candidate node status is not on going");
     
     elec.totalAmount = elec.totalAmount + tc::App::getInstance()->value();
     ElectorsMap.set(elec, elector);
