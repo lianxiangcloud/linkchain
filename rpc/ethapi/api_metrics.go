@@ -54,7 +54,7 @@ func (s *PublicPrometheusMetricsAPI) PrometheusMetrics() string {
 		return err.Error()
 	}
 	for _, peer := range nInfo.Peers {
-		prometheusMetrics += metrics.PrometheusMetricInstance.GenNetInfo(peer.Moniker,
+		prometheusMetrics += metrics.PrometheusMetricInstance.GenNetInfoMetric(peer.Moniker,
 			peer.Type, peer.Version)
 	}
 

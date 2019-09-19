@@ -22,6 +22,7 @@ import (
 	"github.com/lianxiangcloud/linkchain/utxo"
 	"github.com/lianxiangcloud/linkchain/vm/evm"
 	"github.com/lianxiangcloud/linkchain/vm/wasm"
+	"github.com/lianxiangcloud/linkchain/metrics"
 	"github.com/xunleichain/tc-wasm/vm"
 )
 
@@ -626,6 +627,16 @@ func (app *LinkApplication) CommitBlock(block *types.Block, blockParts *types.Pa
 	app.balanceRecordStore.Save(block.Height, types.BlockBalanceRecordsInstance)
 	app.blockChain.SaveBlock(block, blockParts, seenCommit, processResult.GetReceipts(), processResult.GetTxsResult())
 	app.utxoStore.SaveUtxo(processResult.txsResult.KeyImages(), processResult.txsResult.UTXOOutputs(), block.Height)
+
+	// candidate score metrics report
+	if metrics.PrometheusMetricInstance.ProposerPubkeyEquals() {
+		metricCans := processResult.tmpState.GetAllCandidates(log.Root())
+		for _, metricCan := range metricCans {
+			scoreMetric := metrics.PrometheusMetricInstance.GenCandidateScoreMetric(block.Height,
+				metricCan.Address.String(), metricCan.Score)
+			metrics.PrometheusMetricInstance.AddMetrics(scoreMetric)
+		}
+	}
 
 	app.mempool.Lock()
 
