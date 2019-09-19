@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/lianxiangcloud/linkchain/config"
 	"github.com/lianxiangcloud/linkchain/libs/common"
 	"github.com/lianxiangcloud/linkchain/libs/crypto"
 	"github.com/lianxiangcloud/linkchain/libs/crypto/secp256k1"
@@ -1566,6 +1567,12 @@ func gasCallContract(eng *vm.Engine, index int64, args []uint64) (uint64, error)
 }
 
 func gasFee(eng *vm.Engine, toAddr common.Address, val *big.Int) uint64 {
+	from := common.BytesToAddress(eng.Contract.Address().Bytes())
+	//Inner contract will not need gas when tranfer
+	if _, ok := config.InnerContracts[from]; ok {
+		return 0
+	}
+
 	if val.Sign() == 0 {
 		return 0
 	}

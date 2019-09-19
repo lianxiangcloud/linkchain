@@ -16,11 +16,11 @@ import (
 	"github.com/lianxiangcloud/linkchain/libs/crypto"
 	dbm "github.com/lianxiangcloud/linkchain/libs/db"
 	"github.com/lianxiangcloud/linkchain/libs/log"
+	"github.com/lianxiangcloud/linkchain/libs/math"
 	"github.com/lianxiangcloud/linkchain/state"
 	"github.com/lianxiangcloud/linkchain/types"
 	"github.com/lianxiangcloud/linkchain/vm/evm"
 	"github.com/lianxiangcloud/linkchain/vm/wasm"
-	"github.com/lianxiangcloud/linkchain/libs/math"
 	"github.com/spf13/cobra"
 	"github.com/xunleichain/tc-wasm/vm"
 )
@@ -367,6 +367,12 @@ func deployOriginalContract(st *state.StateDB) ([]*types.Validator, error) {
 		fmt.Println("pledge contract code nil!!!")
 	} else if err := initWasmContract(st, cfg.ContractPledgeAddr, cc.PledgeCodes, logger); err != nil {
 		return nil, fmt.Errorf("deploy pledge Contract error:%v", err)
+	}
+
+	if len(cc.ConsCommitteeCodes) == 0 {
+		fmt.Println("ContractConsCommittee contract code nil!!!")
+	} else if err := initWasmContract(st, cfg.ContractConsCommitteeAddr, cc.ConsCommitteeCodes, logger); err != nil {
+		return nil, fmt.Errorf("deploy ContractConsCommittee Contract error:%v", err)
 	}
 
 	if len(cc.BlacklistCode) == 0 {
