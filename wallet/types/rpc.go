@@ -251,7 +251,7 @@ type UTXOTransaction struct {
 	TokenID common.Address `json:"token_id"` //current version one Tx support only one token
 	Fee     *hexutil.Big   `json:"fee"`      //fee charge only LKC, without unit (different from gas)
 	Hash    common.Hash    `json:"hash"`
-	TxFlag  uint8          `json:"tx_flag"` // 1 - 转入，2- 转出，3-转入转出
+	TxFlag  uint8          `json:"tx_flag"` // 1 - income，2- output，3-in and out
 }
 
 type AccountInput struct {

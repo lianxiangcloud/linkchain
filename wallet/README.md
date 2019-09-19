@@ -931,16 +931,16 @@ curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"l
 功能：根据交易哈希查询交易raw  
 参数：  
 from 字符串，十六进制 转账from地址  
-to  字符串，十六进制 转账to地址  
+to  字符串，十六进制 转账to地址(选填，估算account转UTXO账户的交易可以不填)  
 value 字符串，十六进制 转账金额 单位:wei  
-data 字符串，十六进制 合约参数  
-nonce 字符串，十六进制 from账户的交易序号  
+data 字符串，十六进制 合约参数  选填  
+utxokind 整数 UTXO交易类型（选填，估算account转UTXO账户的交易值为 6）  
 返回：  
      交易所需要的gas值，字符串，十六进制  
 示例：  
 
 ```shell
-curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"ltk_estimateGas","params":[{"from":"0xa73810e519e1075010678d706533486d8ecc8000","to":"0xa73810e519e1075010678d706533486d8ecc8001","value":"0x4563918244f40000000","data":"0x4563918244f40000","nonce":"0x1"}]}' -H 'Content-Type: application/json'|json_pp
+curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"ltk_estimateGas","params":[{"from":"0xa73810e519e1075010678d706533486d8ecc8000","to":"0xa73810e519e1075010678d706533486d8ecc8001","value":"0x4563918244f40000000","data":"0x4563918244f40000"}]}' -H 'Content-Type: application/json'|json_pp
 {
    "jsonrpc" : "2.0",
    "id" : "0",
