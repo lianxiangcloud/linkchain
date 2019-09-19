@@ -125,7 +125,12 @@ func (p *prometheusMetric) GenBlockValidatorsListMetric(validatorsListStr string
 		p.hostname, p.roleType, p.httpEndpoint, validatorsListStr, blockHeight)
 }
 
-func (p *prometheusMetric) GenNetInfo(peerName string, peerRole types.NodeType, peerVersion string) string {
+func (p *prometheusMetric) GenNetInfoMetric(peerName string, peerRole types.NodeType, peerVersion string) string {
 	return fmt.Sprintf("link_NetInfo{hostname=\"%s\",role=\"%d\",ip_port=\"%s\",peerName=\"%s\",peerRole=\"%s\",peerVersion=\"%s\"} 0\n",
 		p.hostname, p.roleType, p.httpEndpoint, peerName, peerRole, peerVersion)
+}
+
+func (p *prometheusMetric) GenCandidateScoreMetric(blockHeight uint64, candidateAddr string, score int64) string {
+	return fmt.Sprintf("link_CandidateScore{blockHeight=\"%d\",addr=\"%s\"} %d\n",
+		blockHeight, candidateAddr, score)
 }
