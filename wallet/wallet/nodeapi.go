@@ -171,6 +171,8 @@ func EstimateGas(from common.Address, nonce uint64, dest *types.AccountDestEntry
 	req["to"] = dest.To.Hex()
 	if len(dest.Data) > 0 {
 		req["data"] = fmt.Sprintf("0x%x", dest.Data)
+	} else {
+		req["data"] = "0x"
 	}
 	req["value"] = hexutil.EncodeBig(dest.Amount)
 	req["nonce"] = fmt.Sprintf("0x%s", strconv.FormatUint(nonce, 16))
@@ -583,9 +585,7 @@ func (w *Wallet) EthEstimateGas(args wtypes.CallArgs) (*hexutil.Uint64, error) {
 	}
 	req["value"] = args.Value
 
-	if len(args.Data) > 0 {
-		req["data"] = fmt.Sprintf("0x%x", args.Data)
-	}
+	req["data"] = args.Data.String()
 	req["nonce"] = args.Nonce
 
 	//support estimate gas from UTXOTransition
