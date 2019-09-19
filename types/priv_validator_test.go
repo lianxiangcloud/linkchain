@@ -24,10 +24,42 @@ func TestGenLoadValidator(t *testing.T) {
 	privVal.LastHeight = height
 	privVal.Save()
 	addr := privVal.GetAddress()
+	assert.Equal(uint64(0), privVal.pv.LastHeight, "expected privval.pv.LastHeight to be 0")
 
 	privVal = LoadFilePV(tempFilePath)
 	assert.Equal(addr, privVal.GetAddress(), "expected privval addr to be the same")
 	assert.Equal(height, privVal.LastHeight, "expected privval.LastHeight to have been saved")
+	assert.Equal(height, privVal.pv.LastHeight, "expected privval.pv.LastHeight to be the same")
+
+}
+
+func TestValidatorUpdate(t *testing.T) {
+	assert := assert.New(t)
+
+	_, tempFilePath := cmn.Tempfile("priv_validator_")
+	if err := os.Remove(tempFilePath); err != nil {
+		t.Error(err)
+	}
+	privVal := LoadOrGenFilePV(tempFilePath)
+	oldPriv := privVal.GetPrikey()
+	privKey := crypto.GenPrivKeyEd25519()
+	privVal.UpdatePrikey(privKey)
+
+	assert.EqualValues(privVal.GetPrikey(), privKey)
+	assert.EqualValues(privVal.pv.GetPrikey(), oldPriv)
+
+	block1 := BlockID{common.BytesToHash([]byte{1, 2, 3}), PartSetHeader{}}
+	height, round, voteType := uint64(10), 1, VoteTypePrevote
+
+	// sign a vote for first time
+	vote := newVote(privVal.GetAddress(), 0, height, round, voteType, block1)
+	err := privVal.SignVote("mychainid", vote)
+	assert.NoError(err, "expected no error signing vote")
+
+	privVal = LoadOrGenFilePV(tempFilePath)
+	assert.EqualValues(privVal.GetPrikey(), oldPriv)
+	assert.EqualValues(privVal.LastHeight, height)
+	assert.EqualValues(privVal.LastRound, round)
 }
 
 func TestLoadOrGenValidator(t *testing.T) {

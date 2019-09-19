@@ -74,6 +74,7 @@ func (pvs PrivValidatorsByAddress) Swap(i, j int) {
 // to prevent double signing.
 // NOTE: the directory containing the pv.filePath must already exist.
 type FilePV struct {
+	pv            *FilePV
 	Address       crypto.Address   `json:"address"`
 	PubKey        crypto.PubKey    `json:"pub_key"`
 	LastHeight    uint64           `json:"last_height"`
@@ -116,13 +117,15 @@ func (pv *FilePV) GetPrikey() crypto.PrivKey {
 // and sets the filePath, but does not call Save().
 func GenFilePV(filePath string) *FilePV {
 	privKey := crypto.GenPrivKeyEd25519()
-	return &FilePV{
+	pv := &FilePV{
 		Address:  privKey.PubKey().Address(),
 		PubKey:   privKey.PubKey(),
 		PrivKey:  privKey,
 		LastStep: stepNone,
 		filePath: filePath,
 	}
+	pv.pv = pv.Copy()
+	return pv
 }
 
 func LoadPVFromBytes(data []byte) (*FilePV, error) {
@@ -132,6 +135,7 @@ func LoadPVFromBytes(data []byte) (*FilePV, error) {
 	}
 	pv.Address = pv.PrivKey.PubKey().Address()
 	pv.PubKey = pv.PrivKey.PubKey()
+	pv.pv = pv.Copy()
 	return pv, nil
 }
 
@@ -152,6 +156,7 @@ func LoadFilePV(filePath string) *FilePV {
 	pv.filePath = filePath
 	pv.Address = pv.PrivKey.PubKey().Address()
 	pv.PubKey = pv.PrivKey.PubKey()
+	pv.pv = pv.Copy()
 	return pv
 }
 
@@ -166,6 +171,21 @@ func LoadOrGenFilePV(filePath string) *FilePV {
 		pv.Save()
 	}
 	return pv
+}
+
+// Copy copy a FilePV
+func (pv *FilePV) Copy() *FilePV {
+	return &FilePV{
+		Address:       pv.Address,
+		PubKey:        pv.PubKey,
+		LastHeight:    pv.LastHeight,
+		LastRound:     pv.LastRound,
+		LastStep:      pv.LastStep,
+		LastSignature: pv.LastSignature,
+		LastSignBytes: pv.LastSignBytes,
+		PrivKey:       pv.PrivKey,
+		filePath:      pv.filePath,
+	}
 }
 
 // Save persists the FilePV to disk.
@@ -368,7 +388,15 @@ func (pv *FilePV) saveSigned(height uint64, round int, step int8,
 	pv.LastStep = step
 	pv.LastSignature = sig
 	pv.LastSignBytes = signBytes
-	pv.save()
+	if pv.pv == nil {
+		pv.pv = pv.Copy()
+	}
+	pv.pv.LastHeight = height
+	pv.pv.LastRound = round
+	pv.pv.LastStep = step
+	pv.pv.LastSignature = sig
+	pv.pv.LastSignBytes = signBytes
+	pv.pv.save()
 }
 
 // SignHeartbeat signs a canonical representation of the heartbeat, along with the chainID.
