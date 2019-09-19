@@ -571,6 +571,14 @@ func (w *Wallet) GetTransactionReceipt(hash common.Hash) (r map[string]interface
 
 //EthEstimateGas limit contract fee > 1e11 and tx fee mod 1e11 == 0
 func (w *Wallet) EthEstimateGas(args wtypes.CallArgs) (*hexutil.Uint64, error) {
+	if args.Value.ToInt().Sign() < 0 {
+		return nil, wtypes.ErrArgsInvalid
+	}
+	if args.UTXOKind == types.AinUout {
+		gasLimit := types.CalNewAmountGas(args.Value.ToInt(), types.EverLiankeFee)
+		return (*hexutil.Uint64)(&gasLimit), nil
+	}
+
 	req := make(map[string]interface{})
 	req["from"] = args.From
 	req["tokenAddress"] = args.TokenAddress
