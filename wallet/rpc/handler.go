@@ -105,7 +105,22 @@ func (s *PublicTransactionPoolAPI) signUTXOTransaction(ctx context.Context, args
 			log.Debug("signUTXOTransaction", "args.SubAddrs", args.SubAddrs, "keyimage", keys[i])
 		}
 		gas := hexutil.Uint64(tx.Gas())
-		signedtxs = append(signedtxs, wtypes.SignUTXORet{Raw: fmt.Sprintf("0x%s", hex.EncodeToString(bz)), Hash: tx.Hash(), Gas: gas})
+
+		if args.From == common.EmptyAddress {
+			addInfo, err := s.wallet.GetUTXOAddInfo(tx.Hash())
+			if err != nil {
+				return nil, err
+			}
+			signedtxs = append(signedtxs, wtypes.SignUTXORet{
+				Raw:       fmt.Sprintf("0x%s", hex.EncodeToString(bz)),
+				Hash:      tx.Hash(),
+				Gas:       gas,
+				Subaddrs:  addInfo.Subaddrs,
+				OutAmount: addInfo.OutAmount,
+			})
+		} else {
+			signedtxs = append(signedtxs, wtypes.SignUTXORet{Raw: fmt.Sprintf("0x%s", hex.EncodeToString(bz)), Hash: tx.Hash(), Gas: gas})
+		}
 	}
 	return &wtypes.SignUTXOTransactionResult{Txs: signedtxs}, nil
 }

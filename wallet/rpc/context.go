@@ -84,4 +84,6 @@ type Wallet interface {
 	SendRawUTXOTransaction(encodedTx hexutil.Bytes) (common.Hash, error)
 	GetLocalUTXOTxsByHeight(height *big.Int, addr *common.Address) (*wtypes.UTXOBlock, error)
 	GetLocalOutputs(ids []hexutil.Uint64, addr *common.Address) ([]wtypes.UTXOOutputDetail, error)
+	GetUTXOAddInfo(hash common.Hash) (*wtypes.UTXOAddInfo, error)
+	DelUTXOAddInfo(hash common.Hash) error
 }

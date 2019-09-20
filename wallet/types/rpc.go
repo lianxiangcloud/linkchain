@@ -2,6 +2,7 @@ package types
 
 import (
 	"encoding/json"
+	"math/big"
 	"time"
 
 	"github.com/lianxiangcloud/linkchain/libs/common"
@@ -54,10 +55,18 @@ func (s *SendUTXOTxArgs) SetDefaults() {
 }
 
 type SignUTXORet struct {
-	Raw  string         `json:"raw"`
-	Hash common.Hash    `json:"hash"`
-	Gas  hexutil.Uint64 `json:"gas"`
+	Raw       string         `json:"raw"`
+	Hash      common.Hash    `json:"hash"`
+	Gas       hexutil.Uint64 `json:"gas"`
+	Subaddrs  []uint64       `json:"subaddrs"`
+	OutAmount *big.Int       `json:"outamount"`
 }
+
+type UTXOAddInfo struct {
+	Subaddrs  []uint64 `json:"subaddrs"`
+	OutAmount *big.Int `json:"outamount"`
+}
+
 type SignUTXOTransactionResult struct {
 	Txs []SignUTXORet `json:"txs"`
 }

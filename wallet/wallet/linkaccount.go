@@ -23,8 +23,10 @@ const (
 	defaultRefreshBlockInterval = 5 * time.Second
 	defaultMaxSubAccount        = uint64(5000)
 	// 1 - 转入，2- 转出，3-转入转出
-	txin  uint8 = 0x1
-	txout uint8 = 0x2
+	txAin  uint8 = 0x1
+	txAout uint8 = 0x2
+	txUin  uint8 = 0x4
+	txUout uint8 = 0x8
 )
 
 var (
@@ -533,7 +535,7 @@ func (la *LinkAccount) processNewTransaction(tx *tctypes.UTXOTransaction, height
 			tids = append(tids, uint64(tid))
 
 			myTx.Outputs = append(myTx.Outputs, types.UTXOOutput{OTAddr: (common.Hash)(ro.OTAddr), GlobalIndex: (hexutil.Uint64)(tid)})
-			myTx.TxFlag = myTx.TxFlag | txout
+			myTx.TxFlag = myTx.TxFlag | txUout
 
 			la.Logger.Info("processNewTransaction output", "KeyImage", uod.KeyImage.String(), "subaddrIndex", subaddrIndex, "tx.RKey", tx.RKey, "uod.Amount", uod.Amount.String())
 
@@ -543,7 +545,7 @@ func (la *LinkAccount) processNewTransaction(tx *tctypes.UTXOTransaction, height
 		case *tctypes.AccountOutput:
 			if bytes.Equal(ro.To[:], la.account.EthAddress[:]) {
 				needSaveTx = true
-				myTx.TxFlag = myTx.TxFlag | txout
+				myTx.TxFlag = myTx.TxFlag | txAout
 			}
 			myTx.Outputs = append(myTx.Outputs, types.AccountOutput{To: ro.To, Amount: (*hexutil.Big)(ro.Amount), Data: (hexutil.Bytes)(ro.Data)})
 
@@ -563,7 +565,7 @@ func (la *LinkAccount) processNewTransaction(tx *tctypes.UTXOTransaction, height
 			iTransfer, ok := la.keyImages[keyimage]
 			if ok {
 				needSaveTx = true
-				myTx.TxFlag = myTx.TxFlag | txin
+				myTx.TxFlag = myTx.TxFlag | txUin
 
 				uod := la.Transfers[iTransfer]
 				amount := uod.Amount
@@ -585,7 +587,7 @@ func (la *LinkAccount) processNewTransaction(tx *tctypes.UTXOTransaction, height
 			}
 			if bytes.Equal(from[:], la.account.EthAddress[:]) {
 				needSaveTx = true
-				myTx.TxFlag = myTx.TxFlag | txin
+				myTx.TxFlag = myTx.TxFlag | txAin
 			}
 			myTx.Inputs = append(myTx.Inputs, types.AccountInput{From: from, Nonce: hexutil.Uint64(ri.Nonce), Amount: (*hexutil.Big)(ri.Amount)})
 
@@ -874,4 +876,12 @@ func (la *LinkAccount) GetLocalOutputs(ids []hexutil.Uint64) ([]types.UTXOOutput
 // SetSyncQuick set la.syncQuick
 func (la *LinkAccount) SetSyncQuick(quick bool) {
 	la.syncQuick = quick
+}
+
+func (la *LinkAccount) GetUTXOAddInfo(hash common.Hash) (*types.UTXOAddInfo, error) {
+	return la.loadAddInfo(hash)
+}
+
+func (la *LinkAccount) DelUTXOAddInfo(hash common.Hash) error {
+	return la.delAddInfo(hash)
 }
