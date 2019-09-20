@@ -95,10 +95,12 @@ TC_ABI(Committee, (proposaAddMember)\
 void Committee::Init() {
 	//Used to be a committee
 	tc::Address committee_owner = "0xb6b403be413fff19294e984dfe5964f2cfe7bc15";
-	//Used to change inner contract state
-	tc::Address inner_contract = "0x60d4d088ad5cd7f93024eedf8d58a1b226b65138";
-	//used to withDraw or confiscate in pledge contract
+	//Used to change pledge contract state and withdraw
+	tc::Address pledge_contract = "0x60d4d088ad5cd7f93024eedf8d58a1b226b65138";
+	//used to confiscate in pledge contract
 	tc::Address account_admin = "0xfd13fb25b38143e50e8226989a8c83652dc77f3e";
+	//used to change other inner contract status
+	tc::Address inner_contract = "0x0fd0eb798571a75ee2bd655bd9d26a30e49391ba";
 
 	auto mem = memberList.get();
 	mem.insert(committee_owner);
@@ -107,9 +109,10 @@ void Committee::Init() {
 	rights.set(inner_contract, "validators");
 	rights.set(inner_contract, "candidates");
 	rights.set(inner_contract, "coefficient");
-	rights.set(inner_contract, "pledge");
 	rights.set(inner_contract, "blacklist");
+	rights.set(inner_contract, "consCommittee");
 
+	rights.set(pledge_contract, "pledge");
 	rights.set(account_admin, "pledgeOwner");
 }
 	
