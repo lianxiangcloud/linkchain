@@ -25,6 +25,7 @@ const (
 	keyUTXOTx           = "utxoTx"
 	keyBlockHash        = "blockHash"
 	keyBlockTxs         = "blockTxs"
+	keyUTXOAddInfo      = "utxoAddInfo"
 )
 
 func (la *LinkAccount) save(ids []uint64, blockHash common.Hash, localBlock *types.UTXOBlock) error {
@@ -359,6 +360,27 @@ func (la *LinkAccount) loadBlockTxs(height *big.Int) (*types.UTXOBlock, error) {
 		la.Logger.Error("loadBlockTxs DecodeBytes fail", "val", string(val), "err", err)
 		return nil, err
 	}
+	//skip self account-> other utxo and other utxo-> self account
+	//because these trans already show in account trans list
+	txs := make([]types.UTXOTransaction, 0)
+	for _, trans := range block.Txs {
+		if (trans.TxFlag&txAin) == txAin && (trans.TxFlag&txUout) != txUout {
+			continue
+		}
+		if (trans.TxFlag&txAout) == txAout && (trans.TxFlag&txUin) != txUin {
+			continue
+		}
+		var flag uint8
+		if (trans.TxFlag&txAin) == txAin || (trans.TxFlag&txUin) != txUin {
+			flag = flag | txAin
+		}
+		if (trans.TxFlag&txAout) == txAout || (trans.TxFlag&txUout) != txUout {
+			flag = flag | txAout
+		}
+		trans.TxFlag = flag
+		txs = append(txs, trans)
+	}
+	block.Txs = txs
 	return &block, nil
 }
 func (la *LinkAccount) saveBlockTxs(b dbm.Batch, localBlock *types.UTXOBlock) error {
@@ -370,4 +392,39 @@ func (la *LinkAccount) saveBlockTxs(b dbm.Batch, localBlock *types.UTXOBlock) er
 	}
 	b.Set(key, val)
 	return nil
+}
+
+func (la *LinkAccount) getAddInfoKey(hash common.Hash) []byte {
+	return []byte(fmt.Sprintf("%s_%s", la.addPrefixDBkey(keyUTXOAddInfo), hash.String()))
+}
+
+func (la *LinkAccount) loadAddInfo(hash common.Hash) (*types.UTXOAddInfo, error) {
+	key := la.getAddInfoKey(hash)
+	val := la.walletDB.Get(key[:])
+	if len(val) == 0 {
+		return nil, types.ErrAddInfoNotFound
+	}
+	var addInfo types.UTXOAddInfo
+	if err := json.Unmarshal(val, &addInfo); err != nil {
+		la.Logger.Error("loadAddInfo json.Unmarshal fail", "val", string(val), "err", err)
+		return nil, err
+	}
+	return &addInfo, nil
+}
+
+func (la *LinkAccount) saveAddInfo(hash common.Hash, addInfo *types.UTXOAddInfo) error {
+	key := la.getAddInfoKey(hash)
+	val, err := json.Marshal(addInfo)
+	if err != nil {
+		la.Logger.Error("saveAddInfo json.Marshal fail", "err", err)
+		return err
+	}
+	batch := la.walletDB.NewBatch()
+	batch.Set(key, val)
+	return batch.Commit()
+}
+
+func (la *LinkAccount) delAddInfo(hash common.Hash) error {
+	key := la.getAddInfoKey(hash)
+	return la.walletDB.Del(key)
 }
