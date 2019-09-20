@@ -248,7 +248,7 @@ func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr
 		gasPrice = new(big.Int).SetUint64(defaultGasPrice)
 	}
 	nonce := uint64(args.Nonce)
-	if args.To == nil && nonce == 0 {
+	if nonce == 0 {
 		nonce = state.GetNonce(addr)
 	}
 
