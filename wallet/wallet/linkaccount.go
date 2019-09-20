@@ -264,18 +264,21 @@ func (la *LinkAccount) checkBlock(block *rtypes.RPCBlock) error {
 // Refresh wallet
 func (la *LinkAccount) Refresh() {
 	for {
+		var block *rtypes.RPCBlock
+		var err error
+
+		if la.walletOpen && la.autoRefresh && la.localHeight.Cmp(la.remoteHeight) <= 0 {
+			la.Logger.Debug("Refresh", "localHeight", la.localHeight, "remoteHeight", la.remoteHeight)
+			block, err = GetBlockUTXOsByNumber(la.localHeight)
+			if err != nil {
+				la.Logger.Error("Refresh getBlockUTXOsByNumber fail", "height", la.localHeight, "err", err)
+				return
+			}
+		}
+
 		la.lock.Lock()
 
 		if la.walletOpen && la.autoRefresh && la.localHeight.Cmp(la.remoteHeight) <= 0 {
-
-			la.Logger.Debug("Refresh", "localHeight", la.localHeight, "remoteHeight", la.remoteHeight)
-			block, err := GetBlockUTXOsByNumber(la.localHeight)
-			if err != nil {
-				la.Logger.Error("Refresh getBlockUTXOsByNumber fail", "height", la.localHeight, "err", err)
-				la.lock.Unlock()
-				return
-			}
-
 			// check block parent hash
 			err = la.checkBlock(block)
 			if err != nil {
@@ -308,7 +311,6 @@ func (la *LinkAccount) Refresh() {
 			la.lock.Unlock()
 			return
 		}
-
 	}
 
 }
@@ -316,17 +318,21 @@ func (la *LinkAccount) Refresh() {
 // RefreshQuick wallet
 func (la *LinkAccount) RefreshQuick() {
 	for {
-		la.lock.Lock()
-
+		var quickBlock *rtypes.QuickRPCBlock
+		var err error
 		if la.walletOpen && la.autoRefresh {
 			la.Logger.Debug("RefreshQuick", "localHeight", la.localHeight, "remoteHeight", la.remoteHeight)
 
-			quickBlock, err := GetBlockUTXO(la.localHeight)
+			quickBlock, err = GetBlockUTXO(la.localHeight)
 			if err != nil {
 				la.Logger.Info("RefreshQuick GetBlockUTXO fail", "height", la.localHeight, "err", err)
-				la.lock.Unlock()
 				return
 			}
+		}
+
+		la.lock.Lock()
+
+		if la.walletOpen && la.autoRefresh {
 			nextHeight := quickBlock.NextHeight.ToInt()
 			remoteHeight := quickBlock.MaxHeight.ToInt()
 
