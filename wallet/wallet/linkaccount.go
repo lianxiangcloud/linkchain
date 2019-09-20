@@ -701,8 +701,9 @@ func (la *LinkAccount) GetAccountInfo(tokenID *common.Address) (*types.GetAccoun
 	utxo := make([]types.UTXOAccount, count)
 	totalBalance := big.NewInt(0)
 	for i := uint64(0); i < uint64(count); i++ {
-		utxo[i] = types.UTXOAccount{Address: la.account.Keys[i].Address, Index: hexutil.Uint64(i), Balance: (*hexutil.Big)(la.getTokenBalanceBySubIndex(*tokenID, i))}
-		totalBalance.Add(totalBalance, la.getTokenBalanceBySubIndex(*tokenID, i))
+		ba := la.GetBalance(i, tokenID)
+		utxo[i] = types.UTXOAccount{Address: la.account.Keys[i].Address, Index: hexutil.Uint64(i), Balance: (*hexutil.Big)(ba)}
+		totalBalance.Add(totalBalance, ba)
 	}
 	ret.UTXOAccounts = utxo
 	eth := types.EthAccount{Address: la.account.EthAddress}
