@@ -64,7 +64,7 @@ function Start(){
     emptyBlockInterval=50
     blockInterval=5000
     
-    nohup $PROCNAME node --home $datapath --rpc.http_endpoint ":$rpcport" --rpc.ws_endpoint ":$wsport"  --p2p.laddr "tcp://0.0.0.0:$p2pport" --consensus.create_empty_blocks_interval $emptyBlockInterval --consensus.timeout_commit $blockInterval --bootnode.addr $bootnode --log.filename $logpath/$PROCNAME.log --log_level debug > $logpath/error.log 2>&1 &
+    nohup $PROCNAME node --home $datapath --rpc.http_endpoint ":$rpcport" --rpc.ws_endpoint ":$wsport"  --p2p.laddr "tcp://0.0.0.0:$p2pport" --consensus.create_empty_blocks_interval $emptyBlockInterval --consensus.timeout_commit $blockInterval --bootnode.addrs $bootnode --log.filename $logpath/$PROCNAME.log --log_level debug > $logpath/error.log 2>&1 &
 	CheckResult "$PROCNAME start"
 }
 
