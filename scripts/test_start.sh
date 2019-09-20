@@ -3,7 +3,7 @@ proc=lkchain
 
 emptyBlockInterval=300
 blockInterval=1000
-bootnode=https://bootnode-test.lianxiangcloud.com
+bootnode=https://bootnode.lianxiangcloud.com
 
 function Init() {
     if [ $# -ne 3 ]; then
@@ -54,7 +54,7 @@ function Start() {
 
 function StartNode() {
     echo "start $proc ..."
-    nohup $proc node --home $datapath --bootnode.addrs $bootnode  --rpc.http_endpoint ":$rpcport" --rpc.ws_endpoint ":$wsport" --p2p.laddr "tcp://0.0.0.0:$p2pport" --consensus.create_empty_blocks_interval $emptyBlockInterval --consensus.timeout_commit $blockInterval --log.filename $logpath/lkchain.log --log_level debug > $logpath/error.log 2>&1 &
+    nohup $proc node --home $datapath  --test_net=true --bootnode.addrs $bootnode  --rpc.http_endpoint ":$rpcport" --rpc.ws_endpoint ":$wsport" --p2p.laddr "tcp://0.0.0.0:$p2pport" --consensus.create_empty_blocks_interval $emptyBlockInterval --consensus.timeout_commit $blockInterval --log.filename $logpath/lkchain.log --log_level debug > $logpath/error.log 2>&1 &
     echo "pid: $!"
 }
 
