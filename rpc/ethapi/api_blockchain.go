@@ -80,7 +80,7 @@ func (s *PublicBlockChainAPI) Blacklist() []common.Address {
 }
 
 // Check address is black address
-func (s *PublicBlockChainAPI) IsBlackAddress(ctx context.Context, address common.Address) bool  {
+func (s *PublicBlockChainAPI) IsBlackAddress(ctx context.Context, address common.Address) bool {
 	return types.BlacklistInstance.IsBlackAddress(address)
 }
 
@@ -235,7 +235,7 @@ func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr
 			}
 		}
 	}
-	incrBalance    := new(big.Int).Mul(big.NewInt(types.MaxGasLimit), big.NewInt(types.MaxFeeCounts))
+	incrBalance := new(big.Int).Mul(big.NewInt(types.MaxGasLimit), big.NewInt(types.MaxFeeCounts))
 	incrBalanceWei := new(big.Int).Mul(incrBalance, big.NewInt(types.GasPrice))
 	state.AddBalance(addr, incrBalanceWei)
 
@@ -405,7 +405,17 @@ func (s *PublicBlockChainAPI) GetOutputs(ctx context.Context, args []OutputArg) 
 	return outputs, nil
 }
 
-//GetAllCandidates Get All Candidates from contracts
+// GetWhiteValidators get inner validators in whiteList contract
+func (s *PublicBlockChainAPI) GetWhiteValidators(ctx context.Context, blockNr rpc.BlockNumber) ([]*types.Validator, error) {
+	state, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
+	if state == nil || err != nil {
+		return nil, err
+	}
+	vals := state.GetWhiteValidators(log.Root())
+	return vals, state.Error()
+}
+
+// GetAllCandidates get inner CandidateState from contract
 func (s *PublicBlockChainAPI) GetAllCandidates(ctx context.Context, blockNr rpc.BlockNumber) ([]*types.CandidateState, error) {
 	state, _, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
 	if state == nil || err != nil {
@@ -415,7 +425,7 @@ func (s *PublicBlockChainAPI) GetAllCandidates(ctx context.Context, blockNr rpc.
 	return cans, state.Error()
 }
 
-//GetChainVersion return chain version
+// GetChainVersion return chain version
 func (s *PublicBlockChainAPI) GetChainVersion(ctx context.Context) (string, error) {
 	return version.Version, nil
 }
