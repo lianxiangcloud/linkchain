@@ -263,7 +263,7 @@ func (h *Header) SetBloom(bloom Bloom) {
 // since a Header is not valid unless there is
 // a ValidaotrsHash (corresponding to the validator set).
 func (h *Header) Hash() common.Hash {
-	if h == nil || h.ValidatorsHash == common.EmptyHash {
+	if h == nil {
 		return common.EmptyHash
 	}
 

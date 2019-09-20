@@ -248,29 +248,20 @@ func createGenesisBlock(config *cfg.Config, genDoc *types.GenesisDoc) ([]*types.
 		return nil, err
 	}
 
-	block := &types.Block{
-		Header: &types.Header{
-			ChainID:    config.ChainID,
-			Height:     types.BlockHeightZero,
-			Coinbase:   common.HexToAddress("0x0000000000000000000000000000000000000000"),
-			Time:       uint64(1507737600),
-			NumTxs:     0,
-			TotalTxs:   0,
-			ParentHash: common.EmptyHash,
-			StateHash:  common.EmptyHash,
-			GasLimit:   defaultParams.BlockSize.MaxGas,
-		},
-		Data:       &types.Data{},
-		LastCommit: &types.Commit{},
+	header := &types.Header{
+		ChainID:    config.ChainID,
+		Height:     types.BlockHeightZero,
+		Coinbase:   common.HexToAddress("0x0000000000000000000000000000000000000000"),
+		Time:       uint64(1507737600),
+		NumTxs:     0,
+		TotalTxs:   0,
+		ParentHash: common.EmptyHash,
+		StateHash:  common.EmptyHash,
+		GasLimit:   defaultParams.BlockSize.MaxGas,
 	}
-
-	if time.Now().Unix() >= 1569409200 {
-		block.Header.Time = uint64(1569409200)
-	}
-
 	types.SaveBalanceRecord = config.SaveBalanceRecord
 	if len(contractData) > 0 && config.OnLine {
-		contextWasm := wasm.NewWASMContext(types.CopyHeader(block.Header), blockStore, nil, config.WasmGasRate)
+		contextWasm := wasm.NewWASMContext(types.CopyHeader(header), blockStore, nil, config.WasmGasRate)
 		wasm := wasm.NewWASM(contextWasm, storeState, evm.Config{EnablePreimageRecording: false})
 		for _, cData := range contractData {
 			sender, contractAddr := common.HexToAddress(cData.sender), common.HexToAddress(cData.contractAddr)
@@ -295,9 +286,24 @@ func createGenesisBlock(config *cfg.Config, genDoc *types.GenesisDoc) ([]*types.
 
 	stateHash := storeState.IntermediateRoot(false)
 
-	trieRoot, _ := storeState.Commit(false, block.Height)
+	trieRoot, err := storeState.Commit(false, header.Height)
+	if err != nil {
+		return nil, err
+	}
+
 	storeState.Database().TrieDB().Commit(trieRoot, false)
 	txsResult := types.TxsResult{TrieRoot: trieRoot, StateHash: stateHash}
+
+	header.StateHash = stateHash
+	if time.Now().Unix() >= 1569409200 {
+		header.Time = uint64(1569409200)
+	}
+
+	block := &types.Block{
+		Header:     header,
+		Data:       &types.Data{},
+		LastCommit: &types.Commit{},
+	}
 
 	fmt.Println("genesisBlock stateHash", stateHash.Hex())
 	fmt.Println("genesisBlock trieRoot", trieRoot.Hex())
