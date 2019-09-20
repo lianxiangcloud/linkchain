@@ -822,6 +822,14 @@ func (wallet *Wallet) createUinTransaction(w accounts.Wallet, acc accounts.Accou
 					return nil, err
 				}
 
+				//save trans additional info. such as paid subaddress, outamount
+				subAddrs := wallet.getSubaddrs(selectedIndice)
+				err = wallet.currAccount.saveAddInfo(utxoTrans.Hash(), &wtypes.UTXOAddInfo{Subaddrs: subAddrs, OutAmount: outAmount})
+				if err != nil {
+					wallet.Logger.Error("createUinTransaction saveAddInfo fail", "err", err)
+					return nil, err
+				}
+
 				txes = append(txes, utxoTrans)
 				addingFee = false
 				availableFee = big.NewInt(0)
@@ -986,4 +994,17 @@ func (wallet *Wallet) selectPreferIndice1(needMoney *big.Int, subaddrs []uint64,
 		}
 	}
 	return preferIndice
+}
+
+func (wallet *Wallet) getSubaddrs(selectedIndice []uint64) []uint64 {
+	addrMap := make(map[uint64]bool, 0)
+	for _, selectIdx := range selectedIndice {
+		subAddr := wallet.currAccount.Transfers[selectIdx].SubAddrIndex
+		addrMap[subAddr] = true
+	}
+	subAddrs := make([]uint64, 0)
+	for addr := range addrMap {
+		subAddrs = append(subAddrs, addr)
+	}
+	return subAddrs
 }
