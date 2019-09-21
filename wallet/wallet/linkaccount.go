@@ -863,7 +863,9 @@ func (la *LinkAccount) GetLocalOutputs(ids []hexutil.Uint64) ([]types.UTXOOutput
 		var o *tctypes.UTXOOutputDetail
 		o, err = la.loadOutputDetail(uint64(nextid))
 		if err != nil {
+			la.Logger.Info("GetLocalOutputs", "id", nextid, "err", err)
 			if err == types.ErrOutputNotFound {
+				err = nil
 				continue
 			}
 			break
