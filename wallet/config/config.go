@@ -16,6 +16,9 @@ var (
 	defaultLogDir      = "logs"
 	defaultLogFileName = "wallet.log"
 	defaultPidFile     = "wallet.pid"
+	defaultNC          = "IN"
+	defaultOrigin      = "0"
+	defaultAppversion  = "0.0.0"
 )
 
 // BaseConfig define
@@ -111,11 +114,11 @@ func (cfg BaseConfig) SavePid() error {
 
 // DaemonConfig daemon config
 type DaemonConfig struct {
-	PeerRPC   string `mapstructure:"peer_rpc"`
-	Login     string `mapstructure:"login"`
-	Trusted   bool   `mapstructure:"trusted"`
-	Testnet   bool   `mapstructure:"testnet"`
-	SyncQuick bool   `mapstructure:"sync_quick"`
+	PeerRPC    string `mapstructure:"peer_rpc"`
+	NC         string `mapstructure:"nc"`
+	Origin     string `mapstructure:"origin"`
+	Appversion string `mapstructure:"appversion"`
+	SyncQuick  bool   `mapstructure:"sync_quick"`
 }
 
 // RPCConfig rpc config
@@ -134,11 +137,11 @@ type RPCConfig struct {
 // DefaultDaemonConfig returns default daemon config
 func DefaultDaemonConfig() *DaemonConfig {
 	return &DaemonConfig{
-		PeerRPC:   "http://127.0.0.1:11000",
-		Login:     "",
-		Trusted:   true,
-		Testnet:   true,
-		SyncQuick: false,
+		PeerRPC:    "http://127.0.0.1:11000",
+		NC:         defaultNC,
+		Origin:     defaultOrigin,
+		Appversion: defaultAppversion,
+		SyncQuick:  false,
 	}
 }
 

@@ -15,36 +15,31 @@ import (
 	"github.com/lianxiangcloud/linkchain/wallet/config"
 )
 
-// type HttpMethod string
-
-// const (
-// 	GET  HttpMethod = "GET"
-// 	POST HttpMethod = "POST"
-// )
-
-type DaemonClient struct {
-	Addr string
-	// Login string
-
-	// Trusted bool
-	// Testnet bool
-
-	HttpClient *http.Client
+// client return a http client to peer rpc
+type client struct {
+	Addr          string
+	HTTPClient    *http.Client
+	NC            string
+	Origin        string
+	Appversion    string
+	DaemonVersion string
 }
 
-var gDaemonClient *DaemonClient
+var gDaemonClient *client
 
 const (
 	defaultDialTimeout = 10 * time.Second
 	keepAliveInterval  = 30 * time.Second
 )
 
-func InitDaemonClient(daemonConfig *config.DaemonConfig) {
-	gDaemonClient = &DaemonClient{
-		Addr: daemonConfig.PeerRPC,
-		// Login:   daemonConfig.Login,
-		// Trusted: daemonConfig.Trusted,
-		// Testnet: daemonConfig.Testnet,
+// InitClient init Client with config.DaemonConfig
+func InitClient(daemonConfig *config.DaemonConfig, walletVersion string) {
+	gDaemonClient = &client{
+		Addr:          daemonConfig.PeerRPC,
+		NC:            daemonConfig.NC,
+		Origin:        daemonConfig.Origin,
+		Appversion:    daemonConfig.Appversion,
+		DaemonVersion: walletVersion,
 	}
 
 	transport := &http.Transport{
@@ -62,7 +57,7 @@ func InitDaemonClient(daemonConfig *config.DaemonConfig) {
 			return dialer.DialContext(ctx, network, addr)
 		},
 	}
-	gDaemonClient.HttpClient = &http.Client{
+	gDaemonClient.HTTPClient = &http.Client{
 		Transport: transport,
 	}
 }
@@ -84,7 +79,7 @@ func CallJSONRPC(method string, params interface{}) ([]byte, error) {
 	requestData["method"] = method
 	requestData["params"] = params
 
-	client := gDaemonClient.HttpClient
+	client := gDaemonClient.HTTPClient
 	data, err := json.Marshal(requestData)
 	if err != nil {
 		return nil, err
@@ -95,7 +90,11 @@ func CallJSONRPC(method string, params interface{}) ([]byte, error) {
 		return nil, fmt.Errorf("NewRequest: err=%v", err)
 	}
 	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("nc", "IN")
+	req.Header.Add("nc", gDaemonClient.NC)
+	req.Header.Add("origin", gDaemonClient.Origin)
+	req.Header.Add("appversion", gDaemonClient.Appversion)
+	req.Header.Add("daemonversion", gDaemonClient.DaemonVersion)
+
 	req = req.WithContext(context.Background())
 	resp, err := client.Do(req)
 	if err != nil {
