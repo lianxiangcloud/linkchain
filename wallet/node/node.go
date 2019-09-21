@@ -55,7 +55,7 @@ func NewNode(config *cfg.Config, logger log.Logger, dbProvider DBProvider) (*Nod
 	// logger.With("module", "node")
 	// logger.Info("DefaultNewNode", "conf", *config)
 	// init daemon
-	daemon.InitDaemonClient(config.Daemon)
+	daemon.InitClient(config.Daemon, wallet.WalletVersion)
 
 	// init db
 	walletDB, err := dbProvider(&DBContext{"wallet", config})
