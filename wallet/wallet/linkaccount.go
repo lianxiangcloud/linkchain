@@ -793,6 +793,7 @@ func (la *LinkAccount) Status() *types.StatusResult {
 		ChainVersion:         chainVersion,
 		EthAddress:           ethAddress,
 		RefreshBlockInterval: refreshBlockInterval,
+		InitBlockHeight:      (hexutil.Uint64)(defaultInitBlockHeight),
 	}
 }
 

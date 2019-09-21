@@ -280,6 +280,7 @@ curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"l
 返回：  
     local_height 字符串，十六进制，钱包同步的区块高度  
     remote_height 字符串，十六进制，连接的peer节点高度  
+    init_block_height 字符串，十六进制，peer初始化高度  
     eth_address 当前解锁的钱包地址  
     auto_refresh 是否自动刷新区块数据  
     wallet_open 钱包是否解锁了账户  
@@ -299,6 +300,7 @@ curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"l
       "auto_refresh" : false,
       "eth_address" : "0xa73810e519e1075010678d706533486d8ecc8000",
       "remote_height" : "0x2f8",
+      "init_block_height" : "0x109295",
       "wallet_open" : true
    },
    "jsonrpc" : "2.0",

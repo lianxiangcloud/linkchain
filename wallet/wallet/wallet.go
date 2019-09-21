@@ -299,6 +299,7 @@ func (w *Wallet) defaultStatus(addr *common.Address) *types.StatusResult {
 		ChainVersion:         chainVersion,
 		EthAddress:           *addr,
 		RefreshBlockInterval: 0,
+		InitBlockHeight:      (hexutil.Uint64)(defaultInitBlockHeight),
 	}
 }
 
