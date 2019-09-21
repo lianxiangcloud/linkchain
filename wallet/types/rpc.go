@@ -188,6 +188,7 @@ type StatusResult struct {
 	ChainVersion         string         `json:"chain_version"`
 	EthAddress           common.Address `json:"eth_address"`
 	RefreshBlockInterval time.Duration  `json:"refresh_block_interval"`
+	InitBlockHeight      hexutil.Uint64 `json:"init_block_height"`
 }
 
 type ProofKeyArgs struct {
