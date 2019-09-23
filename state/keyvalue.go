@@ -12,6 +12,7 @@ import (
 	"github.com/lianxiangcloud/linkchain/libs/crypto"
 	dbm "github.com/lianxiangcloud/linkchain/libs/db"
 	"github.com/lianxiangcloud/linkchain/libs/trie"
+	"golang.org/x/crypto/sha3"
 )
 
 const (
@@ -329,14 +330,23 @@ func (kh *kvHeap) Pop() (x interface{}) {
 	return x
 }
 
+func keyHash(key []byte) []byte {
+	sha := sha3.NewLegacyKeccak256()
+	sha.Reset()
+	sha.Write(key)
+	hash := sha.Sum(nil)
+	return hash
+}
+
 func (kvTrie *wrappedTrie) TryGet(key []byte) ([]byte, error) {
 	if kvTrie.isTrie {
 		return kvTrie.oldTrie.TryGet(key)
 	}
+	keyhash := keyHash(key)
 	if kvTrie.addr != nil {
-		key = append(kvTrie.addr, key...)
+		keyhash = append(kvTrie.addr, keyhash...)
 	}
-	v, _ := kvTrie.db.db.Load(key)
+	v, _ := kvTrie.db.db.Load(keyhash)
 	/*
 		if len(v) > 0 {
 			kvTrie.cache[string(key)] = v
@@ -346,8 +356,9 @@ func (kvTrie *wrappedTrie) TryGet(key []byte) ([]byte, error) {
 }
 
 func (kvTrie *wrappedTrie) TryUpdate(key, value []byte) error {
-	kvTrie.updates[string(key)] = value
-	heap.Push(kvTrie.serial, append(key, value...))
+	keyhash := keyHash(key)
+	kvTrie.updates[string(keyhash)] = value
+	heap.Push(kvTrie.serial, append(keyhash, value...))
 	if kvTrie.isTrie {
 		return kvTrie.oldTrie.TryUpdate(key, value)
 	}
@@ -355,8 +366,9 @@ func (kvTrie *wrappedTrie) TryUpdate(key, value []byte) error {
 }
 
 func (kvTrie *wrappedTrie) TryDelete(key []byte) error {
-	kvTrie.updates[string(key)] = deleteItem
-	heap.Push(kvTrie.serial, append(key, deleteVal...))
+	keyhash := keyHash(key)
+	kvTrie.updates[string(keyhash)] = deleteItem
+	heap.Push(kvTrie.serial, append(keyhash, deleteVal...))
 	if kvTrie.isTrie {
 		return kvTrie.oldTrie.TryDelete(key)
 	}
