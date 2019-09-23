@@ -1728,9 +1728,9 @@ func (cs *ConsensusState) addProposalBlockPart(msg *BlockPartMessage, peerID str
 		}
 
 		if cs.ProposalBlock.Recover != cs.recover {
-			cs.ProposalBlock = nil
 			cs.Logger.Warn("Received a block recover state different with local",
 				"height", height, "round", round, "BlockRecover", cs.ProposalBlock.Recover, "local", cs.recover)
+			cs.ProposalBlock = nil
 			return false, nil
 		}
 
