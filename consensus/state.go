@@ -514,19 +514,9 @@ func (cs *ConsensusState) checkDuplicateVoteEvidence(evidence types.Evidence) bo
 	return true
 }
 
-func (cs *ConsensusState) checkFaultValEvidence(ev *types.FaultValidatorsEvidence) bool {
+func (cs *ConsensusState) checkFaultValEvidence(ev *types.FaultValidatorsEvidence, lastCommit *types.Commit) bool {
 	if !cs.checkEvidenceAge(ev) {
 		return false
-	}
-
-	var lastCommit *types.Commit
-	if cs.LastCommit.HasTwoThirdsMajority() {
-		// Make the commit from LastCommit
-		lastCommit = cs.LastCommit.MakeCommit()
-	} else {
-		// This shouldn't happen.
-		cs.Logger.Info("checkLastFaultValsInfo: No commit for the previous block.")
-		return true
 	}
 
 	lastRound := lastCommit.FirstPrecommit().Round
@@ -581,7 +571,7 @@ func (cs *ConsensusState) checkBlockEvidence(block *types.Block) bool {
 		case *types.FaultValidatorsEvidence:
 			cs.Logger.Info("Check FaultValidatorsEvidence")
 
-			if seenFve || !cs.checkFaultValEvidence(evi) {
+			if seenFve || !cs.checkFaultValEvidence(evi, block.LastCommit) {
 				return false
 			}
 			seenFve = true
