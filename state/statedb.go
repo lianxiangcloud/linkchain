@@ -555,27 +555,6 @@ func (s *StateDB) GetAccount(address common.Address) *Account {
 	return &so.data
 }
 
-// ResetAllBalance reset balance of all accounts
-func (s *StateDB) ResetAllBalance() {
-	if t, ok := s.db.(*wrappedDB); ok && !t.isTrie {
-		it := t.db.NewIteratorWithPrefix(nil)
-		for ; it.Valid(); it.Next() {
-			if len(it.Key()) == common.HashLength {
-				addr := common.BytesToAddress(s.trie.GetKey(it.Key()))
-				s.SetBalance(addr, common.Big0)
-			}
-		}
-	}
-
-	it := trie.NewIterator(s.trie.NodeIterator(nil))
-	for it.Next() {
-		if len(it.Key) == common.HashLength {
-			addr := common.BytesToAddress(s.trie.GetKey(it.Key))
-			s.SetBalance(addr, common.Big0)
-		}
-	}
-}
-
 func (s *StateDB) ForEachStorage(addr common.Address, cb func(key common.Hash, value []byte) bool) {
 	so := s.getStateObject(addr)
 	if so == nil {
@@ -583,15 +562,19 @@ func (s *StateDB) ForEachStorage(addr common.Address, cb func(key common.Hash, v
 	}
 
 	if t, ok := s.db.(*wrappedDB); ok && !t.isTrie {
-		it := t.db.NewIteratorWithPrefix(nil)
+		it := t.db.NewIteratorWithPrefix(so.addrHash.Bytes())
 		for ; it.Valid(); it.Next() {
-			key := common.BytesToHash(s.trie.GetKey(it.Key()))
-			if value, dirty := so.dirtyStorage[key]; dirty {
-				cb(key, value)
+			if len(it.Key()) == common.HashLength {
 				continue
 			}
-			cb(key, it.Value())
+			keyHash := common.BytesToHash(it.Key())
+			if value, dirty := so.dirtyStorage[keyHash]; dirty {
+				cb(keyHash, value)
+				continue
+			}
+			cb(keyHash, it.Value())
 		}
+		return
 	}
 
 	it := trie.NewIterator(so.getTrie(s.db).NodeIterator(nil))

@@ -89,7 +89,6 @@ func (s *StateDB) Dump() []byte {
 	return json
 }
 
-
 type OldAccount struct {
 	Nonce    uint64
 	Balance  *big.Int
@@ -110,8 +109,32 @@ func (s *StateDB) DumpOldAccount() map[common.Address][]byte {
 			}
 			addr := common.BytesToAddress(addrBytes)
 			accounts[addr] = it.Value
-			if count % 10000 == 0 {
+			if count%10000 == 0 {
 				fmt.Println("DumpAccountAddrs: current count is ", count)
+			}
+		} else {
+			continue
+		}
+		count++
+	}
+	return accounts
+}
+
+func (s *StateDB) DumpAccounts() map[common.Address][]byte {
+	count := 1
+	accounts := make(map[common.Address][]byte, 0)
+	it := trie.NewIterator(s.trie.NodeIterator(nil))
+	for it.Next() {
+		if len(it.Key) == common.HashLength {
+			addrBytes := s.trie.GetKey(it.Key)
+			var data Account
+			if err := ser.DecodeBytes(it.Value, &data); err != nil {
+				continue
+			}
+			addr := common.BytesToAddress(addrBytes)
+			accounts[addr] = it.Value
+			if count%10000 == 0 {
+				fmt.Println("DumpAccounts: current count is ", count)
 			}
 		} else {
 			continue
@@ -125,7 +148,7 @@ func (s *StateDB) DumpStorage() map[string]string {
 	storages := make(map[string]string, 0)
 	storageIt := trie.NewIterator(s.trie.NodeIterator(nil))
 	for storageIt.Next() {
-		storages[common.Bytes2Hex(s.trie.GetKey(storageIt.Key))] = common.Bytes2Hex(storageIt.Value)
+		storages[common.Bytes2Hex(storageIt.Key)] = common.Bytes2Hex(storageIt.Value)
 	}
 	return storages
 }
