@@ -1,36 +1,88 @@
 #!/bin/bash
-proc=lkchain
+
+# set default chain home path
+defaultChainPath=~/blockdata
+
+# default node type
+defaultType="kv"
+# 
+# defaultType="full"
 
 emptyBlockInterval=300
 blockInterval=1000
 
 rootpath=$(dirname $(pwd))
-dbpath=$rootpath/init/db
-datapath=$rootpath/data
+proc=$rootpath/bin/lkchain
+dbpath=$rootpath/init/db_kv
+datapath=$defaultChainPath/data
 init_height=0
+state_hash=""
+state_path="$dbpath/kv"
+ext_init_params=""
+ext_start_params=""
+bootnodeAddrList=https://bootnode.lianxiangcloud.com
+kv_initdb_url="https://github.com/lianxiangcloud/linkchain/releases/download/db_init/db_kv.tar.gz"
+full_initdb_url="https://github.com/lianxiangcloud/linkchain/releases/download/db_init/db_full.tar.gz"
 
 function GetInitHeight() {
     init_height=$(cat $dbpath/height.txt)
     echo "init_height:$init_height"
 }
 
+function GetStateHash() {
+    state_hash=$(cat $state_path/stateRoot.txt)
+    echo "state_hash:$state_hash"
+}
+
+function defaultInitSet() {
+    if [ $defaultType == "full" ]; then
+        dbpath=$rootpath/init/db_full
+        state_path="$dbpath/full"
+        GetStateHash
+        ext_init_params="--full_node=true --init_state_root $state_hash"
+        ext_start_params="--full_node=true"
+    fi
+}
+
+function downloadDB() {
+    if [ $defaultType == "full" ]; then
+        if [ ! -d "$rootpath/init/db_full" ]; then
+            wget $full_initdb_url -O $rootpath/init/db_full.tar.gz
+            cd $rootpath/init/ && tar zxf db_full.tar.gz
+        fi
+    else
+        if [ ! -d "$rootpath/init/db_kv" ]; then
+            wget $kv_initdb_url -O $rootpath/init/db_kv.tar.gz
+            cd $rootpath/init/ && tar zxf db_kv.tar.gz
+        fi
+    fi
+}
+
+cd $rootpath
 logpath=$datapath/logs
+
 function Init() {
     if [ $# -ne 1 ]; then
         echo "`Usage`"
         exit 1;
     fi
+    
+    defaultInitSet
+
+    downloadDB
+
     GetInitHeight
-    if [ ! -L "$logpath" ]; then
+
+    if [ ! -d "$logpath" ]; then
         mkdir -p "$logpath"
     fi
-    if [ -d "$dbpath/kv" ]; then
-         echo "kv node"
+    if [ -d "$state_path" ]; then
+         echo "$state_path node"
          mkdir -p "$datapath/data"
-         cp -a $dbpath/kv/state.db  $datapath/data/state.db
-         $proc init --home $datapath --on_line=true --init_height $init_height  --log.filename $logpath/lkchain.log
+         cp -a $state_path/state.db  $datapath/data/state.db
+         $proc init --home $datapath --on_line=true --init_height $init_height $ext_init_params --log.filename $logpath/lkchain.log
     else 
-        echo "kv db not exit"
+        echo "$state_path not exit"
         exit 1;
     fi        
 }
@@ -49,7 +101,8 @@ function Start() {
 
 function StartNode() {
     echo "start $proc ..."
-    nohup $proc node --home $datapath --rpc.http_endpoint "127.0.0.1:$rpcport" --rpc.ws_endpoint "127.0.0.1:$wsport" --p2p.laddr "tcp://0.0.0.0:$p2pport" --consensus.create_empty_blocks_interval $emptyBlockInterval --consensus.timeout_commit $blockInterval --log.filename $logpath/lkchain.log --log_level info > $logpath/error.log 2>&1 &
+    defaultInitSet
+    nohup $proc node --home $datapath --bootnode.addrs $bootnodeAddrList $ext_start_params --rpc.http_endpoint "127.0.0.1:$rpcport" --rpc.ws_endpoint "127.0.0.1:$wsport" --p2p.laddr "tcp://0.0.0.0:$p2pport" --consensus.create_empty_blocks_interval $emptyBlockInterval --consensus.timeout_commit $blockInterval --log.filename $logpath/lkchain.log --log_level info > $logpath/error.log 2>&1 &
     echo "pid: $!"
 }
 
