@@ -692,7 +692,7 @@ func (wallet *Wallet) createUinTransaction(w accounts.Wallet, acc accounts.Accou
 				dests = dests[1:]
 			}
 
-			if 0 != len(dests) && dests[0].GetAmount().Cmp(availableAmount) > 0 &&
+			if availableAmount.Sign() > 0 && 0 != len(dests) && dests[0].GetAmount().Cmp(availableAmount) > 0 &&
 				estimateTxWeight(len(selectedIndice), len(paidDests)+1) < UTXOTRANSACTION_MAX_SIZE &&
 				len(paidDests)+2 <= wtypes.UTXO_DESTS_MAX_NUM {
 				if types.TypeUTXODest == dests[0].Type() {
