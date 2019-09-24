@@ -474,7 +474,7 @@ func (la *LinkAccount) processNewTransaction(tx *tctypes.UTXOTransaction, height
 				la.Logger.Info("IsOutputBelongToAccount fail", "ro.OTAddr", ro.OTAddr, "derivationKey", derivationKey, "recIdx", recIdx, "err", err)
 				continue
 			}
-			needSaveTx = true
+
 			realRKey, exist := keyMaps[realDeriKey]
 			if !exist {
 				la.Logger.Error("real rkey not found", "real derivation key", realDeriKey)
@@ -497,18 +497,6 @@ func (la *LinkAccount) processNewTransaction(tx *tctypes.UTXOTransaction, height
 				continue
 			}
 
-			uod := tctypes.UTXOOutputDetail{}
-			uod.BlockHeight = height
-			uod.TxID = lkctypes.Hash(tx.Hash())
-			uod.OutIndex = uint64(outputID)
-			uod.GlobalIndex = gid
-			uod.Spent = false
-			uod.Frozen = false
-			uod.SpentHeight = uint64(0)
-			uod.KeyImage = lkctypes.Key(keyImage)
-			uod.SubAddrIndex = subaddrIndex
-			uod.RKey = realRKey
-
 			ecdh := &lkctypes.EcdhTuple{
 				Mask:   tx.RCTSig.RctSigBase.EcdhInfo[outputID].Mask,
 				Amount: tx.RCTSig.RctSigBase.EcdhInfo[outputID].Amount,
@@ -525,6 +513,19 @@ func (la *LinkAccount) processNewTransaction(tx *tctypes.UTXOTransaction, height
 				la.Logger.Error("EcdhDecode fail", "err", err)
 				continue
 			}
+
+			needSaveTx = true
+			uod := tctypes.UTXOOutputDetail{}
+			uod.BlockHeight = height
+			uod.TxID = lkctypes.Hash(tx.Hash())
+			uod.OutIndex = uint64(outputID)
+			uod.GlobalIndex = gid
+			uod.Spent = false
+			uod.Frozen = false
+			uod.SpentHeight = uint64(0)
+			uod.KeyImage = lkctypes.Key(keyImage)
+			uod.SubAddrIndex = subaddrIndex
+			uod.RKey = realRKey
 			uod.Mask = ecdh.Mask
 			uod.Amount = big.NewInt(0).Mul(tctypes.Hash2BigInt(ecdh.Amount), big.NewInt(tctypes.UTXO_COMMITMENT_CHANGE_RATE))
 			la.Logger.Debug("processNewTransaction output", "ro.Amount", ro.Amount.String(), "ecdh.Amount", ecdh.Amount.String(), "outputID", outputID, "scalar", scalar)
