@@ -17,12 +17,12 @@ import (
 	"github.com/lianxiangcloud/linkchain/libs/log"
 	"github.com/lianxiangcloud/linkchain/libs/p2p"
 	"github.com/lianxiangcloud/linkchain/libs/txmgr"
+	"github.com/lianxiangcloud/linkchain/metrics"
 	"github.com/lianxiangcloud/linkchain/state"
 	"github.com/lianxiangcloud/linkchain/types"
 	"github.com/lianxiangcloud/linkchain/utxo"
 	"github.com/lianxiangcloud/linkchain/vm/evm"
 	"github.com/lianxiangcloud/linkchain/vm/wasm"
-	"github.com/lianxiangcloud/linkchain/metrics"
 	"github.com/xunleichain/tc-wasm/vm"
 )
 
@@ -111,7 +111,6 @@ func NewLinkApplication(db dbm.DB, bc *blockchain.BlockStore, utxoStore *utxo.Ut
 
 	app := &LinkApplication{
 		logger:             log.NewNopLogger(),
-		processor:          NewStateProcessor(bc),
 		vmConfig:           evm.Config{EnablePreimageRecording: false},
 		blockChain:         bc,
 		balanceRecordStore: brs,
@@ -127,6 +126,7 @@ func NewLinkApplication(db dbm.DB, bc *blockchain.BlockStore, utxoStore *utxo.Ut
 		poceedHandle:  poceedHandle,
 		awardHandle:   awardHandle,
 	}
+	app.processor = NewStateProcessor(bc, app)
 	app.lastCoe = GetCoefficient(app.storeState, app.logger)
 	return app, nil
 }
@@ -390,9 +390,6 @@ func (app *LinkApplication) verifyTxsOnProcess(block *types.Block) error {
 				case *types.UTXOTransaction:
 					if cacheTx := app.mempool.GetTxFromCache(hash); cacheTx == nil {
 						err := app.CheckTx(tx, true) //UTXO CheckBasic
-						if err == nil {
-							err = tx.CheckUTXODoubleSpend(app)
-						}
 						if err != nil {
 							errRets[coIndex] = &err
 							return

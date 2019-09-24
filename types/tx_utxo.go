@@ -1228,20 +1228,74 @@ func (tx *UTXOTransaction) checkRingctSignatures(pubkeys [][]types.Ctkey) error 
 	return nil
 }
 
-//CheckUTXODoubleSpend check an UTXOTransaction alone.
-func (tx *UTXOTransaction) CheckUTXODoubleSpend(censor TxCensor) error {
-	kind := tx.UTXOKind()
-	if (kind & Uin) == Uin {
-		for _, txin := range tx.Inputs {
-			switch input := txin.(type) {
-			case *UTXOInput:
-				if censor.UTXOStore().HaveTxKeyimgAsSpent(&input.KeyImage) {
-					log.Warn("Key image already spent in blockchain", "KeyImage", input.KeyImage, "hash", tx.Hash())
-					return ErrUtxoTxDoubleSpend
+//CheckStoreState check an UTXOTransaction stroe state
+func (tx *UTXOTransaction) CheckStoreState(censor TxCensor, state State) error {
+	aggInputAmount := big.NewInt(0)
+
+	for _, txin := range tx.Inputs {
+		switch input := txin.(type) {
+		case *UTXOInput:
+			if censor.UTXOStore().HaveTxKeyimgAsSpent(&input.KeyImage) {
+				log.Debug("Key image already spent in blockchain", "KeyImage", input.KeyImage, "hash", tx.Hash())
+				return ErrUtxoTxDoubleSpend
+			}
+		case *AccountInput:
+			//check nonce
+			fromAddr, err := tx.From()
+			if err != nil {
+				return err
+			}
+			nonce := state.GetNonce(fromAddr)
+			if nonce > input.Nonce {
+				log.Debug("nonce too low", "got", input.Nonce, "want", nonce, "fromAddr", fromAddr, "txHash", tx.Hash())
+				return ErrNonceTooLow
+			} else if nonce < input.Nonce {
+				return ErrNonceTooHigh
+			}
+			//check balance
+			if state.GetTokenBalance(fromAddr, tx.TokenID).Cmp(input.Amount) < 0 {
+				return ErrInsufficientFunds
+			}
+			if !common.IsLKC(tx.TokenID) { //other token Fee
+				if state.GetBalance(fromAddr).Cmp(tx.Fee) < 0 {
+					return ErrInsufficientFunds
 				}
 			}
+			aggInputAmount.Add(aggInputAmount, input.Amount)
+		default:
 		}
 	}
+	accOutAmount := big.NewInt(0)
+	for _, txout := range tx.Outputs {
+		switch output := txout.(type) {
+		case *AccountOutput:
+			accOutAmount.Add(accOutAmount, output.Amount)
+		default:
+		}
+	}
+
+	neededGas := big.NewInt(0)
+	if aggInputAmount.Sign() > 0 && aggInputAmount.Cmp(tx.Fee) > 0 {
+		neededGas.SetUint64(CalNewAmountGas(aggInputAmount.Sub(aggInputAmount, tx.Fee), EverLiankeFee))
+	}
+
+	kind := tx.UTXOKind()
+	if (kind & Uin) == Uin {
+		if accOutAmount.Sign() > 0 {
+			neededGas.Add(neededGas, big.NewInt(0).SetUint64(CalNewAmountGas(accOutAmount, EverLiankeFee)))
+		}
+		if (kind & Uout) == Uout {
+			utxoGas := censor.GetUTXOGas()
+			neededGas.Add(neededGas, big.NewInt(0).SetUint64(utxoGas))
+		}
+	}
+
+	neededFee := neededGas.Mul(neededGas, big.NewInt(0).SetInt64(ParGasPrice))
+	if tx.Fee.Cmp(neededFee) < 0 {
+		log.Warn("checkFee insufficient", "txhash", tx.Hash(), "Fee", tx.Fee, "neededFee", neededFee)
+		return ErrUtxoTxFeeTooLow
+	}
+
 	return nil
 }
 
