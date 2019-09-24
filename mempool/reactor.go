@@ -121,13 +121,13 @@ func defaultHandReceiveMsg(memR *MempoolReactor, msg MempoolMessage, src p2p.Pee
 		if tx.TypeName() == types.TxMultiSignAccount {
 			memR.Logger.Debug("Receive TxMultiSignTx")
 			if memR.mutisignCacheRev.Len() >= ReceiveCacheMaxLength { // mutisignCacheRev Reach ReceiveCacheMaxLength Limit
-				memR.Logger.Info("mutisignCacheRev Reach Limit, Drop Tx", "src", src.ID(), "hash", msg.Tx.Hash())
+				memR.Logger.Info("mutisignCacheRev Reach Limit, Drop Tx", "src", src.ID(), "hash", tx.Hash())
 				return
 			}
 			memR.mutisignCacheRev.PushBack(&RecieveMessage{src.ID(), tx})
 		} else {
 			if memR.cacheRev.Len() >= ReceiveCacheMaxLength { // cacheRev Reach ReceiveCacheMaxLength Limit
-				memR.Logger.Info("cacheRev Reach Limit, Drop Tx", "src", src.ID(), "hash", msg.Tx.Hash())
+				memR.Logger.Info("cacheRev Reach Limit, Drop Tx", "src", src.ID(), "hash", tx.Hash())
 				return
 			}
 			memR.cacheRev.PushBack(&RecieveMessage{src.ID(), tx})
