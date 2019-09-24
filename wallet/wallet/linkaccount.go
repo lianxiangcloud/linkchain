@@ -851,10 +851,14 @@ func (la *LinkAccount) SetRefreshBlockInterval(interval time.Duration) {
 
 // GetLocalUTXOTxsByHeight return UTXOTransaction
 func (la *LinkAccount) GetLocalUTXOTxsByHeight(height *big.Int) (*types.UTXOBlock, error) {
-	// if !la.walletOpen {
-	// 	return nil, types.ErrWalletNotOpen
-	// }
-	return la.loadBlockTxs(height)
+	la.lock.Lock()
+	defer la.lock.Unlock()
+
+	block, err := la.loadBlockTxs(height)
+	if err == types.ErrBlockNotFound && height.Cmp(la.localHeight) <= 0 {
+		err = nil
+	}
+	return block, err
 }
 
 // GetLocalOutputs return UTXOTransaction
