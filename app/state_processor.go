@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"strings"
 
+	"math/big"
+
 	"github.com/lianxiangcloud/linkchain/accounts/abi"
 	"github.com/lianxiangcloud/linkchain/blockchain"
 	"github.com/lianxiangcloud/linkchain/config"
@@ -34,7 +36,6 @@ import (
 	"github.com/lianxiangcloud/linkchain/vm"
 	"github.com/lianxiangcloud/linkchain/vm/evm"
 	"github.com/lianxiangcloud/linkchain/vm/wasm"
-	"math/big"
 )
 
 const (
@@ -53,13 +54,15 @@ var (
 //
 // StateProcessor implements Processor.
 type StateProcessor struct {
-	bc *blockchain.BlockStore // Canonical block chain
+	bc  *blockchain.BlockStore // Canonical block chain
+	app *LinkApplication
 }
 
 // NewStateProcessor initialises a new StateProcessor.
-func NewStateProcessor(bc *blockchain.BlockStore) *StateProcessor {
+func NewStateProcessor(bc *blockchain.BlockStore, app *LinkApplication) *StateProcessor {
 	return &StateProcessor{
-		bc: bc,
+		bc:  bc,
+		app: app,
 	}
 }
 
@@ -72,14 +75,15 @@ func NewStateProcessor(bc *blockchain.BlockStore) *StateProcessor {
 // transactions failed to execute due to insufficient gas it will return an error.
 func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg evm.Config) (types.Receipts, []*types.Log, uint64, []types.Tx, []*types.UTXOOutputData, []*lctypes.Key, error) {
 	var (
-		length      = len(block.Data.Txs)
-		receipts    = make(types.Receipts, 0)
-		usedGas     = new(uint64)
-		header      = types.CopyHeader(block.Header)
-		allLogs     = make([]*types.Log, 0, length)
-		specialTxs  = []types.Tx{}
-		utxoOutputs = make([]*types.UTXOOutputData, 0)
-		keyImages   = make([]*lctypes.Key, 0)
+		length       = len(block.Data.Txs)
+		receipts     = make(types.Receipts, 0)
+		usedGas      = new(uint64)
+		header       = types.CopyHeader(block.Header)
+		allLogs      = make([]*types.Log, 0, length)
+		specialTxs   = []types.Tx{}
+		utxoOutputs  = make([]*types.UTXOOutputData, 0)
+		keyImages    = make([]*lctypes.Key, 0)
+		keyImagesMap = make(map[lctypes.Key]bool)
 	)
 
 	vmenv := vm.NewVM()
@@ -136,6 +140,18 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 			statedb.SetNonce(from, statedb.GetNonce(from)+1)
 			receipts = append(receipts, &types.Receipt{})
 		case *types.UTXOTransaction:
+			if err := tx.CheckStoreState(p.app, statedb); err != nil {
+				return nil, nil, 0, nil, nil, nil, err
+			}
+
+			kms := tx.GetInputKeyImages()
+			for _, km := range kms {
+				if keyImagesMap[*km] {
+					return nil, nil, 0, nil, nil, nil, types.ErrUtxoTxDoubleSpend
+				}
+				keyImagesMap[*km] = true
+			}
+
 			//any account mode enter state process
 			tbr := types.NewTxBalanceRecords()
 			tbr.Type = tx.TypeName()
@@ -212,7 +228,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 			types.BlockBalanceRecordsInstance.AddTxBalanceRecord(tbr)
 			receipts = append(receipts, receipt)
 			utxoOutputs = append(utxoOutputs, tx.GetOutputData(block.Height)...)
-			keyImages = append(keyImages, tx.GetInputKeyImages()...)
+			keyImages = append(keyImages, kms...)
 		default:
 			err := fmt.Errorf("unknow tx type")
 			return nil, nil, 0, nil, nil, nil, err
