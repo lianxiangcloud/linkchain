@@ -364,7 +364,7 @@ func (s *PublicBlockChainAPI) EstimateGas(ctx context.Context, args CallArgs) (h
 	}
 	estimateGas := gasUsed
 	if extraByteCodeGas > 0 {
-		maxCallGas := cfg.CallCreateDepth * cfg.CallNewAccountGas
+		maxCallGas := 10 * cfg.CallNewAccountGas
 		if extraByteCodeGas > maxCallGas {
 			estimateGas += maxCallGas
 		} else {
