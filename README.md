@@ -10,7 +10,7 @@
 
 主要内容目录：
 
-[编译运行](./doc/编译运行.md)
+[编译运行](./doc/compile_and_run_node.md)
 
 [命令行配置](./doc/命令行配置.md)
 
