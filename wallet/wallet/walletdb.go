@@ -364,21 +364,17 @@ func (la *LinkAccount) loadBlockTxs(height *big.Int) (*types.UTXOBlock, error) {
 	//because these trans already show in account trans list
 	txs := make([]types.UTXOTransaction, 0)
 	for _, trans := range block.Txs {
-		if (trans.TxFlag&txAin) == txAin && (trans.TxFlag&txUout) != txUout {
-			continue
-		}
-		if (trans.TxFlag&txAout) == txAout && (trans.TxFlag&txUin) != txUin {
-			continue
-		}
 		var flag uint8
-		if (trans.TxFlag&txAin) == txAin || (trans.TxFlag&txUin) != txUin {
-			flag = flag | txAin
+		if (trans.TxFlag & txUout) == txUout {
+			flag = flag | rpcUOut
 		}
-		if (trans.TxFlag&txAout) == txAout || (trans.TxFlag&txUout) != txUout {
-			flag = flag | txAout
+		if (trans.TxFlag & txUin) == txUin {
+			flag = flag | rpcUIn
 		}
-		trans.TxFlag = flag
-		txs = append(txs, trans)
+		if flag > 0 {
+			trans.TxFlag = flag
+			txs = append(txs, trans)
+		}
 	}
 	block.Txs = txs
 	return &block, nil

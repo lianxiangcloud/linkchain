@@ -22,7 +22,10 @@ import (
 const (
 	defaultRefreshBlockInterval = 5 * time.Second
 	defaultMaxSubAccount        = uint64(5000)
-	// 1 - 转入，2- 转出，3-转入转出
+	// 1 - utxo out，2- utxo in
+	rpcUOut uint8 = 0x1
+	rpcUIn  uint8 = 0x2
+
 	txAin  uint8 = 0x1
 	txAout uint8 = 0x2
 	txUin  uint8 = 0x4
