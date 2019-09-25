@@ -12,7 +12,7 @@ import (
 	"github.com/lianxiangcloud/linkchain/libs/common"
 	"github.com/lianxiangcloud/linkchain/libs/crypto"
 	lctypes "github.com/lianxiangcloud/linkchain/libs/cryptonote/types"
-	"github.com/lianxiangcloud/linkchain/libs/hexutil"
+	//"github.com/lianxiangcloud/linkchain/libs/hexutil"
 	"github.com/lianxiangcloud/linkchain/libs/log"
 	"github.com/lianxiangcloud/linkchain/state"
 	"github.com/lianxiangcloud/linkchain/types"
@@ -46,7 +46,12 @@ func TestProcess(t *testing.T) {
 		states[i] = st.Copy()
 	}
 
-	sp := NewStateProcessor(nil)
+	app, err := initApp()
+	if err != nil {
+		log.Error("initApp", "err", err)
+		return
+	}
+	sp := NewStateProcessor(nil, app)
 	vc := evm.Config{EnablePreimageRecording: false}
 	blocks := make([]*types.Block, loopSum)
 
@@ -54,28 +59,27 @@ func TestProcess(t *testing.T) {
 		i            uint64
 		bfBalance    *big.Int
 		afBalance    *big.Int
-		toBalance    *big.Int
-		toBalance2   *big.Int
+		//toBalance    *big.Int
+		//toBalance2   *big.Int
 		transferGas  uint64
-		txFee        *big.Int
+		//txFee        *big.Int
 		receipts     types.Receipts
 		blockGas     uint64
-		err          error
-		utxoOutputs  []*types.UTXOOutputData
-		keyImages    []*lctypes.Key
-		blockRecords *types.BlockBalanceRecords
+		//utxoOutputs  []*types.UTXOOutputData
+		//keyImages    []*lctypes.Key
 		amount       *big.Int
-		toAddr       common.Address
-		tx           *types.UTXOTransaction
+		//toAddr       common.Address
+		//tx           *types.UTXOTransaction
 	)
 	//account -> account transfer
+    /*
 	i = 0
 	//{"from":"0x54fb1c7d0f011dd63b08f85ed7b518ab82028100","nonce":"0x0","dests":[{"addr":"0xa73810e519e1075010678d706533486d8ecc8000","amount":"0x56bc75e2d63100000","data":""}]}
 	toAddr = common.HexToAddress("0xa73810e519e1075010678d706533486d8ecc8000")
 	toBalance = states[i].GetBalance(toAddr)
 	bfBalance = states[i].GetBalance(accounts[0].Address)
 	blocks[i] = genBlockAccount2Account(i, states[i])
-	receipts, _, blockGas, _, utxoOutputs, keyImages, blockRecords, err = sp.Process(blocks[i], states[i], vc)
+	receipts, _, blockGas, _, utxoOutputs, keyImages, err = sp.Process(blocks[i], states[i], vc)
 	require.Nil(t, err)
 	amount, _ = hexutil.DecodeBig("0x56bc75e2d63100000")
 	tx = blocks[i].Data.Txs[0].(*types.UTXOTransaction)
@@ -89,7 +93,6 @@ func TestProcess(t *testing.T) {
 	assert.Equal(t, 1, len(receipts))
 	assert.Equal(t, transferGas, blockGas)
 	assert.Equal(t, transferGas, receipts[0].GasUsed)
-	assert.Equal(t, 1, len(blockRecords.TxRecords))
 	assert.Equal(t, 0, len(utxoOutputs))
 	assert.Equal(t, 0, len(keyImages))
 
@@ -100,7 +103,7 @@ func TestProcess(t *testing.T) {
 	toBalance = states[i].GetBalance(toAddr)
 	bfBalance = states[i].GetBalance(accounts[0].Address)
 	blocks[i] = genBlockAccountToContract(i, states[i])
-	receipts, _, blockGas, _, utxoOutputs, keyImages, blockRecords, err = sp.Process(blocks[i], states[i], vc)
+	receipts, _, blockGas, _, utxoOutputs, keyImages, err = sp.Process(blocks[i], states[i], vc)
 	require.Nil(t, err)
 	amount, _ = hexutil.DecodeBig("0x56bc75e2d63100000")
 	tx = blocks[i].Data.Txs[1].(*types.UTXOTransaction)
@@ -115,7 +118,6 @@ func TestProcess(t *testing.T) {
 	assert.Equal(t, big.NewInt(0).Div(txFee, big.NewInt(types.ParGasPrice)).Uint64(), blockGas)
 	assert.Equal(t, uint64(0), receipts[0].GasUsed)
 	assert.Equal(t, big.NewInt(0).Div(txFee, big.NewInt(types.ParGasPrice)).Uint64(), receipts[1].GasUsed)
-	assert.Equal(t, 2, len(blockRecords.TxRecords))
 	assert.Equal(t, 0, len(utxoOutputs))
 	assert.Equal(t, 0, len(keyImages))
 
@@ -127,7 +129,7 @@ func TestProcess(t *testing.T) {
 	toBalance = states[i].GetBalance(toAddr)
 	bfBalance = states[i].GetBalance(accounts[0].Address)
 	blocks[i] = genBlockUTXOCallContract(i, states[i])
-	receipts, _, blockGas, _, utxoOutputs, keyImages, blockRecords, err = sp.Process(blocks[i], states[i], vc)
+	receipts, _, blockGas, _, utxoOutputs, keyImages, err = sp.Process(blocks[i], states[i], vc)
 	require.Nil(t, err)
 	amount, _ = hexutil.DecodeBig("0x12a05f200")
 	tx = blocks[i].Data.Txs[1].(*types.UTXOTransaction)
@@ -142,21 +144,19 @@ func TestProcess(t *testing.T) {
 	assert.Equal(t, big.NewInt(0).Div(txFee, big.NewInt(types.ParGasPrice)).Uint64(), blockGas)
 	assert.Equal(t, uint64(0), receipts[0].GasUsed)
 	assert.Equal(t, big.NewInt(0).Div(txFee, big.NewInt(types.ParGasPrice)).Uint64(), receipts[1].GasUsed)
-	assert.Equal(t, 2, len(blockRecords.TxRecords))
 	assert.Equal(t, 1, len(keyImages))
 	assert.Equal(t, 1, len(utxoOutputs))
+    */
 
 	i = 3
 	//accounts[0]->subaddr[0]  =>  accounts[0]->subaddr[1]
-	bfBalance = states[i].GetBalance(accounts[0].Address)
-	blocks[i] = genBlockUTXO2UTXO(i, states[i])
-	receipts, _, blockGas, _, utxoOutputs, keyImages, blockRecords, err = sp.Process(blocks[i], states[i], vc)
+	blocks[i] = genBlockUTXO2UTXO(i, states[i], big.NewInt(0).Mul(types.DefaultCoefficient().UTXOFee, big.NewInt(types.ParGasPrice)))
+	receipts, _, blockGas, _, _, _, err = sp.Process(blocks[i], states[i], vc)
 	require.Nil(t, err)
-	afBalance = states[i].GetBalance(accounts[0].Address)
-	txFee = tx.Fee
-	assert.Equal(t, bfBalance, afBalance)
-	assert.Equal(t, uint64(0), states[i].GetNonce(accounts[0].Address))
-	assert.Equal(t, 1, len(blockRecords.TxRecords))
+
+    blocks[i] = genBlockUTXO2UTXO(i, states[i], big.NewInt(0))
+	receipts, _, blockGas, _, _, _, err = sp.Process(blocks[i], states[i], vc)
+	require.NotNil(t, err)
 
 	i = 4
 	bfBalance = states[i].GetBalance(accounts[0].Address)
@@ -166,7 +166,7 @@ func TestProcess(t *testing.T) {
 	transferFee := big.NewInt(0).Mul(big.NewInt(0).SetUint64(transferGas), big.NewInt(types.ParGasPrice))
 
 	blocks[i] = genBlockWithLocalTransaction(i)
-	_, _, blockGas, _, _, _, _, err = sp.Process(blocks[i], states[i], vc)
+	_, _, blockGas, _, _, _, err = sp.Process(blocks[i], states[i], vc)
 	require.Nil(t, err)
 	afBalance = states[i].GetBalance(accounts[0].Address)
 	assert.Equal(t, big.NewInt(0).Add(amount, transferFee), big.NewInt(0).Sub(bfBalance, afBalance))
@@ -178,17 +178,19 @@ func TestProcess(t *testing.T) {
     bfToken := states[i].GetTokenBalance(accounts[0].Address, tokenAddr)
     fmt.Println("bfToken", "account", accounts[0].Address.String(), "tokenBalance", bfToken)
 	blocks[i] = genBlockUTXOTokenTransaction(i, states[i])
-	receipts, _, blockGas, _, utxoOutputs, keyImages, blockRecords, err = sp.Process(blocks[i], states[i], vc)
+	receipts, _, blockGas, _, _, _, err = sp.Process(blocks[i], states[i], vc)
 	afBalance = states[i].GetBalance(accounts[0].Address)
 	require.Nil(t, err)
-	recvToken := big.NewInt(0).Mul(big.NewInt(9400000*2), big.NewInt(types.ParGasPrice))
+    transferGas = types.CalNewAmountGas(amount, types.EverLiankeFee) + 600000
+    transferMoneyInGas := 1e7 - transferGas
+	recvToken := big.NewInt(0).Mul(big.NewInt(int64(transferMoneyInGas)*2), big.NewInt(types.ParGasPrice))
 	contractAddr := tokenAddr
 	assert.Equal(t, big.NewInt(0).Add(recvToken, bfToken), states[i].GetTokenBalance(accounts[0].Address, tokenAddr))
 	conTractToken := big.NewInt(0).Mul(big.NewInt(10000), big.NewInt(1e18))
 	assert.Equal(t, big.NewInt(0).Sub(conTractToken, recvToken), states[i].GetTokenBalance(contractAddr, tokenAddr))
 	assert.Equal(t, 3, len(receipts))
-	assert.Equal(t, uint64(70233+500000+500000), blockGas) // 2TxGas + MinGas + MinGas
-	assert.Equal(t, afBalance, big.NewInt(0).Sub(bfBalance, big.NewInt(0).SetUint64(blockGas*1e11+9400000*1e11)))
+	assert.Equal(t, uint64(70233+types.MinGasLimit+types.MinGasLimit+types.MinGasLimit), blockGas) // 2TxGas + MinGas + MinGas
+	assert.Equal(t, afBalance, big.NewInt(0).Sub(bfBalance, big.NewInt(0).SetUint64(blockGas*1e11+transferMoneyInGas*1e11)))
 }
 
 func genBlockUTXO2Account(height uint64, statedb *state.StateDB) *types.Block {
@@ -262,9 +264,12 @@ func genBlockAccountToMix(height uint64, statedb *state.StateDB) *types.Block {
 func genBlockAccount2Account(height uint64, statedb *state.StateDB) *types.Block {
 	//hash: 0xa6c0a339b527210528c0c56ec457c01ba97bd87ca33fd396a243dd48d03f15ba
 	//{"from":"0x54fb1c7d0f011dd63b08f85ed7b518ab82028100","nonce":"0x0","dests":[{"addr":"0xa73810e519e1075010678d706533486d8ecc8000","amount":"0x56bc75e2d63100000","data":""}]}
-	serTxAccount2Account := "f90139f856cf4852c16c3232f84d80890572b7b98736c20000a00000000000000000000000000000000000000000000000000000000000000000a00449c9d0102bfb7232c1655f4833e60f1aef38ff2b9a535678debea611f2df97f84ac77cca059e4aa7f84194a73810e519e1075010678d706533486d8ecc800089056bc75e2d6310000080a04b1651c5abb75479ab0719edc3a221be8607e32ebf1b3f45a0b4db3348ca625f940000000000000000000000000000000000000000a02e16c7e81ec6dbd0577537006734f567063023ae61b265510fc8a0a449c8a779c08806f05b59d3b2000080f84582e3e6a0054ce9bb1f7944fc3af519780f28c9e5240ab2f2555570ccb937a4900c1a0b36a032577ac35f69ce2216119ee995080e46f9e510f2ce2c5bc0475791de7d6f88acccc580c0c0c080c5c0c0c0c0c0"
+	//serTxAccount2Account := "f90139f856cf4852c16c3232f84d80890572b7b98736c20000a00000000000000000000000000000000000000000000000000000000000000000a00449c9d0102bfb7232c1655f4833e60f1aef38ff2b9a535678debea611f2df97f84ac77cca059e4aa7f84194a73810e519e1075010678d706533486d8ecc800089056bc75e2d6310000080a04b1651c5abb75479ab0719edc3a221be8607e32ebf1b3f45a0b4db3348ca625f940000000000000000000000000000000000000000a02e16c7e81ec6dbd0577537006734f567063023ae61b265510fc8a0a449c8a779c08806f05b59d3b2000080f84582e3e6a0054ce9bb1f7944fc3af519780f28c9e5240ab2f2555570ccb937a4900c1a0b36a032577ac35f69ce2216119ee995080e46f9e510f2ce2c5bc0475791de7d6f88acccc580c0c0c080c5c0c0c0c0c0"
 	txs := make(types.Txs, 0)
-	utxoTx := genUTXOTransaction(serTxAccount2Account)
+	//utxoTx := genUTXOTransaction(serTxAccount2Account)
+    nonce := uint64(0)
+    toAddr := common.HexToAddress("0xa73810e519e1075010678d706533486d8ecc8000")
+    utxoTx := getUTXOTokenTx(accounts[0].PrivateKey, toAddr, common.EmptyAddress, nonce, big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e11)), nil)
 	txs = append(txs, utxoTx)
 	app, err := initApp()
 	if err != nil {
@@ -336,10 +341,18 @@ func genBlockUTXOCallContract(height uint64, statedb *state.StateDB) *types.Bloc
 	return block
 }
 
-func genBlockUTXO2UTXO(height uint64, statedb *state.StateDB) *types.Block {
+//accounts[0]->subaddr[0]  =>  accounts[0]->subaddr[1]
+func genBlockUTXO2UTXO(height uint64, statedb *state.StateDB, fee *big.Int) *types.Block {
 	txs := make(types.Txs, 0)
-	utxoTransfer := "f90680eb10c698b1d37308e3c105a080d41f601eab3eebe2397a2938be98c4a98e4badcf244add946b2ef5b1f844e5f8985842699137a517f843a0da9cd7a485e127d23003ef119ae963feb7339dda8bcd8109bf4566da4a99bcbc80a07f1feb0fbb72ea475ca91b5fb5698f935883b1407c547695eaf485a70d611e095842699137a517f843a05406b9bd306a86e625d9c1e6388f4e77b5e4b893be1d9cf9f741070c47492c2380a0df72b9079e0db178e71a2b4242876db3295661c6460079ad35f7acd794bb3ef7940000000000000000000000000000000000000000a029be69490a29813f9ec025771df4a5e777d3ad1990d9978c70c04093878b8031f842a0852e682a2a2440284654430dfd73f6cdf564f94c519145532a9d9e8be0df5982a06a3c76405cc0755a94df3526c836eb2949b1c04c7f88149561ea6c2720b2f18b8609184e72a00080c3808080f90531f9015903c0f8caf863a0b36d8e31f375888dbb80333ad59273dde2f27556ca396b1280edb5424839e500a09ff27c0b11e162b36fc863142fe6f56aa97230887a036795081973d8ed3e6f0ba00000000000000000000000000000000000000000000000000000000000000000f863a00d7d6cea26431e97ecce37044b35f7958a6ae271c34f7032aa79d0e19ff93e0da09cfd3572e8bcc609e416293eb9c37489813cbecb8616157a7be500f39e031300a00000000000000000000000000000000000000000000000000000000000000000f888f842a00000000000000000000000000000000000000000000000000000000000000000a0bc6b3e11d16de5441a0090bd3ce76d08780436e737992b115fe6669381acd022f842a00000000000000000000000000000000000000000000000000000000000000000a044de947b1c6ac75da05daeba3447de9dc1a8ae9afd64ee2683bc051c53d72ae780f903d2c0f90342f9033fa09f822a7c4df5010fcafbca690b78371d3807e1faea1713e7cda27f3afeb8b4dda0d957582dda65bc6200b0f45a9069513ecd5e109096a9d740d7f0fa5618f1c64aa036bc9eeed036c3c648e42bed0977881822072bc98d795124b6d9e7582a37a3a3a09ea2518bdc5d7da3f6b17de66aa7631ae20aa2811d11c3332356db603c12a0b9a0a32783e3a2bfb47bcfd41428116898b498fde146c187b7a2a1a4d32c453da206a0b33a02366a45f44f6fec27da76b06beed20a958215008412e94600023de2250bf90108a0f52ccb9823ce2a6d23d0fe2bd3ed95e83a78501c94af433f399f82d08916be44a09942d329932a9f8e1f855e47f53b681d24491fc279342de6fb8019b3ab75fa2fa020afc20997c7eff2fd5d016e744a3be6c9e91bb910a64717782df9ad8861fc28a0c8fee60cd9fe620e7d0536a3ce24d1ff90d0f0e6a5d6319511792d4e7226b81aa0ee6cfcc8a4ac97feb1f185a32e6c9eab3221cfc20ae92146cff6552d8d1b86d7a091215f8f2610221bf95b06dcd9f50a12248a05e112cbd3ed99e9a83b9474f175a07af7359cfec9598b39da96db89ad7b08636ee56e6186178faa2b9b98acc655c6a0b93ad4385ab173a6d4555908794df423759b491cd3156f23cb2689e13721fe55f90108a0ec323ad685edad9845919652d2e67e7dbfe9c573613ddd2399ac487db2252925a085b1ef92b3c479b72ec57d50a1a49b8b4887e145903c25d47996e5d5a8fc63a6a090ebeb215d6d4ee80c152111fa12db0bb616143f9f9702a7e15b57e876c6cc09a0b7a5f31f7ca81b563d40aa9d43ca3d8c868e0202a04ef5ee7869e13359424ecfa04adea5151e5728f42e6882505722aa328d610129ec28666188454164f015ce74a06896bb83198b58a7967d5498e9c035e174e6c63044f733c3eecbebc00e89f3d6a062cd5d64db7b4acdc4590c32cdd7ed42f9be089dc0fbc9f7b2207a8e0226f166a0018ed337bad368826cc08b68495a82d3a6acd3370aaa53f1238aaa4a57fce6a3a06f52f07b44df53e1582f0216e1da0bb37dd9bed7898529dadaa41bdf58d9000ba0c1f9962fa48d693ec3b176cfe68636cdcd392875089e84f980767bb62681fe03a06b046f8fb64a518215e85cfe5d8df47950817429edf15dc1c11753196909eb06e3e2c0a00000000000000000000000000000000000000000000000000000000000000000e1a06a099c2521f2d988aa331903254cc735303a05eea9e432b925122de6c9b2c290f844f842a09c49c108d6cc44f003db042598486af6a1f2e85141eddddf6066b87a61a32506a010c5b88ba969d0a1d7efc721337d7db4999079ca1d9902591dd1735c6b88fc07"
-	utxoTx := genUTXOTransaction(utxoTransfer)
+    utxoInput := &types.UTXOInput{}
+    utxoOutput := &types.UTXOOutput{}
+    utxoTx := &types.UTXOTransaction{
+        Inputs: []types.Input{utxoInput},
+        Outputs: []types.Output{utxoOutput},
+        Fee: fee, 
+    }
+    utxoTx.RCTSig.OutPk = make(lctypes.CtkeyV, 1)
+    utxoTx.RCTSig.OutPk[0].Mask = lctypes.Key{}
 
 	txs = append(txs, utxoTx)
 
@@ -538,7 +551,7 @@ func getUTXOTokenTx(skey *ecdsa.PrivateKey, toAddr common.Address, tokenID commo
 		Nonce:  nonce,
 		Amount: amount,
 	}
-	transferGas := types.CalNewAmountGas(amount, types.EverLiankeFee) + 100000
+	transferGas := types.CalNewAmountGas(amount, types.EverLiankeFee) + 600000  //600000 for call contract gas 100000 + contract value fee 500000
 	transferFee := big.NewInt(0).Mul(big.NewInt(types.ParGasPrice), big.NewInt(0).SetUint64(transferGas))
 	accountDest := &types.AccountDestEntry{
 		To:     toAddr,

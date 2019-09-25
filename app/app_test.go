@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/lianxiangcloud/linkchain/blockchain"
+    cfg "github.com/lianxiangcloud/linkchain/config"
 	"github.com/lianxiangcloud/linkchain/utxo"
 
 	"github.com/lianxiangcloud/linkchain/libs/ser"
@@ -21,9 +22,10 @@ import (
 	"github.com/lianxiangcloud/linkchain/libs/common"
 	"github.com/lianxiangcloud/linkchain/libs/db"
 	dbm "github.com/lianxiangcloud/linkchain/libs/db"
+    "github.com/lianxiangcloud/linkchain/metrics"
 	"github.com/lianxiangcloud/linkchain/state"
 	"github.com/lianxiangcloud/linkchain/types"
-	//"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/assert"
 )
 
 type ks struct {
@@ -139,6 +141,10 @@ func TestApp(t *testing.T) {
 	//crossState := &MockCrossState{}
 	blockStore.SetCrossState(crossState)
 
+    config := cfg.DefaultConfig()
+    pv := types.GenFilePV("")
+    metrics.PrometheusMetricInstance.Init(config, pv.PubKey, logger.With("module", "prometheus_metrics"))
+
 	app, err := newTestApp(stateDB, txpool, blockStore, crossState)
 	if err != nil {
 		t.Fatalf("initApp err:%v", err)
@@ -168,6 +174,7 @@ func TestApp(t *testing.T) {
 			t.Fatalf("CheckTx err:%v", err)
 		}
 	}
+
 	//types.TxUpdateValidatorsType,
 	//types.TxContractCreateType,
 	for i := 0; i < 2; i++ {
@@ -201,23 +208,23 @@ func TestApp(t *testing.T) {
 			t.Fatalf("CheckTx err:%v nonce %d", err, nonce)
 		}
 	}
-
 	txpool.On("VerifyTxFromCache", mock.Anything).Return(nil, false)
 	txpool.On("Lock").Return()
 	txpool.On("Unlock").Return()
 	txpool.On("Update", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	txpool.On("Reap", mock.Anything).Return(txs)
 	txpool.On("KeyImageReset").Return()
+    txpool.On("GetTxFromCache", mock.Anything).Return(nil)
 
 	height := uint64(1)
 	block := app.CreateBlock(height, 1000, 1e18, uint64(time.Now().Unix()))
 	block.LastCommit = &types.Commit{}
+    app.PreRunBlock(block)
 	if !app.CheckBlock(block) {
 		t.Fatalf("CheckBlock not ok")
 	}
 
 	partSet := block.MakePartSet(types.DefaultConsensusParams().BlockGossip.BlockPartSizeBytes)
-
 	_, err = app.CommitBlock(block, partSet, &types.Commit{}, false)
 	if err != nil {
 		t.Fatalf("CommitBlock err:%v", err)
@@ -234,18 +241,18 @@ func TestApp(t *testing.T) {
 		fmt.Println("txEntry:", tx.Hash().Hex(), string(js))
 	}
 
-	return
+	txs = nil
 	nonce := app.checkTxState.GetNonce(accounts[0].Address)
 	gasLimit := uint64(0)
-	ctx := genContractCreateTx(accounts[0].Address, gasLimit, nonce, "../test/token/sol/SimpleToken.bin")
-	ctx.Amount = new(big.Int).SetUint64(1)
+    demoTokenBin := "60806040526012600160006101000a81548160ff021916908360ff16021790555034801561002c57600080fd5b50e4801561003957600080fd5b50600160009054906101000a900460ff1660ff16600a0a61271002600081905550600054e07fd1398bee19313d6bf672ccb116e51f4a1a947e91c757907f51fbb5b5e56c698f60003030600054604051808573ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020018473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020018373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200182815260200194505050505060405180910390a16107eb806101436000396000f300608060405260043610610083576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff16806306fdde0314610085578063313ce567146101225780633eaaf86b146101605780635d0268e61461019857806370a08231146101b8578063a4556fce1461021c578063d0ca623414610226575b005b34801561009157600080fd5b50e4801561009e57600080fd5b506100a7610230565b6040518080602001828103825283818151815260200191508051906020019080838360005b838110156100e75780820151818401526020810190506100cc565b50505050905090810190601f1680156101145780820380516001836020036101000a031916815260200191505b509250505060405180910390f35b34801561012e57600080fd5b50e4801561013b57600080fd5b5061014461026d565b604051808260ff1660ff16815260200191505060405180910390f35b34801561016c57600080fd5b50e4801561017957600080fd5b50610182610280565b6040518082815260200191505060405180910390f35b6101b660048036038101908080359060200190929190505050610286565b005b3480156101c457600080fd5b50e480156101d157600080fd5b50610206600480360381019080803573ffffffffffffffffffffffffffffffffffffffff1690602001909291905050506103b0565b6040518082815260200191505060405180910390f35b6102246103e8565b005b61022e6105cf565b005b60606040805190810160405280600981526020017f44656d6f546f6b656e0000000000000000000000000000000000000000000000815250905090565b600160009054906101000a900460ff1681565b60005481565b3073ffffffffffffffffffffffffffffffffffffffff16e273ffffffffffffffffffffffffffffffffffffffff161415156102c057600080fd5b80e41480156102cf5750600081115b15156102da57600080fd5b7fd1398bee19313d6bf672ccb116e51f4a1a947e91c757907f51fbb5b5e56c698f3330e2e4604051808573ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020018473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020018373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200182815260200194505050505060405180910390a150565b60008173ffffffffffffffffffffffffffffffffffffffff163073ffffffffffffffffffffffffffffffffffffffff16e19050919050565b6000e41115156103f757600080fd5b3373ffffffffffffffffffffffffffffffffffffffff163073ffffffffffffffffffffffffffffffffffffffff16e4e37fd1398bee19313d6bf672ccb116e51f4a1a947e91c757907f51fbb5b5e56c698f3330e2e4604051808573ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020018473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020018373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200182815260200194505050505060405180910390a17fd1398bee19313d6bf672ccb116e51f4a1a947e91c757907f51fbb5b5e56c698f303330e4604051808573ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020018473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020018373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200182815260200194505050505060405180910390a1565b600080341115156105df57600080fd5b6002340290503373ffffffffffffffffffffffffffffffffffffffff163073ffffffffffffffffffffffffffffffffffffffff1682e37fd1398bee19313d6bf672ccb116e51f4a1a947e91c757907f51fbb5b5e56c698f3330600034604051808573ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020018473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020018373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200182815260200194505050505060405180910390a17fd1398bee19313d6bf672ccb116e51f4a1a947e91c757907f51fbb5b5e56c698f30333084604051808573ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020018473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020018373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200182815260200194505050505060405180910390a1505600a165627a7a7230582035535fe5dabdc379daafa902bd1a8b41026cc07fe489cad1a962214b964671dd0029"
+	ctx := genContractCreateTx(accounts[0].Address, gasLimit, nonce, demoTokenBin)
+    assert.NotNil(t, ctx)
 	if err := app.CheckTx(ctx, false); err != nil {
 		t.Fatalf("CheckTx err:%v", err)
 	} else {
 		t.Logf("CheckTx err:%v", err)
 	}
 	fmt.Println("ctx:", ctx.String())
-	txs = nil
 	txs = append(txs, ctx)
 	txpool = &MockMempool{}
 	txpool.On("VerifyTxFromCache", mock.Anything).Return(nil, false)
@@ -253,17 +260,19 @@ func TestApp(t *testing.T) {
 	txpool.On("Unlock").Return()
 	txpool.On("Update", mock.Anything, mock.Anything).Return(nil)
 	txpool.On("Reap", mock.Anything).Return(txs)
+    txpool.On("GetTxFromCache", mock.Anything).Return(nil)
+	txpool.On("KeyImageReset").Return()
 	app.SetMempool(txpool)
 	//block2
 	height = uint64(2)
 	block = app.CreateBlock(height, 1000, 1e18, uint64(time.Now().Unix()))
 	block.LastCommit = &types.Commit{}
+    //app.PreRunBlock(block)
 	if !app.CheckBlock(block) {
 		t.Logf("CheckBlock not ok")
 	}
 
 	partSet = block.MakePartSet(types.DefaultConsensusParams().BlockGossip.BlockPartSizeBytes)
-
 	_, err = app.CommitBlock(block, partSet, &types.Commit{}, false)
 	if err != nil {
 		t.Fatalf("CommitBlock err:%v", err)
@@ -350,7 +359,21 @@ func genContractCreateTx(fromaddr common.Address, gasLimit uint64, nonce uint64,
 		//GasLimit:     gasLimit,
 		//Price:        gasPrice,
 	}
-	tx := types.CreateContractTx(ccMainInfo, nil)
+    signatures := make([][]byte, 0)
+    for i := 0; i < 2; i++ {
+        priveKey := acc[i].PrivateKey
+        sigData, err := types.SignContractCreateTx(priveKey, ccMainInfo)
+        if err != nil {
+            fmt.Printf("SignContractCreateTx failed:%v", err)
+            return nil
+        }
+        signatures = append(signatures, sigData)
+    }
+    priveKey := accounts[0].PrivateKey
+    sigData, _ := types.SignContractCreateTx(priveKey, ccMainInfo)
+    signatures = append(signatures, sigData)
+
+	tx := types.CreateContractTx(ccMainInfo, signatures)
 	return tx
 }
 
@@ -438,8 +461,11 @@ func newTestApp(sdb dbm.DB, txpool types.Mempool, blockStore *blockchain.BlockSt
 
 	//var linkApp *LinkApplication
 	balanceRecord := blockchain.NewBalanceRecordStore(dbm.NewMemDB(), false)
-	linkApp, err := NewLinkApplication(sdb, blockStore, utxoStore, crossState, nil, false, balanceRecord, nil, nil)
+    eventBus := types.NewEventBus()
+    eventBus.SetLogger(logger.With("module", "events"))
+	linkApp, err := NewLinkApplication(sdb, blockStore, utxoStore, crossState, eventBus, false, balanceRecord, nil, nil)
 	linkApp.SetMempool(txpool)
+    linkApp.SetLogger(logger.With("module", "apptest"))
 	for i := 0; i < 2; i++ {
 		state := linkApp.storeState
 		if i == 1 {

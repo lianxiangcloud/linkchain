@@ -12,6 +12,22 @@ type MockMempool struct {
 	mock.Mock
 }
 
+// GetTxFromCache provides a mock function with given fields: _a0
+func (_m *MockMempool) GetTxFromCache(_a0 common.Hash) types.Tx {
+    ret := _m.Called(_a0)
+
+    var r0 types.Tx
+    if rf, ok := ret.Get(0).(func(common.Hash) types.Tx); ok {
+        r0 = rf(_a0)
+    } else {
+        if ret.Get(0) != nil {
+            r0 = ret.Get(0).(types.Tx)
+        }
+    }
+
+    return r0
+}
+
 // KeyImageExists provides a mock function with given fields: key
 func (_m *MockMempool) KeyImageExists(key lktypes.Key) bool {
 	ret := _m.Called(key)
@@ -106,4 +122,9 @@ func (_m *MockMempool) VerifyTxFromCache(hash common.Hash) (*common.Address, boo
 	}
 
 	return r0, r1
+}
+
+// KeyImageRemoveKeys provides a mock function with given fields: _a0
+func (_m *MockMempool) KeyImageRemoveKeys(_a0 []*lktypes.Key) {
+    _m.Called(_a0)
 }
