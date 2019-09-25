@@ -362,6 +362,10 @@ func (tx *TokenTransaction) RawSignatureValues() (*big.Int, *big.Int, *big.Int) 
 }
 
 func (tx *TokenTransaction) CheckBasic(censor TxCensor) error {
+	return tx.CheckBasicWithState(censor, nil)
+}
+
+func (tx *TokenTransaction) CheckBasicWithState(censor TxCensor, state State) error {
 	if tx == nil {
 		return ErrTxEmpty
 	}
@@ -390,13 +394,21 @@ func (tx *TokenTransaction) CheckBasic(censor TxCensor) error {
 	}
 
 	hascode := false
-	if tx.To() != nil {
-		censor.LockState()
-		state := censor.State()
-		if state.IsContract(*tx.To()) {
-			hascode = true
+	if state == nil { // without state, need lock and get state
+		if tx.To() != nil {
+			censor.LockState()
+			state := censor.State()
+			if state.IsContract(*tx.To()) {
+				hascode = true
+			}
+			censor.UnlockState()
 		}
-		censor.UnlockState()
+	} else { // state is locked outside
+		if tx.To() != nil {
+			if state.IsContract(*tx.To()) {
+				hascode = true
+			}
+		}
 	}
 
 	if tx.IllegalGasLimitOrGasPrice(hascode) {
@@ -422,12 +434,6 @@ func (tx *TokenTransaction) CheckBasic(censor TxCensor) error {
 func (tx *TokenTransaction) CheckState(censor TxCensor) error {
 	censor.LockState()
 	defer censor.UnlockState()
-
-	block := censor.Block()
-	// Check the transaction doesn't exceed the current block limit gas.
-	if tx.Gas() > block.GasLimit() {
-		return ErrGasLimit
-	}
 
 	from, err := tx.From()
 	if err != nil {

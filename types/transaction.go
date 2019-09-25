@@ -455,6 +455,9 @@ func IsWasmContract(code []byte) bool {
 }
 
 func (tx *Transaction) CheckBasic(censor TxCensor) error {
+	return tx.CheckBasicWithState(censor, nil)
+}
+func (tx *Transaction) CheckBasicWithState(censor TxCensor, state State) error {
 	if tx == nil {
 		return ErrTxEmpty
 	}
@@ -484,13 +487,21 @@ func (tx *Transaction) CheckBasic(censor TxCensor) error {
 	}
 
 	hascode := false
-	if tx.To() != nil {
-		censor.LockState()
-		state := censor.State()
-		if state.IsContract(*tx.To()) {
-			hascode = true
+	if state == nil { // without state, need lock and get state
+		if tx.To() != nil {
+			censor.LockState()
+			state := censor.State()
+			if state.IsContract(*tx.To()) {
+				hascode = true
+			}
+			censor.UnlockState()
 		}
-		censor.UnlockState()
+	} else { // state is locked outside
+		if tx.To() != nil {
+			if state.IsContract(*tx.To()) {
+				hascode = true
+			}
+		}
 	}
 
 	if tx.IllegalGasLimitOrGasPrice(hascode) {
