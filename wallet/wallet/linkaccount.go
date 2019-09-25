@@ -9,6 +9,7 @@ import (
 
 	"github.com/lianxiangcloud/linkchain/libs/common"
 	"github.com/lianxiangcloud/linkchain/libs/crypto"
+	"github.com/lianxiangcloud/linkchain/libs/cryptonote/ringct"
 	lkctypes "github.com/lianxiangcloud/linkchain/libs/cryptonote/types"
 	"github.com/lianxiangcloud/linkchain/libs/cryptonote/xcrypto"
 	dbm "github.com/lianxiangcloud/linkchain/libs/db"
@@ -514,6 +515,24 @@ func (la *LinkAccount) processNewTransaction(tx *tctypes.UTXOTransaction, height
 			ok := xcrypto.EcdhDecode(ecdh, lkctypes.Key(scalar), false)
 			if !ok {
 				la.Logger.Error("EcdhDecode fail", "err", err)
+				continue
+			}
+
+			//check encode amount is valid
+			outAmountKeys := []lkctypes.Key{ecdh.Amount}
+			outMKeys := lkctypes.KeyV{lkctypes.Key(scalar)}
+			_, tCommits, _, err := ringct.ProveRangeBulletproof(outAmountKeys, outMKeys)
+			if err != nil {
+				la.Logger.Error("ringct.ProveRangeBulletproof fail", "err", err)
+				continue
+			}
+			if len(tCommits) != 1 {
+				la.Logger.Error("ringct.ProveRangeBulletproof commits len not expect", "len", len(tCommits))
+				continue
+			}
+			tMask, _ := ringct.Scalarmult8(tCommits[0])
+			if !bytes.Equal(tx.RCTSig.OutPk[outputID].Mask[:], tMask[:]) {
+				la.Logger.Error("ringct.ProveRangeBulletproof check encode amount invalid")
 				continue
 			}
 
