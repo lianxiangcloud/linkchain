@@ -124,13 +124,15 @@ func GetTestAllocAccounts() map[string]GenesisAccount {
 // GetAllocAccounts return alloc accounts for reward chain
 func GetAllocAccounts() map[string]GenesisAccount {
 	accounts := make(map[string]GenesisAccount)
-	balance1, _ := new(big.Int).SetString("0x295be96e64066972000000", 0)
-	balance2, _ := new(big.Int).SetString("0x52b7d2dcc80cd2e4000000", 0)
-	accounts["0x4622bbc278e3b88a81021db21f6d8b0b5c02c3a7"] = GenesisAccount{Balance: balance1}
-	accounts["0x8d77df64b61de4f974cbc3ebeda06c5bf601875e"] = GenesisAccount{Balance: balance1}
-	accounts["0xd36dafe80c53ec793e1886b33be8da99550b1806"] = GenesisAccount{Balance: balance1}
-	accounts["0xf26597e6d6259c69d0b6dba9ca6b546221ad7bc0"] = GenesisAccount{Balance: balance1}
-	accounts["0xab52d156e61856d68b665564bacd88cc9cf1f99f"] = GenesisAccount{Balance: balance2}
+	/*
+		balance1, _ := new(big.Int).SetString("0x295be96e64066972000000", 0)
+		balance2, _ := new(big.Int).SetString("0x52b7d2dcc80cd2e4000000", 0)
+		accounts["0x4622bbc278e3b88a81021db21f6d8b0b5c02c3a7"] = GenesisAccount{Balance: balance1}
+		accounts["0x8d77df64b61de4f974cbc3ebeda06c5bf601875e"] = GenesisAccount{Balance: balance1}
+		accounts["0xd36dafe80c53ec793e1886b33be8da99550b1806"] = GenesisAccount{Balance: balance1}
+		accounts["0xf26597e6d6259c69d0b6dba9ca6b546221ad7bc0"] = GenesisAccount{Balance: balance1}
+		accounts["0xab52d156e61856d68b665564bacd88cc9cf1f99f"] = GenesisAccount{Balance: balance2}
+	*/
 	return accounts
 }
 
