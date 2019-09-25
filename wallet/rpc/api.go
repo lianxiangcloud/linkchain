@@ -1,8 +1,6 @@
 package rpc
 
 import (
-	"errors"
-	"fmt"
 	"math"
 	"runtime/debug"
 	"time"
@@ -10,6 +8,7 @@ import (
 	"github.com/lianxiangcloud/linkchain/accounts"
 	"github.com/lianxiangcloud/linkchain/accounts/keystore"
 	"github.com/lianxiangcloud/linkchain/libs/common"
+	"github.com/lianxiangcloud/linkchain/wallet/types"
 )
 
 const (
@@ -50,21 +49,25 @@ func (s *PrivateAccountAPI) ListAccounts() []common.Address {
 // NewAccount will create a new account and returns the address for the new account.
 func (s *PrivateAccountAPI) NewAccount(password string, cue string) (common.Address, error) {
 	if len(password) == 0 {
-		return common.EmptyAddress, fmt.Errorf("password is empty")
+		return common.EmptyAddress, types.ErrPasswdEmpty
 	}
 	if len(cue) > maxCue {
-		return common.EmptyAddress, fmt.Errorf("cue is too long")
+		return common.EmptyAddress, types.ErrCueTooLong
 	}
 	acc, err := fetchKeystore(s.am).NewAccount(password, cue)
 	if err == nil {
 		return acc.Address, nil
 	}
-	return common.EmptyAddress, err
+	return common.EmptyAddress, types.ErrNewAccount
 }
 
 // NewAccount will create a new account and returns the address for the new account.
 func (s *PrivateAccountAPI) GetCue(addr common.Address) (string, error) {
-	return fetchKeystore(s.am).GetCue(accounts.Account{Address: addr})
+	cue, err := fetchKeystore(s.am).GetCue(accounts.Account{Address: addr})
+	if err != nil {
+		return "", types.ErrInnerServer
+	}
+	return cue, nil
 }
 
 // fetchKeystore retrives the encrypted keystore from the account manager.
@@ -81,7 +84,8 @@ func (s *PrivateAccountAPI) UnlockAccount(addr common.Address, password string, 
 	if duration == nil {
 		d = 300 * time.Second
 	} else if *duration > max {
-		return false, errors.New("unlock duration too large")
+		//return false, errors.New("unlock duration too large")
+		return false, types.ErrArgsInvalid
 	} else {
 		d = time.Duration(*duration) * time.Second
 	}
@@ -95,13 +99,19 @@ func (s *PrivateAccountAPI) UnlockAccount(addr common.Address, password string, 
 				if account.Address == addr {
 					keypath := account.URL.Path
 					err = s.wallet.OpenWallet(keypath, password)
-					return err == nil, err
+					if err != nil {
+						return false, types.ErrInnerServer
+					}
+					return true, nil
 				}
 			}
 		}
 	}
 
-	return err == nil, err
+	if err != nil {
+		return false, types.ErrInnerServer
+	}
+	return true, nil
 }
 
 // LockAccount will lock the account associated with the given address when it's unlocked.

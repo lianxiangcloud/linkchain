@@ -38,9 +38,14 @@ func (la *LinkAccount) save(ids []uint64, blockHash common.Hash, localBlock *typ
 		la.saveBlockHash(batch, la.localHeight, blockHash) != nil ||
 		la.saveBlockTxs(batch, localBlock) != nil {
 		la.Logger.Error("Refresh batchSave fail", "height", la.localHeight)
-		return fmt.Errorf("save fail")
+		//return fmt.Errorf("save fail")
+		return types.ErrBatchSave
 	}
-	return batch.Commit()
+	err := batch.Commit()
+	if err != nil {
+		return types.ErrBatchCommit
+	}
+	return nil
 }
 
 func (la *LinkAccount) addPrefixDBkey(key string) string {
@@ -60,7 +65,7 @@ func (la *LinkAccount) loadLocalHeight() error {
 	if len(val) != 0 {
 		if err := ser.DecodeBytes(val, &la.localHeight); err != nil {
 			la.Logger.Error("loadLocalHeight DecodeBytes fail", "val", string(val), "err", err)
-			return err
+			return types.ErrInnerServer
 		}
 		// set next height
 		la.localHeight.Add(la.localHeight, big.NewInt(1))
@@ -74,7 +79,7 @@ func (la *LinkAccount) saveLocalHeight(b dbm.Batch) error {
 	val, err := ser.EncodeToBytes(la.localHeight)
 	if err != nil {
 		la.Logger.Error("saveLocalHeight EncodeToBytes fail", "err", err)
-		return err
+		return types.ErrInnerServer
 	}
 	b.Set(key, val)
 	return nil
@@ -92,7 +97,7 @@ func (la *LinkAccount) loadGOutIndex() error {
 	if len(val) != 0 {
 		if err := json.Unmarshal(val, &la.gOutIndex); err != nil {
 			la.Logger.Error("loadGOutIndex DecodeBytes fail", "val", string(val), "err", err)
-			return err
+			return types.ErrInnerServer
 		}
 	}
 	return nil
@@ -105,7 +110,7 @@ func (la *LinkAccount) saveGOutIndex(b dbm.Batch) error {
 	val, err := json.Marshal(la.gOutIndex)
 	if err != nil {
 		la.Logger.Error("saveGOutIndex EncodeToBytes fail", "err", err)
-		return err
+		return types.ErrInnerServer
 	}
 	b.Set(key, val)
 	return nil
@@ -127,7 +132,7 @@ func (la *LinkAccount) loadTransfers() error {
 	if len(val) != 0 {
 		if err := ser.UnmarshalJSON(val, &cnt); err != nil {
 			la.Logger.Error("loadTransfers DecodeBytes fail", "val", string(val), "err", err)
-			return err
+			return types.ErrInnerServer
 		}
 	}
 	la.Transfers = make(transferContainer, cnt)
@@ -144,7 +149,7 @@ func (la *LinkAccount) loadTransfers() error {
 			var tx tctypes.UTXOOutputDetail
 			if err := ser.UnmarshalJSON(v, &tx); err != nil {
 				la.Logger.Error("loadTransfers DecodeBytes fail", "val", string(val), "err", err)
-				return err
+				return types.ErrInnerServer
 			}
 			la.Transfers[i] = &tx
 
@@ -164,7 +169,7 @@ func (la *LinkAccount) saveTransfers(b dbm.Batch, tids []uint64) error {
 	val, err := ser.MarshalJSON(cnt)
 	if err != nil {
 		la.Logger.Error("saveTransfers EncodeToBytes fail", "err", err)
-		return err
+		return types.ErrInnerServer
 	}
 	b.Set(key, val)
 
@@ -173,7 +178,7 @@ func (la *LinkAccount) saveTransfers(b dbm.Batch, tids []uint64) error {
 		val, err := ser.MarshalJSON(la.Transfers[i])
 		if err != nil {
 			la.Logger.Error("saveTransfers EncodeToBytes fail", "err", err)
-			return err
+			return types.ErrInnerServer
 		}
 		b.Set(k, val)
 	}
@@ -187,7 +192,7 @@ func (la *LinkAccount) loadOutputDetail(id uint64) (*tctypes.UTXOOutputDetail, e
 		var tx tctypes.UTXOOutputDetail
 		if err := ser.UnmarshalJSON(v, &tx); err != nil {
 			la.Logger.Error("loadTransfers DecodeBytes fail", "val", string(v), "err", err)
-			return nil, err
+			return nil, types.ErrInnerServer
 		}
 		return &tx, nil
 	}
@@ -207,7 +212,7 @@ func (la *LinkAccount) loadAccountSubCnt() (int, error) {
 		var cnt int
 		if err := ser.UnmarshalJSON(val, &cnt); err != nil {
 			la.Logger.Error("loadGOutIndex DecodeBytes fail", "val", string(val), "err", err)
-			return cnt, err
+			return cnt, types.ErrInnerServer
 		}
 		return cnt, nil
 	}
@@ -223,7 +228,7 @@ func (la *LinkAccount) saveAccountSubCnt(b dbm.Batch) error {
 	val, err := ser.MarshalJSON(accountSubCnt)
 	if err != nil {
 		la.Logger.Error("saveAccountSubCnt EncodeToBytes fail", "err", err)
-		return err
+		return types.ErrInnerServer
 	}
 	b.Set(key, val)
 	return nil
@@ -276,7 +281,11 @@ func (la *LinkAccount) saveTxKeys(hash common.Hash, txKey *lkctypes.Key) error {
 	key = append(key, hash[:]...)
 	key = append(key, byte('_'))
 	key = append(key, la.getTxKeysKey()...)
-	return la.walletDB.Put(key, txKey[:])
+	err := la.walletDB.Put(key, txKey[:])
+	if err != nil {
+		return types.ErrSaveTxKey
+	}
+	return nil
 }
 
 // UTXOTransaction
@@ -293,7 +302,7 @@ func (la *LinkAccount) loadUTXOTx(hash common.Hash) (*tctypes.UTXOTransaction, e
 	var utxoTx tctypes.UTXOTransaction
 	if err := ser.DecodeBytes(val, &utxoTx); err != nil {
 		la.Logger.Error("loadUTXOTx DecodeBytes fail", "val", string(val), "err", err)
-		return nil, err
+		return nil, types.ErrInnerServer
 	}
 	return &utxoTx, nil
 }
@@ -303,11 +312,15 @@ func (la *LinkAccount) saveUTXOTx(utxoTx *tctypes.UTXOTransaction) error {
 	val, err := ser.EncodeToBytes(utxoTx)
 	if err != nil {
 		la.Logger.Error("saveTxKeys EncodeToBytes fail", "err", err)
-		return err
+		return types.ErrInnerServer
 	}
 	batch := la.walletDB.NewBatch()
 	batch.Set(key, val)
-	return batch.Commit()
+	err = batch.Commit()
+	if err != nil {
+		return types.ErrUTXOTxCommit
+	}
+	return nil
 }
 
 // block hash
@@ -327,7 +340,7 @@ func (la *LinkAccount) loadBlockHash(height *big.Int) (*common.Hash, error) {
 	var hash common.Hash
 	if err := ser.DecodeBytes(val, &hash); err != nil {
 		la.Logger.Error("loadBlockHash DecodeBytes fail", "val", string(val), "height", height.String(), "err", err)
-		return nil, err
+		return nil, types.ErrInnerServer
 	}
 	return &hash, nil
 }
@@ -336,7 +349,7 @@ func (la *LinkAccount) saveBlockHash(b dbm.Batch, height *big.Int, hash common.H
 	val, err := ser.EncodeToBytes(hash)
 	if err != nil {
 		la.Logger.Error("saveBlockHash EncodeToBytes fail", "height", height.String(), "hash", hash, "err", err)
-		return err
+		return types.ErrInnerServer
 	}
 	la.Logger.Debug("saveBlockHash", "height", height.String(), "hash", hash)
 	b.Set(key, val)
@@ -358,7 +371,7 @@ func (la *LinkAccount) loadBlockTxs(height *big.Int) (*types.UTXOBlock, error) {
 	// if err := ser.DecodeBytes(val, &block); err != nil {
 	if err := json.Unmarshal(val, &block); err != nil {
 		la.Logger.Error("loadBlockTxs DecodeBytes fail", "val", string(val), "err", err)
-		return nil, err
+		return nil, types.ErrInnerServer
 	}
 	//skip self account-> other utxo and other utxo-> self account
 	//because these trans already show in account trans list
@@ -384,7 +397,7 @@ func (la *LinkAccount) saveBlockTxs(b dbm.Batch, localBlock *types.UTXOBlock) er
 	val, err := json.Marshal(localBlock)
 	if err != nil {
 		la.Logger.Error("saveBlockTxs EncodeToBytes fail", "err", err)
-		return err
+		return types.ErrInnerServer
 	}
 	b.Set(key, val)
 	return nil
@@ -403,7 +416,7 @@ func (la *LinkAccount) loadAddInfo(hash common.Hash) (*types.UTXOAddInfo, error)
 	var addInfo types.UTXOAddInfo
 	if err := json.Unmarshal(val, &addInfo); err != nil {
 		la.Logger.Error("loadAddInfo json.Unmarshal fail", "val", string(val), "err", err)
-		return nil, err
+		return nil, types.ErrInnerServer
 	}
 	return &addInfo, nil
 }
@@ -413,14 +426,22 @@ func (la *LinkAccount) saveAddInfo(hash common.Hash, addInfo *types.UTXOAddInfo)
 	val, err := json.Marshal(addInfo)
 	if err != nil {
 		la.Logger.Error("saveAddInfo json.Marshal fail", "err", err)
-		return err
+		return types.ErrInnerServer
 	}
 	batch := la.walletDB.NewBatch()
 	batch.Set(key, val)
-	return batch.Commit()
+	err = batch.Commit()
+	if err != nil {
+		return types.ErrTxAddInfoCommit
+	}
+	return nil
 }
 
 func (la *LinkAccount) delAddInfo(hash common.Hash) error {
 	key := la.getAddInfoKey(hash)
-	return la.walletDB.Del(key)
+	err := la.walletDB.Del(key)
+	if err != nil {
+		return types.ErrTxAddInfoDel
+	}
+	return nil
 }
