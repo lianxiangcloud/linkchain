@@ -30,14 +30,17 @@ func EthGetTransactionCount(addr common.Address) (*uint64, error) {
 	}
 	var jsonRes wtypes.RPCResponse
 	if err = json.Unmarshal(body, &jsonRes); err != nil {
-		return nil, fmt.Errorf("EthGetTransactionCount json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		//return nil, fmt.Errorf("EthGetTransactionCount json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		return nil, wtypes.ErrDaemonResponseBody
 	}
 	if jsonRes.Error.Code != 0 {
-		return nil, fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
+		//return nil, fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
+		return nil, wtypes.ErrDaemonResponseCode
 	}
 	var nonce hexutil.Uint64
 	if err = json.Unmarshal(jsonRes.Result, &nonce); err != nil {
-		return nil, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		//return nil, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		return nil, wtypes.ErrDaemonResponseData
 	}
 
 	uNonce := uint64(nonce)
@@ -53,14 +56,17 @@ func RefreshMaxBlock() (*big.Int, error) {
 	}
 	var jsonRes wtypes.RPCResponse
 	if err = json.Unmarshal(body, &jsonRes); err != nil {
-		return nil, fmt.Errorf("RefreshMaxBlock json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		//return nil, fmt.Errorf("RefreshMaxBlock json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		return nil, wtypes.ErrDaemonResponseBody
 	}
 	if jsonRes.Error.Code != 0 {
-		return nil, fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
+		//return nil, fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
+		return nil, wtypes.ErrDaemonResponseCode
 	}
 	var h hexutil.Big
 	if err = ser.UnmarshalJSON(jsonRes.Result, &h); err != nil {
-		return nil, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		//return nil, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		return nil, wtypes.ErrDaemonResponseData
 	}
 
 	return (*big.Int)(&h), nil
@@ -102,30 +108,33 @@ func GetOutputsFromNode(indice []uint64, tokenID common.Address) ([]*types.UTXOR
 	}
 	var jsonRes wtypes.RPCResponse
 	if err = json.Unmarshal(body, &jsonRes); err != nil {
-		return nil, fmt.Errorf("GetOutputsFromNode json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		//return nil, fmt.Errorf("GetOutputsFromNode json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		return nil, wtypes.ErrDaemonResponseBody
 	}
 	if jsonRes.Error.Code != 0 {
-		return nil, fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
+		//return nil, fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
+		return nil, wtypes.ErrDaemonResponseCode
 	}
 	var outputs []*RPCOutput
 	if err = ser.UnmarshalJSON(jsonRes.Result, &outputs); err != nil {
-		return nil, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		//return nil, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		return nil, wtypes.ErrDaemonResponseData
 	}
 
 	if len(outputs) != len(indice) {
-		return nil, ErrGetOutput
+		return nil, wtypes.ErrDaemonResponseData
 	}
 	ringEntries := make([]*types.UTXORingEntry, len(indice))
 	for i := 0; i < len(indice); i++ {
 		key, err := hex.DecodeString(outputs[i].Out)
 		if err != nil {
-			return nil, err
+			return nil, wtypes.ErrInnerServer
 		}
 		var otaddr lktypes.Key
 		copy(otaddr[:], key)
 		key, err = hex.DecodeString(outputs[i].Commit)
 		if err != nil {
-			return nil, err
+			return nil, wtypes.ErrInnerServer
 		}
 		var mask lktypes.Key
 		copy(mask[:], key)
@@ -149,14 +158,17 @@ func (w *Wallet) isContract(addr common.Address) (bool, error) {
 	}
 	var jsonRes wtypes.RPCResponse
 	if err = json.Unmarshal(body, &jsonRes); err != nil {
-		return false, fmt.Errorf("isContract json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		//return false, fmt.Errorf("isContract json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		return false, wtypes.ErrDaemonResponseBody
 	}
 	if jsonRes.Error.Code != 0 {
-		return false, fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
+		//return false, fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
+		return false, wtypes.ErrDaemonResponseCode
 	}
 	var code hexutil.Bytes
 	if err = ser.UnmarshalJSON(jsonRes.Result, &code); err != nil {
-		return false, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		//return false, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		return false, wtypes.ErrDaemonResponseData
 	}
 	if len(code) > 2 {
 		return true, nil
@@ -184,14 +196,17 @@ func EstimateGas(from common.Address, nonce uint64, dest *types.AccountDestEntry
 	}
 	var jsonRes wtypes.RPCResponse
 	if err = json.Unmarshal(body, &jsonRes); err != nil {
-		return big.NewInt(0), fmt.Errorf("EstimateGas json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		//return big.NewInt(0), fmt.Errorf("EstimateGas json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		return big.NewInt(0), wtypes.ErrDaemonResponseBody
 	}
 	if jsonRes.Error.Code != 0 {
-		return big.NewInt(0), fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
+		//return big.NewInt(0), fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
+		return big.NewInt(0), wtypes.ErrDaemonResponseCode
 	}
 	var gas hexutil.Uint64
 	if err = ser.UnmarshalJSON(jsonRes.Result, &gas); err != nil {
-		return big.NewInt(0), fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		//return big.NewInt(0), fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		return big.NewInt(0), wtypes.ErrDaemonResponseData
 	}
 	return big.NewInt(0).Mul(big.NewInt(0).SetUint64(uint64(gas)), big.NewInt(1e11)), nil
 }
@@ -203,14 +218,17 @@ func GetTokenBalance(addr common.Address, tokenID common.Address) (*big.Int, err
 	}
 	var jsonRes wtypes.RPCResponse
 	if err = json.Unmarshal(body, &jsonRes); err != nil {
-		return big.NewInt(0), fmt.Errorf("GetTokenBalance json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		//return big.NewInt(0), fmt.Errorf("GetTokenBalance json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		return big.NewInt(0), wtypes.ErrDaemonResponseBody
 	}
 	if jsonRes.Error.Code != 0 {
-		return big.NewInt(0), fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
+		//return big.NewInt(0), fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
+		return big.NewInt(0), wtypes.ErrDaemonResponseCode
 	}
 	var balance hexutil.Big
 	if err = ser.UnmarshalJSON(jsonRes.Result, &balance); err != nil {
-		return big.NewInt(0), fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		//return big.NewInt(0), fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		return big.NewInt(0), wtypes.ErrDaemonResponseData
 	}
 	return (*big.Int)(&balance), nil
 }
@@ -263,14 +281,17 @@ func GetChainVersion() (string, error) {
 	}
 	var jsonRes wtypes.RPCResponse
 	if err = json.Unmarshal(body, &jsonRes); err != nil {
-		return "", fmt.Errorf("GetChainVersion json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		//return "", fmt.Errorf("GetChainVersion json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		return "", wtypes.ErrDaemonResponseBody
 	}
 	if jsonRes.Error.Code != 0 {
-		return "", fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
+		//return "", fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
+		return "", wtypes.ErrDaemonResponseCode
 	}
 	var peerVersion string
 	if err = ser.UnmarshalJSON(jsonRes.Result, &peerVersion); err != nil {
-		return "", fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		//return "", fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		return "", wtypes.ErrDaemonResponseData
 	}
 	return peerVersion, nil
 }
@@ -285,16 +306,19 @@ func GetBlockUTXOsByNumber(height *big.Int) (*rtypes.RPCBlock, error) {
 	}
 	var jsonRes wtypes.RPCResponse
 	if err = json.Unmarshal(body, &jsonRes); err != nil {
-		return nil, fmt.Errorf("GetBlockUTXOsByNumber json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		//return nil, fmt.Errorf("GetBlockUTXOsByNumber json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		return nil, wtypes.ErrDaemonResponseBody
 	}
 	if jsonRes.Error.Code != 0 {
-		return nil, fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
+		//return nil, fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
+		return nil, wtypes.ErrDaemonResponseCode
 	}
 	log.Debug("GetBlockUTXOsByNumber", "jsonRes.Result", string(jsonRes.Result))
 
 	var block rtypes.RPCBlock
 	if err = json.Unmarshal(jsonRes.Result, &block); err != nil {
-		return nil, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		//return nil, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		return nil, wtypes.ErrDaemonResponseData
 	}
 
 	return &block, nil
@@ -307,14 +331,17 @@ func (w *Wallet) getUTXOGas() (uint64, error) {
 	}
 	var jsonRes wtypes.RPCResponse
 	if err = json.Unmarshal(body, &jsonRes); err != nil {
-		return 0, fmt.Errorf("getUTXOGas json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		//return 0, fmt.Errorf("getUTXOGas json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		return 0, wtypes.ErrDaemonResponseBody
 	}
 	if jsonRes.Error.Code != 0 {
-		return 0, fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
+		//return 0, fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
+		return 0, wtypes.ErrDaemonResponseCode
 	}
 	var utxoGas hexutil.Uint64
 	if err = ser.UnmarshalJSON(jsonRes.Result, &utxoGas); err != nil {
-		return 0, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		//return 0, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		return 0, wtypes.ErrDaemonResponseData
 	}
 	w.Logger.Debug("getUTXOGas", "result", string(jsonRes.Result), "utxoGas", utxoGas)
 	return uint64(utxoGas), nil
@@ -332,14 +359,17 @@ func (w *Wallet) GetBlockTransactionCountByNumber(blockNr rpc.BlockNumber) (*hex
 	}
 	var jsonRes wtypes.RPCResponse
 	if err = json.Unmarshal(body, &jsonRes); err != nil {
-		return nil, fmt.Errorf("GetBlockTransactionCountByNumber json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		//return nil, fmt.Errorf("GetBlockTransactionCountByNumber json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		return nil, wtypes.ErrDaemonResponseBody
 	}
 	if jsonRes.Error.Code != 0 {
-		return nil, fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
+		//return nil, fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
+		return nil, wtypes.ErrDaemonResponseCode
 	}
 	var cnt hexutil.Uint
 	if err = ser.UnmarshalJSON(jsonRes.Result, &cnt); err != nil {
-		return nil, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		//return nil, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		return nil, wtypes.ErrDaemonResponseData
 	}
 	w.Logger.Debug("getBlockTransactionCountByNumber", "result", string(jsonRes.Result), "cnt", cnt)
 	return (*hexutil.Uint)(&cnt), nil
@@ -356,14 +386,17 @@ func (w *Wallet) GetBlockTransactionCountByHash(blockHash common.Hash) (*hexutil
 	}
 	var jsonRes wtypes.RPCResponse
 	if err = json.Unmarshal(body, &jsonRes); err != nil {
-		return nil, fmt.Errorf("GetBlockTransactionCountByHash json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		//return nil, fmt.Errorf("GetBlockTransactionCountByHash json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		return nil, wtypes.ErrDaemonResponseBody
 	}
 	if jsonRes.Error.Code != 0 {
-		return nil, fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
+		//return nil, fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
+		return nil, wtypes.ErrDaemonResponseCode
 	}
 	var cnt hexutil.Uint
 	if err = ser.UnmarshalJSON(jsonRes.Result, &cnt); err != nil {
-		return nil, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		//return nil, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		return nil, wtypes.ErrDaemonResponseData
 	}
 	w.Logger.Debug("GetBlockTransactionCountByHash", "result", string(jsonRes.Result), "cnt", cnt)
 	return (*hexutil.Uint)(&cnt), nil
@@ -381,10 +414,12 @@ func (w *Wallet) GetTransactionByBlockNumberAndIndex(blockNr rpc.BlockNumber, in
 	}
 	var jsonRes wtypes.RPCResponse
 	if err = json.Unmarshal(body, &jsonRes); err != nil {
-		return nil, fmt.Errorf("GetTransactionByBlockNumberAndIndex json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		//return nil, fmt.Errorf("GetTransactionByBlockNumberAndIndex json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		return nil, wtypes.ErrDaemonResponseBody
 	}
 	if jsonRes.Error.Code != 0 {
-		return nil, fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
+		//return nil, fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
+		return nil, wtypes.ErrDaemonResponseCode
 	}
 	if string(jsonRes.Result) == "null" {
 		return nil, nil
@@ -392,7 +427,8 @@ func (w *Wallet) GetTransactionByBlockNumberAndIndex(blockNr rpc.BlockNumber, in
 	var tx rtypes.RPCTx
 	// w.Logger.Debug("GetTransactionByBlockNumberAndIndex", "result", string(jsonRes.Result), "body", string(body))
 	if err = json.Unmarshal(jsonRes.Result, &tx); err != nil {
-		return nil, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		//return nil, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		return nil, wtypes.ErrDaemonResponseData
 	}
 
 	return &tx, nil
@@ -410,10 +446,12 @@ func (w *Wallet) GetTransactionByBlockHashAndIndex(blockHash common.Hash, index 
 	}
 	var jsonRes wtypes.RPCResponse
 	if err = json.Unmarshal(body, &jsonRes); err != nil {
-		return nil, fmt.Errorf("GetTransactionByBlockHashAndIndex json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		//return nil, fmt.Errorf("GetTransactionByBlockHashAndIndex json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		return nil, wtypes.ErrDaemonResponseBody
 	}
 	if jsonRes.Error.Code != 0 {
-		return nil, fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
+		//return nil, fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
+		return nil, wtypes.ErrDaemonResponseCode
 	}
 
 	if string(jsonRes.Result) == "null" {
@@ -422,7 +460,8 @@ func (w *Wallet) GetTransactionByBlockHashAndIndex(blockHash common.Hash, index 
 
 	var tx rtypes.RPCTx
 	if err = json.Unmarshal(jsonRes.Result, &tx); err != nil {
-		return nil, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		//return nil, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		return nil, wtypes.ErrDaemonResponseData
 	}
 	return &tx, nil
 }
@@ -439,14 +478,17 @@ func (w *Wallet) GetRawTransactionByBlockNumberAndIndex(blockNr rpc.BlockNumber,
 	}
 	var jsonRes wtypes.RPCResponse
 	if err = json.Unmarshal(body, &jsonRes); err != nil {
-		return nil, fmt.Errorf("GetRawTransactionByBlockNumberAndIndex json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		//return nil, fmt.Errorf("GetRawTransactionByBlockNumberAndIndex json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		return nil, wtypes.ErrDaemonResponseBody
 	}
 	if jsonRes.Error.Code != 0 {
-		return nil, fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
+		//return nil, fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
+		return nil, wtypes.ErrDaemonResponseCode
 	}
 
 	if err = json.Unmarshal(jsonRes.Result, &r); err != nil {
-		return nil, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		//return nil, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		return nil, wtypes.ErrDaemonResponseData
 	}
 	return r, nil
 }
@@ -463,14 +505,17 @@ func (w *Wallet) GetRawTransactionByBlockHashAndIndex(blockHash common.Hash, ind
 	}
 	var jsonRes wtypes.RPCResponse
 	if err = json.Unmarshal(body, &jsonRes); err != nil {
-		return nil, fmt.Errorf("GetRawTransactionByBlockHashAndIndex json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		//return nil, fmt.Errorf("GetRawTransactionByBlockHashAndIndex json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		return nil, wtypes.ErrDaemonResponseBody
 	}
 	if jsonRes.Error.Code != 0 {
-		return nil, fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
+		//return nil, fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
+		return nil, wtypes.ErrDaemonResponseCode
 	}
 
 	if err = json.Unmarshal(jsonRes.Result, &r); err != nil {
-		return nil, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		//return nil, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		return nil, wtypes.ErrDaemonResponseData
 	}
 	return r, nil
 }
@@ -486,14 +531,17 @@ func (w *Wallet) GetTransactionCount(address common.Address, blockNr rpc.BlockNu
 	}
 	var jsonRes wtypes.RPCResponse
 	if err = json.Unmarshal(body, &jsonRes); err != nil {
-		return nil, fmt.Errorf("GetTransactionCount json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		//return nil, fmt.Errorf("GetTransactionCount json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		return nil, wtypes.ErrDaemonResponseBody
 	}
 	if jsonRes.Error.Code != 0 {
-		return nil, fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
+		//return nil, fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
+		return nil, wtypes.ErrDaemonResponseCode
 	}
 	var nonce hexutil.Uint64
 	if err = json.Unmarshal(jsonRes.Result, &nonce); err != nil {
-		return nil, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		//return nil, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		return nil, wtypes.ErrDaemonResponseData
 	}
 
 	return &nonce, nil
@@ -510,15 +558,18 @@ func (w *Wallet) GetTransactionByHash(hash common.Hash) (r interface{}, err erro
 	}
 	var jsonRes wtypes.RPCResponse
 	if err = json.Unmarshal(body, &jsonRes); err != nil {
-		return nil, fmt.Errorf("GetTransactionByHash json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		//return nil, fmt.Errorf("GetTransactionByHash json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		return nil, wtypes.ErrDaemonResponseBody
 	}
 	if jsonRes.Error.Code != 0 {
-		return nil, fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
+		//return nil, fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
+		return nil, wtypes.ErrDaemonResponseCode
 	}
 
 	var tx rtypes.RPCTx
 	if err = json.Unmarshal(jsonRes.Result, &tx); err != nil {
-		return nil, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		//return nil, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		return nil, wtypes.ErrDaemonResponseData
 	}
 	return &tx, nil
 }
@@ -534,14 +585,17 @@ func (w *Wallet) GetRawTransactionByHash(hash common.Hash) (r hexutil.Bytes, err
 	}
 	var jsonRes wtypes.RPCResponse
 	if err = json.Unmarshal(body, &jsonRes); err != nil {
-		return nil, fmt.Errorf("GetRawTransactionByHash json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		//return nil, fmt.Errorf("GetRawTransactionByHash json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		return nil, wtypes.ErrDaemonResponseBody
 	}
 	if jsonRes.Error.Code != 0 {
-		return nil, fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
+		//return nil, fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
+		return nil, wtypes.ErrDaemonResponseCode
 	}
 
 	if err = json.Unmarshal(jsonRes.Result, &r); err != nil {
-		return nil, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		//return nil, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		return nil, wtypes.ErrDaemonResponseData
 	}
 	return r, nil
 }
@@ -557,14 +611,17 @@ func (w *Wallet) GetTransactionReceipt(hash common.Hash) (r map[string]interface
 	}
 	var jsonRes wtypes.RPCResponse
 	if err = json.Unmarshal(body, &jsonRes); err != nil {
-		return nil, fmt.Errorf("GetTransactionReceipt json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		//return nil, fmt.Errorf("GetTransactionReceipt json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		return nil, wtypes.ErrDaemonResponseBody
 	}
 	if jsonRes.Error.Code != 0 {
-		return nil, fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
+		//return nil, fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
+		return nil, wtypes.ErrDaemonResponseCode
 	}
 
 	if err = json.Unmarshal(jsonRes.Result, &r); err != nil {
-		return nil, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		//return nil, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		return nil, wtypes.ErrDaemonResponseData
 	}
 	return r, nil
 }
@@ -604,14 +661,17 @@ func (w *Wallet) EthEstimateGas(args wtypes.CallArgs) (*hexutil.Uint64, error) {
 	}
 	var jsonRes wtypes.RPCResponse
 	if err = json.Unmarshal(body, &jsonRes); err != nil {
-		return nil, fmt.Errorf("EthEstimateGas json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		//return nil, fmt.Errorf("EthEstimateGas json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		return nil, wtypes.ErrDaemonResponseBody
 	}
 	if jsonRes.Error.Code != 0 {
-		return nil, fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
+		//return nil, fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
+		return nil, wtypes.ErrDaemonResponseCode
 	}
 	var gas hexutil.Uint64
 	if err = ser.UnmarshalJSON(jsonRes.Result, &gas); err != nil {
-		return nil, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		//return nil, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		return nil, wtypes.ErrDaemonResponseData
 	}
 	return &gas, nil
 }
@@ -624,22 +684,26 @@ func (w *Wallet) SendRawTransaction(encodedTx hexutil.Bytes) (common.Hash, error
 	body, err := daemon.CallJSONRPC("eth_sendRawTransaction", p)
 	if err != nil || body == nil || len(body) == 0 {
 		w.Logger.Error("eth_sendRawTransaction check body", "tx", encodedTx, "err", err, "body", body)
-		return common.EmptyHash, fmt.Errorf("CallJSONRPC fail,err:%v", err)
+		//return common.EmptyHash, fmt.Errorf("CallJSONRPC fail,err:%v", err)
+		return common.EmptyHash, wtypes.ErrDaemonResponseBody
 	}
 	var jsonRes wtypes.RPCResponse
 	if err = json.Unmarshal(body, &jsonRes); err != nil {
 		w.Logger.Error("eth_sendRawTransaction json.Unmarshal body", "tx", encodedTx, "err", err, "body", string(body))
-		return common.EmptyHash, fmt.Errorf("SendRawTransaction json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		//return common.EmptyHash, fmt.Errorf("SendRawTransaction json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		return common.EmptyHash, wtypes.ErrDaemonResponseBody
 	}
 	if jsonRes.Error.Code != 0 {
 		w.Logger.Error("eth_sendRawTransaction check jsonRes.Error.Code", "tx", encodedTx, "err", err, "body", string(body), "jsonRes", jsonRes)
-		return common.EmptyHash, fmt.Errorf("CallJSONRPC check jsonRes.Error.Code,err:%v", jsonRes.Error)
+		//return common.EmptyHash, fmt.Errorf("CallJSONRPC check jsonRes.Error.Code,err:%v", jsonRes.Error)
+		return common.EmptyHash, wtypes.ErrDaemonResponseCode
 	}
 	var hash common.Hash
 
 	if err = json.Unmarshal(jsonRes.Result, &hash); err != nil {
 		w.Logger.Error("eth_sendRawTransaction json.Unmarshal jsonRes.Result", "tx", encodedTx, "err", err, "body", string(body), "jsonRes.Result", jsonRes.Result)
-		return common.EmptyHash, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		//return common.EmptyHash, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		return common.EmptyHash, wtypes.ErrDaemonResponseData
 	}
 	w.Logger.Info("eth_sendRawTransaction", "tx", encodedTx, "hash", hash)
 
@@ -654,22 +718,26 @@ func (w *Wallet) SendRawUTXOTransaction(encodedTx hexutil.Bytes) (common.Hash, e
 	body, err := daemon.CallJSONRPC("eth_sendRawUTXOTransaction", p)
 	if err != nil || body == nil || len(body) == 0 {
 		w.Logger.Error("eth_sendRawUTXOTransaction check body", "tx", encodedTx, "err", err, "body", body)
-		return common.EmptyHash, fmt.Errorf("CallJSONRPC fail,err:%v", err)
+		//return common.EmptyHash, fmt.Errorf("CallJSONRPC fail,err:%v", err)
+		return common.EmptyHash, wtypes.ErrDaemonResponseBody
 	}
 	var jsonRes wtypes.RPCResponse
 	if err = json.Unmarshal(body, &jsonRes); err != nil {
 		w.Logger.Error("eth_sendRawUTXOTransaction json.Unmarshal body", "tx", encodedTx, "err", err, "body", string(body))
-		return common.EmptyHash, fmt.Errorf("SendRawUTXOTransaction json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		//return common.EmptyHash, fmt.Errorf("SendRawUTXOTransaction json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		return common.EmptyHash, wtypes.ErrDaemonResponseBody
 	}
 	if jsonRes.Error.Code != 0 {
 		w.Logger.Error("eth_sendRawUTXOTransaction check jsonRes.Error.Code", "tx", encodedTx, "err", err, "body", string(body), "jsonRes", jsonRes)
-		return common.EmptyHash, fmt.Errorf("CallJSONRPC check jsonRes.Error.Code,err:%v", jsonRes.Error)
+		//return common.EmptyHash, fmt.Errorf("CallJSONRPC check jsonRes.Error.Code,err:%v", jsonRes.Error)
+		return common.EmptyHash, wtypes.ErrDaemonResponseCode
 	}
 	var hash common.Hash
 
 	if err = json.Unmarshal(jsonRes.Result, &hash); err != nil {
 		w.Logger.Error("eth_sendRawUTXOTransaction json.Unmarshal jsonRes.Result", "tx", encodedTx, "err", err, "body", string(body), "jsonRes.Result", jsonRes.Result)
-		return common.EmptyHash, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		//return common.EmptyHash, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		return common.EmptyHash, wtypes.ErrDaemonResponseData
 	}
 	w.Logger.Info("eth_sendRawUTXOTransaction", "tx", encodedTx, "hash", hash)
 
@@ -688,15 +756,18 @@ func GetBlockUTXO(height *big.Int) (*rtypes.QuickRPCBlock, error) {
 
 	var jsonRes wtypes.RPCResponse
 	if err = json.Unmarshal(body, &jsonRes); err != nil {
-		return nil, fmt.Errorf("GetBlockUTXO json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		//return nil, fmt.Errorf("GetBlockUTXO json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		return nil, wtypes.ErrDaemonResponseBody
 	}
 	if jsonRes.Error.Code != 0 {
-		return nil, fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
+		//return nil, fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
+		return nil, wtypes.ErrDaemonResponseCode
 	}
 
 	var quickBlock rtypes.QuickRPCBlock
 	if err = json.Unmarshal(jsonRes.Result, &quickBlock); err != nil {
-		return nil, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		//return nil, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		return nil, wtypes.ErrDaemonResponseData
 	}
 
 	return &quickBlock, nil
@@ -712,15 +783,18 @@ func GenesisBlockNumber() (*hexutil.Uint64, error) {
 
 	var jsonRes wtypes.RPCResponse
 	if err = json.Unmarshal(body, &jsonRes); err != nil {
-		return nil, fmt.Errorf("GenesisBlockNumber json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		//return nil, fmt.Errorf("GenesisBlockNumber json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		return nil, wtypes.ErrDaemonResponseBody
 	}
 	if jsonRes.Error.Code != 0 {
-		return nil, fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
+		//return nil, fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
+		return nil, wtypes.ErrDaemonResponseCode
 	}
 
 	var blockNumber hexutil.Uint64
 	if err = json.Unmarshal(jsonRes.Result, &blockNumber); err != nil {
-		return nil, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		//return nil, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		return nil, wtypes.ErrDaemonResponseData
 	}
 
 	return &blockNumber, nil

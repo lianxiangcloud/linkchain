@@ -2,7 +2,6 @@ package wallet
 
 import (
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"math/big"
 	"math/rand"
@@ -13,23 +12,6 @@ import (
 	"github.com/lianxiangcloud/linkchain/libs/ser"
 	"github.com/lianxiangcloud/linkchain/types"
 	wtypes "github.com/lianxiangcloud/linkchain/wallet/types"
-)
-
-var (
-	ErrOutputEmpty              = errors.New("output empty")
-	ErrOutputMoneyInvalid       = errors.New("output money invalid")
-	ErrOutputMoneyOverFlow      = errors.New("sum output money over flow")
-	ErrBalanceNotEnough         = errors.New("balance not enough")
-	ErrNoMoreOutput             = errors.New("no more output")
-	ErrTxTooBig                 = errors.New("tx too big")
-	ErrOutputQueryNotMatch      = errors.New("output query not match")
-	ErrGetOutput                = errors.New("get output err")
-	ErrSubmitRawTx              = errors.New("submit raw tx err")
-	ErrInputOutputMoneyNotMatch = errors.New("input output money not match")
-	ErrAccountNotFound          = errors.New("account not found")
-	ErrTransNotSupport          = errors.New("pure private trans only support link token")
-	ErrMixInputNotSupport       = errors.New("mix input not support")
-	ErrNotSupportContractTx     = errors.New("not support contract tx")
 )
 
 const (
@@ -77,7 +59,8 @@ func (wallet *Wallet) CreateUTXOTransaction(from common.Address, nonce uint64, s
 		return wallet.CreateUinTransaction(wallet.currAccount.getEthAddress(), "", subaddrs, dests, tokenID, refundAddr, extra)
 	}
 	if from != wallet.currAccount.getEthAddress() {
-		return nil, fmt.Errorf("Wallet account is not open as %s", from)
+		//return nil, fmt.Errorf("Wallet account is not open as %s", from)
+		return nil, wtypes.ErrAccountNeedUnlock
 	}
 	wallet.Logger.Debug("CreateUTXOTransaction from is not EmptyAddress,use CreateAinTransaction", "from", from, "nonce", nonce, "tokenID", tokenID)
 	tx, err := wallet.CreateAinTransaction(from, "", nonce, dests, tokenID, extra)
@@ -117,13 +100,14 @@ func (wallet *Wallet) SubmitUTXOTransaction(tx *types.UTXOTransaction) (common.H
 	}
 	rawTx, err := ser.EncodeToBytes(tx)
 	if err != nil {
-		return common.Hash{}, err
+		return common.Hash{}, wtypes.ErrInnerServer
 	}
 	raw := hex.EncodeToString(rawTx)
 	ret := wallet.Transfer([]string{fmt.Sprintf("0x%s", raw)})
 	err = nil
 	if ret[0].ErrCode != 0 {
-		err = fmt.Errorf("ErrCode:%d,ErrMsg:%s", ret[0].ErrCode, ret[0].ErrMsg)
+		//err = fmt.Errorf("ErrCode:%d,ErrMsg:%s", ret[0].ErrCode, ret[0].ErrMsg)
+		err = wtypes.ErrSubmitTrans
 	}
 	return ret[0].Hash, err
 }
@@ -357,7 +341,7 @@ func (wallet *Wallet) constructSourceEntryNormal(selectIndice []uint64, rings ma
 			}
 			for j := 0; j < len(sigleRingEntries); j++ {
 				if sigleRingEntries[j].Index != r[j] {
-					return nil, ErrOutputQueryNotMatch
+					return nil, wtypes.ErrOutputQueryNotMatch
 				}
 				if sigleRingEntries[j].Index == output.GlobalIndex {
 					sourceEntry.RingIndex = uint64(j)
@@ -372,17 +356,17 @@ func (wallet *Wallet) constructSourceEntryNormal(selectIndice []uint64, rings ma
 
 func checkDestEntry(dest []*types.UTXODestEntry) (uint64, error) {
 	if 0 == len(dest) {
-		return 0, ErrOutputEmpty
+		return 0, wtypes.ErrOutputEmpty
 	}
 	//rctSig need money to be uint64, we check here
 	var totalMoney uint64
 	for i := 0; i < len(dest); i++ {
 		if dest[i].Amount.Sign() <= 0 {
-			return 0, ErrOutputMoneyInvalid
+			return 0, wtypes.ErrOutputMoneyInvalid
 		}
 		totalMoney += dest[i].Amount.Uint64()
 		if totalMoney < dest[i].Amount.Uint64() {
-			return 0, ErrOutputMoneyOverFlow
+			return 0, wtypes.ErrOutputMoneyOverFlow
 		}
 	}
 	return totalMoney, nil
@@ -507,7 +491,7 @@ func (wallet *Wallet) CreateAinTransaction(from common.Address, passwd string, n
 	w, err := wallet.accManager.Find(acc)
 	if err != nil {
 		wallet.Logger.Error("CreateAinTransaction wallet.accManager.Find fail", "acc", from, "err", err)
-		return nil, ErrAccountNotFound
+		return nil, wtypes.ErrAccountNotFound
 	}
 	availableMoney, err := GetTokenBalance(from, tokenID)
 	if err != nil {
@@ -515,7 +499,7 @@ func (wallet *Wallet) CreateAinTransaction(from common.Address, passwd string, n
 		return nil, err
 	}
 	if availableMoney.Cmp(needMoney) <= 0 {
-		return nil, ErrBalanceNotEnough
+		return nil, wtypes.ErrBalanceNotEnough
 	}
 	source := &types.AccountSourceEntry{
 		From:   from,
@@ -524,19 +508,19 @@ func (wallet *Wallet) CreateAinTransaction(from common.Address, passwd string, n
 	}
 	tx, txKey, err := types.NewAinTransaction(source, dests, tokenID, nil)
 	if err != nil {
-		return nil, err
+		return nil, wtypes.ErrNewAinTrans
 	}
 
 	var signedTx types.Tx
 	if 0 == len(passwd) {
 		signedTx, err = w.SignTx(acc, tx, types.SignParam)
 		if err != nil {
-			return nil, err
+			return nil, wtypes.ErrSignTx
 		}
 	} else {
 		signedTx, err = w.SignTxWithPassphrase(acc, passwd, tx, types.SignParam)
 		if err != nil {
-			return nil, err
+			return nil, wtypes.ErrSignTx
 		}
 	}
 
@@ -564,7 +548,7 @@ func (wallet *Wallet) CreateUinTransaction(from common.Address, passwd string, s
 	w, err := wallet.accManager.Find(acc)
 	if err != nil {
 		wallet.Logger.Error("CreateUinTransaction wallet.accManager.Find(acc)", "from", from, "err", err)
-		return nil, ErrAccountNotFound
+		return nil, wtypes.ErrAccountNotFound
 	}
 	unspentBalancePerSubaddr := wallet.unspentBalancePerSubaddr(tokenID)
 	for addr, balance := range unspentBalancePerSubaddr {
@@ -585,7 +569,7 @@ func (wallet *Wallet) CreateUinTransaction(from common.Address, passwd string, s
 	}
 	wallet.Logger.Debug("CreateUinTransaction", "availableMoney", availableMoney)
 	if availableMoney.Cmp(big.NewInt(0).Sub(needMoney, wallet.estimateUtxoTxFee())) < 0 {
-		return nil, ErrBalanceNotEnough
+		return nil, wtypes.ErrBalanceNotEnough
 	}
 	unspentIndicePerSubaddr := wallet.unspentIndicePerSubaddr(tokenID)
 	for addr, indice := range unspentIndicePerSubaddr {
@@ -644,7 +628,7 @@ func (wallet *Wallet) createUinTransaction(w accounts.Wallet, acc accounts.Accou
 
 		if 0 == len(currUnspentIndice) {
 			wallet.Logger.Error("createUinTransaction", "len(currUnspentIndice)", len(currUnspentIndice))
-			return nil, ErrNoMoreOutput
+			return nil, wtypes.ErrNoMoreOutput
 		}
 		var index uint64
 		if 0 != len(preferIndice) {
@@ -734,13 +718,13 @@ func (wallet *Wallet) createUinTransaction(w accounts.Wallet, acc accounts.Accou
 				noNeedChange = true
 			}
 			if estimateTxWeight(len(selectedIndice), len(paidDests)+1) > UTXOTRANSACTION_FEE_MAX_SIZE {
-				return nil, ErrTxTooBig
+				return nil, wtypes.ErrTxTooBig
 			}
 			tryTx = availableFee.Cmp(needFee) >= 0 || noNeedChange
 		} else {
 			tryTx = (0 == len(dests)) || estimateTxWeight(len(selectedIndice), len(paidDests)+1) > UTXOTRANSACTION_MAX_SIZE || len(paidDests)+1 >= wtypes.UTXO_DESTS_MAX_NUM
 			if tryTx && 0 == len(paidDests) {
-				return nil, ErrTxTooBig
+				return nil, wtypes.ErrTxTooBig
 			}
 		}
 
@@ -791,20 +775,20 @@ func (wallet *Wallet) createUinTransaction(w accounts.Wallet, acc accounts.Accou
 				utxoTrans, utxoInEphs, mKeys, txKey, err := types.NewUinTransaction(wallet.currAccount.account.GetKeys(), wallet.currAccount.account.KeyIndex, selectSources, paidDests, tokenID, refundAddr, extra)
 				if err != nil {
 					wallet.Logger.Error("createUinTransaction NewUinTransaction fail", "err", err)
-					return nil, err
+					return nil, wtypes.ErrNewUinTrans
 				}
 				if hasContract {
 					if 0 == len(passwd) {
 						signedTx, err = w.SignTx(acc, utxoTrans, types.SignParam)
 						if err != nil {
 							wallet.Logger.Error("createUinTransaction SignTx fail", "err", err)
-							return nil, err
+							return nil, wtypes.ErrSignTx
 						}
 					} else {
 						signedTx, err = w.SignTxWithPassphrase(acc, passwd, utxoTrans, types.SignParam)
 						if err != nil {
 							wallet.Logger.Error("createUinTransaction SignTxWithPassphrase fail", "err", err)
-							return nil, err
+							return nil, wtypes.ErrSignTx
 						}
 					}
 					utxoTrans = signedTx.(*types.UTXOTransaction)
@@ -812,7 +796,7 @@ func (wallet *Wallet) createUinTransaction(w accounts.Wallet, acc accounts.Accou
 				err = types.UInTransWithRctSig(utxoTrans, selectSources, utxoInEphs, paidDests, mKeys)
 				if err != nil {
 					wallet.Logger.Error("createUinTransaction UInTransWithRctSig fail", "err", err)
-					return nil, err
+					return nil, wtypes.ErrUinTransWithSign
 				}
 
 				// save txkey
@@ -861,7 +845,7 @@ func (wallet *Wallet) CreateMinTransaction(from common.Address, passwd string, n
 
 func (wallet *Wallet) checkDest(dests []types.DestEntry, tokenID common.Address, mode InputMode) (*big.Int, bool, error) {
 	if 0 == len(dests) {
-		return big.NewInt(0), false, ErrOutputEmpty
+		return big.NewInt(0), false, wtypes.ErrOutputEmpty
 	}
 	transferMoney := big.NewInt(0)
 	needMoney := big.NewInt(0)
@@ -870,11 +854,11 @@ func (wallet *Wallet) checkDest(dests []types.DestEntry, tokenID common.Address,
 	for i := 0; i < len(dests); i++ {
 		wallet.Logger.Debug("checkDest", "amount", dests[i].GetAmount().String())
 		if dests[i].GetAmount().Sign() <= 0 {
-			return big.NewInt(0), hasContract, ErrOutputMoneyInvalid
+			return big.NewInt(0), hasContract, wtypes.ErrOutputMoneyInvalid
 		}
 		if dests[i].GetAmount().Sign() > 0 && (dests[i].GetAmount().Cmp(big.NewInt(types.UTXO_COMMITMENT_CHANGE_RATE)) < 0 ||
 			big.NewInt(0).Mod(dests[i].GetAmount(), big.NewInt(types.UTXO_COMMITMENT_CHANGE_RATE)).Sign() != 0) {
-			return big.NewInt(0), hasContract, ErrOutputMoneyInvalid
+			return big.NewInt(0), hasContract, wtypes.ErrOutputMoneyInvalid
 		}
 		//estimateGas return fee. if addr is a contract, return value*0.02+contract fee, if addr is a normal, return value*0.02
 		if types.TypeAcDest == dests[i].Type() {
@@ -883,10 +867,10 @@ func (wallet *Wallet) checkDest(dests []types.DestEntry, tokenID common.Address,
 				return big.NewInt(0), hasContract, err
 			}
 			if !isContract && dests[i].GetAmount().Sign() == 0 {
-				return big.NewInt(0), hasContract, ErrOutputMoneyInvalid
+				return big.NewInt(0), hasContract, wtypes.ErrOutputMoneyInvalid
 			}
 			if isContract {
-				return big.NewInt(0), hasContract, ErrNotSupportContractTx
+				return big.NewInt(0), hasContract, wtypes.ErrNotSupportContractTx
 			}
 			// if isContract {
 			// 	hasContract = true
@@ -933,7 +917,7 @@ func (wallet *Wallet) checkDest(dests []types.DestEntry, tokenID common.Address,
 		needMoney.Add(needMoney, wallet.estimateTxFee(accTransMoney))
 	case MixInputMode:
 		//not support now
-		return big.NewInt(0), hasContract, ErrMixInputNotSupport
+		return big.NewInt(0), hasContract, wtypes.ErrMixInputNotSupport
 	}
 	wallet.Logger.Debug("checkDest", "needMoney", needMoney.String())
 	return needMoney, hasContract, nil

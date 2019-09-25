@@ -3,7 +3,6 @@ package wallet
 import (
 	"bytes"
 	"encoding/binary"
-	"errors"
 	"time"
 
 	"github.com/btcsuite/btcutil/base58"
@@ -15,19 +14,22 @@ import (
 	"github.com/lianxiangcloud/linkchain/wallet/types"
 )
 
-var (
-	ErrStrToAddressInvalid  = errors.New("str to address invalid")
-	ErrStrToAddressCheckSum = errors.New("str to address check sum fail")
-)
-
 //WordsToKey Converts seed words to bytes (secret key)
 func WordsToKey(words string) (lktypes.SecretKey, error) {
-	return xcrypto.WordsToBytes(words)
+	key, err := xcrypto.WordsToBytes(words)
+	if err != nil {
+		return lktypes.SecretKey{}, types.ErrInnerServer
+	}
+	return key, nil
 }
 
 //KeyToWords Converts bytes (secret key) to seed words
 func KeyToWords(key lktypes.SecretKey) (string, error) {
-	return xcrypto.BytesToWords(key, "English")
+	words, err := xcrypto.BytesToWords(key, "English")
+	if err != nil {
+		return "", types.ErrInnerServer
+	}
+	return words, nil
 }
 
 //GenerateKeys return spend secret key and spend public key
@@ -114,22 +116,22 @@ func StrToAddress(str string) (*lktypes.AccountAddress, error) {
 	addrLen := types.GetConfig().CRYPTONOTE_PREFIX_LENGTH + 2*types.GetConfig().CRYPTONOTE_ADDRESS_LENGTH + types.GetConfig().CRYPTONOTE_CHECKSUM_LENGTH
 	data := base58.Decode(str)
 	if len(data) != addrLen {
-		return nil, ErrStrToAddressInvalid
+		return nil, types.ErrStrToAddressInvalid
 	}
 	checksum := data[addrLen-types.GetConfig().CRYPTONOTE_CHECKSUM_LENGTH:]
 	data = data[:addrLen-types.GetConfig().CRYPTONOTE_CHECKSUM_LENGTH]
 	hash := crypto.Sha256(data)
 	expectsum := hash[:types.GetConfig().CRYPTONOTE_CHECKSUM_LENGTH]
 	if !bytes.Equal(checksum, expectsum) {
-		return nil, ErrStrToAddressCheckSum
+		return nil, types.ErrStrToAddressCheckSum
 	}
 	prefix, n := binary.Uvarint(data)
 	if n != types.GetConfig().CRYPTONOTE_PREFIX_LENGTH {
-		return nil, ErrStrToAddressInvalid
+		return nil, types.ErrStrToAddressInvalid
 	}
 	if prefix != uint64(types.GetConfig().CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX) &&
 		prefix != uint64(types.GetConfig().CRYPTONOTE_PUBLIC_SUBADDRESS_BASE58_PREFIX) {
-		return nil, ErrStrToAddressInvalid
+		return nil, types.ErrStrToAddressInvalid
 	}
 	data = data[types.GetConfig().CRYPTONOTE_PREFIX_LENGTH:]
 	var addr lktypes.AccountAddress
@@ -142,7 +144,7 @@ func StrToAddress(str string) (*lktypes.AccountAddress, error) {
 func KeyFromAccount(keyjson []byte, passwd string) (lktypes.SecretKey, error) {
 	accKey, err := keystore.DecryptKey(keyjson, passwd)
 	if err != nil {
-		return lktypes.SecretKey{}, err
+		return lktypes.SecretKey{}, types.ErrInnerServer
 	}
 	sk := crypto.FromECDSA(accKey.PrivateKey)
 	var key lktypes.SecretKey
@@ -154,7 +156,7 @@ func IsSubaddress(str string) (bool, error) {
 	addrLen := types.GetConfig().CRYPTONOTE_PREFIX_LENGTH + 2*types.GetConfig().CRYPTONOTE_ADDRESS_LENGTH + types.GetConfig().CRYPTONOTE_CHECKSUM_LENGTH
 	data := base58.Decode(str)
 	if len(data) != addrLen {
-		return false, ErrStrToAddressInvalid
+		return false, types.ErrStrToAddressInvalid
 	}
 	prefix := int(data[0])
 	log.Debug("IsSubaddress", "addr", str, "prefix", prefix)
