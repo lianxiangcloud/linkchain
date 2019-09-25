@@ -98,6 +98,18 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	for idx, txRaw := range block.Data.Txs {
 		switch tx := txRaw.(type) {
 		case *types.Transaction, *types.TokenTransaction, *types.ContractCreateTx, *types.ContractUpgradeTx:
+			if tx.TypeName() == types.TxNormal {
+				err := tx.(*types.Transaction).CheckBasicWithState(nil, statedb)
+				if err != nil {
+					return nil, nil, 0, nil, nil, nil, err
+				}
+			}
+			if tx.TypeName() == types.TxToken {
+				err := tx.(*types.TokenTransaction).CheckBasicWithState(nil, statedb)
+				if err != nil {
+					return nil, nil, 0, nil, nil, nil, err
+				}
+			}
 			tbr := types.NewTxBalanceRecords()
 			//case types.RegularTx:
 			statedb.Prepare(txRaw.Hash(), block.Hash(), idx)
