@@ -192,7 +192,8 @@ func (la *LinkAccount) updateBalance(token common.Address, index uint64, bAdd bo
 	} else {
 		if balance.Cmp(amount) < 0 {
 			la.Logger.Error("updateBalance sub err,balance < amount", "index", index, "balance", balance, "amount", amount)
-			return fmt.Errorf("updateBalance sub err,balance < amount")
+			//return fmt.Errorf("updateBalance sub err,balance < amount")
+			return types.ErrAccBalanceUpdate
 		}
 		newBalance := new(big.Int).Sub(balance, amount)
 		la.setTokenBalanceBySubIndex(token, index, newBalance)
@@ -662,7 +663,8 @@ func (la *LinkAccount) GetAddress(index uint64) (string, error) {
 	// }
 
 	if index >= uint64(len(la.account.Keys)) {
-		return "", fmt.Errorf("err: index can not greater than %d", len(la.account.Keys)-1)
+		//return "", fmt.Errorf("err: index can not greater than %d", len(la.account.Keys)-1)
+		return "", types.ErrSubaddrIdxOverRange
 	}
 	addr := la.account.Keys[index].Address
 
@@ -686,7 +688,7 @@ func (la *LinkAccount) CreateSubAccount(maxSub uint64) error {
 	// 	return types.ErrWalletNotOpen
 	// }
 	if maxSub > defaultMaxSubAccount {
-		return types.ErrSubAccountTooLarge
+		return types.ErrSubAccountOverLimit
 	}
 
 	subCnt := uint64(len(la.account.Keys) - 1)

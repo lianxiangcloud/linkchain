@@ -44,7 +44,8 @@ func (s *PublicTransactionPoolAPI) signUTXOTransaction(ctx context.Context, args
 	destsCnt := len(args.Dests)
 	// tosCnt := len(args.Tos)
 	if destsCnt == 0 {
-		return nil, fmt.Errorf("need more dests")
+		//return nil, fmt.Errorf("need more dests")
+		return nil, wtypes.ErrArgsInvalid
 	}
 
 	dests := make([]types.DestEntry, 0)
@@ -59,7 +60,8 @@ func (s *PublicTransactionPoolAPI) signUTXOTransaction(ctx context.Context, args
 			// utxo address
 			addr, err := wallet.StrToAddress(args.Dests[i].Addr)
 			if err != nil {
-				return nil, fmt.Errorf("error dests addr:%s", toAddress)
+				//return nil, fmt.Errorf("error dests addr:%s", toAddress)
+				return nil, err
 			}
 
 			var remark [32]byte
@@ -73,11 +75,12 @@ func (s *PublicTransactionPoolAPI) signUTXOTransaction(ctx context.Context, args
 			utxoDestsCnt++
 		} else {
 			if !common.IsHexAddress(toAddress) {
-				return nil, fmt.Errorf("error dests addr:%s", toAddress)
+				//return nil, fmt.Errorf("error dests addr:%s", toAddress)
+				return nil, wtypes.ErrArgsInvalid
 			}
 			if hasOneAccountOutput {
 				// can not sign more than one account output
-				return nil, fmt.Errorf("account output too more")
+				return nil, wtypes.ErrAccDestsOverLimit
 			}
 			addr := common.HexToAddress(toAddress)
 			dests = append(dests, &types.AccountDestEntry{To: addr, Amount: args.Dests[i].Amount.ToInt(), Data: args.Dests[i].Data})
@@ -86,7 +89,8 @@ func (s *PublicTransactionPoolAPI) signUTXOTransaction(ctx context.Context, args
 
 	}
 	if args.From != common.EmptyAddress && hasOneAccountOutput {
-		return nil, fmt.Errorf("not support tx type,input and output both has account address")
+		//return nil, fmt.Errorf("not support tx type,input and output both has account address")
+		return nil, wtypes.ErrTxTypeNotSupport
 	}
 
 	txs, err := s.wallet.CreateUTXOTransaction(args.From, uint64(*args.Nonce), args.SubAddrs, dests, *args.TokenID, args.From, nil)
@@ -98,7 +102,7 @@ func (s *PublicTransactionPoolAPI) signUTXOTransaction(ctx context.Context, args
 	for _, tx := range txs {
 		bz, err := ser.EncodeToBytes(tx)
 		if err != nil {
-			return nil, err
+			return nil, wtypes.ErrInnerServer
 		}
 
 		keys := tx.GetInputKeyImages()
@@ -140,7 +144,7 @@ func (s *PublicTransactionPoolAPI) SendUTXOTransaction(ctx context.Context, args
 		return nil, err
 	}
 	if len(signRet.Txs) > 1 {
-		return nil, fmt.Errorf("Transaction would be too large.  try transfer_split")
+		return nil, wtypes.ErrTransNeedSplit
 	}
 
 	ret := s.wallet.Transfer([]string{signRet.Txs[0].Raw})
@@ -278,14 +282,14 @@ func (s *PublicTransactionPoolAPI) GetProofKey(ctx context.Context, args wtypes.
 		}
 		derivationKey, err := xcrypto.GenerateKeyDerivation(addr.ViewPublicKey, lkctypes.SecretKey(*txKey))
 		if err != nil {
-			return nil, err
+			return nil, wtypes.ErrInnerServer
 		}
 		outIdx := 0
 		for _, output := range tx.Outputs {
 			if utxoOutput, ok := output.(*types.UTXOOutput); ok {
 				otAddr, err := xcrypto.DerivePublicKey(derivationKey, outIdx, addr.SpendPublicKey)
 				if err != nil {
-					return nil, err
+					return nil, wtypes.ErrInnerServer
 				}
 				if bytes.Equal(otAddr[:], utxoOutput.OTAddr[:]) {
 					return &wtypes.ProofKeyRet{
@@ -311,7 +315,7 @@ func (s *PublicTransactionPoolAPI) GetProofKey(ctx context.Context, args wtypes.
 			if bytes.Equal(addr[:], accOutput.To[:]) {
 				proofKey, err := xcrypto.DerivationToScalar(lkctypes.KeyDerivation(*txKey), i)
 				if err != nil {
-					return nil, err
+					return nil, wtypes.ErrInnerServer
 				}
 				return &wtypes.ProofKeyRet{
 					ProofKey: fmt.Sprintf("%x", proofKey[:]),
@@ -353,7 +357,7 @@ func (s *PublicTransactionPoolAPI) CheckProofKey(ctx context.Context, args wtype
 			if utxoOutput, ok := output.(*types.UTXOOutput); ok {
 				otAddr, err := xcrypto.DerivePublicKey(lkctypes.KeyDerivation(key), outIdx, addr.SpendPublicKey)
 				if err != nil {
-					return nil, err
+					return nil, wtypes.ErrInnerServer
 				}
 				if bytes.Equal(otAddr[:], utxoOutput.OTAddr[:]) {
 					ecdh := &lkctypes.EcdhTuple{
@@ -361,11 +365,11 @@ func (s *PublicTransactionPoolAPI) CheckProofKey(ctx context.Context, args wtype
 					}
 					scalar, err := xcrypto.DerivationToScalar(lkctypes.KeyDerivation(key), outIdx)
 					if err != nil {
-						return nil, err
+						return nil, wtypes.ErrInnerServer
 					}
 					ok := xcrypto.EcdhDecode(ecdh, lkctypes.Key(scalar), false)
 					if !ok {
-						return nil, err
+						return nil, wtypes.ErrInnerServer
 					}
 					//check encode amount is valid
 					outAmountKeys := []lkctypes.Key{ecdh.Amount}
@@ -426,7 +430,8 @@ func (s *PublicTransactionPoolAPI) SelectAddress(ctx context.Context, addr commo
 // SetRefreshBlockInterval set wallet curr account
 func (s *PublicTransactionPoolAPI) SetRefreshBlockInterval(ctx context.Context, interval time.Duration, addr *common.Address) (bool, error) {
 	if interval <= time.Duration(0) {
-		return false, fmt.Errorf("interval must be greater than 0")
+		//return false, fmt.Errorf("interval must be greater than 0")
+		return false, wtypes.ErrArgsInvalid
 	}
 	sec := interval * time.Second
 	err := s.wallet.SetRefreshBlockInterval(sec, addr)

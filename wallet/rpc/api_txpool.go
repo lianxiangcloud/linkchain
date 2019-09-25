@@ -2,7 +2,6 @@ package rpc
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/lianxiangcloud/linkchain/accounts"
 	"github.com/lianxiangcloud/linkchain/libs/common"
@@ -76,21 +75,28 @@ func (s *PublicTransactionPoolAPI) sign(addr common.Address, tx types.Tx) (types
 
 	wallet, err := s.b.AccountManager().Find(account)
 	if err != nil {
-		return nil, err
+		return nil, wtypes.ErrAccountNotFound
 	}
 	// Request the wallet to sign the transaction
-	return wallet.SignTx(account, tx, types.SignParam)
+	tx1, err := wallet.SignTx(account, tx, types.SignParam)
+	if err != nil {
+		return nil, wtypes.ErrSignTx
+	}
+	return tx1, nil
 }
 
 func (s *PublicTransactionPoolAPI) SignTransaction(ctx context.Context, args rtypes.SendTxArgs) (*rtypes.SignTransactionResult, error) {
 	if args.Gas == nil {
-		return nil, fmt.Errorf("gas not specified")
+		//return nil, fmt.Errorf("gas not specified")
+		return nil, wtypes.ErrArgsInvalid
 	}
 	if args.GasPrice == nil {
-		return nil, fmt.Errorf("gasPrice not specified")
+		//return nil, fmt.Errorf("gasPrice not specified")
+		return nil, wtypes.ErrArgsInvalid
 	}
 	if args.Nonce == nil {
-		return nil, fmt.Errorf("nonce not specified")
+		//return nil, fmt.Errorf("nonce not specified")
+		return nil, wtypes.ErrArgsInvalid
 	}
 
 	tx, err := s.sign(args.From, args.ToTransaction())
@@ -99,7 +105,7 @@ func (s *PublicTransactionPoolAPI) SignTransaction(ctx context.Context, args rty
 	}
 	data, err := ser.EncodeToBytes(tx)
 	if err != nil {
-		return nil, err
+		return nil, wtypes.ErrInnerServer
 	}
 	return &rtypes.SignTransactionResult{data, tx}, nil
 }
