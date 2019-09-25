@@ -1,7 +1,11 @@
 #!/bin/bash
 
+cd "$(dirname "$0")"
+cd ..
+rootpath=$(pwd)
+
 # set default chain home path
-defaultChainPath=~/blockdata
+defaultChainPath=$rootpath
 
 # default node type
 defaultType="kv"
@@ -11,9 +15,8 @@ defaultType="kv"
 emptyBlockInterval=300
 blockInterval=1000
 
-rootpath=$(dirname $(pwd))
 proc=$rootpath/bin/lkchain
-dbpath=$rootpath/init/db_kv
+dbpath=$rootpath/init/db
 datapath=$defaultChainPath/data
 init_height=0
 state_hash=""
@@ -36,7 +39,7 @@ function GetStateHash() {
 
 function defaultInitSet() {
     if [ $defaultType == "full" ]; then
-        dbpath=$rootpath/init/db_full
+        dbpath=$rootpath/init/db
         state_path="$dbpath/full"
         GetStateHash
         ext_init_params="--full_node=true --init_state_root $state_hash"
@@ -46,12 +49,12 @@ function defaultInitSet() {
 
 function downloadDB() {
     if [ $defaultType == "full" ]; then
-        if [ ! -d "$rootpath/init/db_full" ]; then
+        if [ ! -d "$rootpath/init/db/full" ]; then
             wget $full_initdb_url -O $rootpath/init/db_full.tar.gz
             cd $rootpath/init/ && tar zxf db_full.tar.gz
         fi
     else
-        if [ ! -d "$rootpath/init/db_kv" ]; then
+        if [ ! -d "$rootpath/init/db/kv" ]; then
             wget $kv_initdb_url -O $rootpath/init/db_kv.tar.gz
             cd $rootpath/init/ && tar zxf db_kv.tar.gz
         fi
@@ -59,6 +62,8 @@ function downloadDB() {
 }
 
 cd $rootpath
+
+
 logpath=$datapath/logs
 
 function Init() {
