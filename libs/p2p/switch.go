@@ -223,58 +223,8 @@ func (sw *Switch) DefaultNewTable(seeds []*common.Node, needDht bool, needReNewU
 	var err error
 	cfg := common.Config{PrivateKey: sw.nodeKey, SeedNodes: make([]*common.Node, len(seeds))}
 	copy(cfg.SeedNodes, seeds)
-	if needDht {
-		sw.newDm(sw.db, needDht)
-		dhtLogger := sw.Logger.With("module", "dhtTable")
-		var conf = sw.GetConfig()
-		var maxDhtDialOutNums int
-		listeners := sw.Listeners()
-		if len(listeners) > 0 {
-			listener := listeners[0]
-			selfnode := &common.Node{
-				IP:       listener.ExternalAddress().IP,
-				UDP_Port: listener.ExternalAddress().Port,
-				TCP_Port: listener.ExternalAddress().Port,
-				ID:       common.NodeID(crypto.Keccak256Hash(sw.NodeKey().PubKey().Bytes())),
-			}
-			if needReNewUdpCon == true {
-				var bindUdpAddr string
-				if sw.upnpFlag == true {
-					bindUdpAddr = listener.ExternalAddress().String()
-				} else {
-					bindUdpAddr = fmt.Sprintf(":%d", listener.ExternalAddress().Port)
-				}
-				addr, err := net.ResolveUDPAddr("udp", bindUdpAddr)
-				if err != nil {
-					sw.Logger.Error("NewDefaultListener", "ResolveUDPAddr err", err, "addr", addr)
-				} else {
-					sw.udpCon, err = net.ListenUDP("udp", addr)
-					if err != nil {
-						sw.Logger.Error("NewDefaultListener", "ListenUDP err", err, "addr", addr)
-					}
-				}
-			}
-			selfInfo := &disc.SlefInfo{
-				NodeType:  bootnode.GetLocalNodeType(),
-				Self:      selfnode,
-				ListenCon: sw.UdpCon(),
-			}
-			if bootnode.GetLocalNodeType() == types.NodePeer && sw.upnpFlag == false {
-				maxDhtDialOutNums = conf.MaxNumPeers
-			} else {
-				if conf.MaxNumPeers/defaultDialRatio >= 1 {
-					maxDhtDialOutNums = conf.MaxNumPeers / defaultDialRatio
-				} else {
-					maxDhtDialOutNums = conf.MaxNumPeers
-				}
-			}
-			sw.Logger.Info("DefaultNewTable", "maxDhtDialOutNums", maxDhtDialOutNums, "conf.MaxNumPeers", conf.MaxNumPeers)
-			sw.ntab, err = disc.NewDhtTable(maxDhtDialOutNums, sw.BootNodeAddr(), selfInfo, sw.DBManager(), cfg, dhtLogger)
-		}
-	} else {
-		httpLogger := sw.Logger.With("module", "httpTable")
-		sw.ntab, err = disc.NewHTTPTable(cfg, sw.BootNodeAddr(), bootnode.GetLocalNodeType(), httpLogger)
-	}
+	httpLogger := sw.Logger.With("module", "httpTable")
+	sw.ntab, err = disc.NewHTTPTable(cfg, sw.BootNodeAddr(), bootnode.GetLocalNodeType(), httpLogger)
 	return err
 }
 
