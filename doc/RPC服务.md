@@ -10,6 +10,7 @@
 - [eth_getBlockUTXOsByNumber](#eth_getblockutxosbynumber)
 - [eth_gasPrice](#eth_gasprice)
 - [eth_estimateGas](#eth_estimategas)
+- [eth_estimateSweepGas](#eth_estimatesweepgas)
 - [eth_signTransaction](#eth_signtransaction)
 - [eth_signSpecTx](#eth_signspectx)
 - [eth_sendTransaction](#eth_sendtransaction)
@@ -269,6 +270,35 @@ curl -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":"0","method":
     "jsonrpc":"2.0",
     "id":"0",
     "result":"0x7a120"
+}
+```
+
+### eth_estimateSweepGas
+估算执行清算某账户的交易所需的手续费
+
+#### 参数
+1. addr `string` 要清算的账户地址
+
+#### 返回
+- `object`
+    - balance `string` 16进制字符串，账户当前余额
+    - amount `string` 16进制字符串，清算转账金额
+    - gas `uint64` 清算转账手续费
+    - change `string` 16进制字符串，清算转账操作后账户的余额
+
+#### 示例
+```shell
+curl -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":0,"method":"eth_estimateSweepGas","params":["0xe954fcc4ab8c39aa7e7a9ed1b64da23e92998fa0"]}' http://127.0.0.1:8000
+
+{
+    "jsonrpc":"2.0",
+    "id":"0",
+    "result":{
+        "change":"0x0",
+        "gas":1626500000,
+        "balance":"0x6ec3c5f179efcab2c00",
+        "amount":"0x6e36b263660af622c00"
+    }
 }
 ```
 
