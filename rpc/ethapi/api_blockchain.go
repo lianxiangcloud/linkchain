@@ -375,6 +375,21 @@ func (s *PublicBlockChainAPI) EstimateGas(ctx context.Context, args CallArgs) (h
 	return hexutil.Uint64(estimateGas), nil
 }
 
+// EstimateSweepGas returns an estimate of the amount of gas needed to execute the
+// sweep transaction against the current latest block.
+func (s *PublicBlockChainAPI) EstimateSweepGas(ctx context.Context, address common.Address) (*types.SweepGas, error) {
+	state, _, err := s.b.StateAndHeaderByNumber(ctx, rpc.LatestBlockNumber)
+	if state == nil || err != nil {
+		return nil, err
+	}
+	b := state.GetBalance(address)
+
+	amount, change, fee, err := types.CalSweepBalanceFee(b)
+	fields := types.SweepGas{(*hexutil.Big)(b), (*hexutil.Big)(amount), (*hexutil.Big)(change), fee}
+
+	return &fields, err
+}
+
 // GetMaxOutputIndex get max UTXO output index by token
 func (s *PublicBlockChainAPI) GetMaxOutputIndex(ctx context.Context, token common.Address) hexutil.Uint64 {
 	return hexutil.Uint64(uint64(s.b.GetMaxOutputIndex(ctx, token)))
