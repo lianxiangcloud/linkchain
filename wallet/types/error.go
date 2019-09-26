@@ -24,4 +24,5 @@ var (
 	ErrSubAccountTooLarge  = errors.New("subaccount is too large")
 	ErrSaveAccountSubCnt   = errors.New("save AccountSubCnt fail")
 	ErrAddInfoNotFound     = errors.New("utxo add info not found")
+	ErrTransInvalid        = errors.New("transaction invalid")
 )
