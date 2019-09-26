@@ -18,6 +18,7 @@ import (
 	"github.com/lianxiangcloud/linkchain/types"
 	wtypes "github.com/lianxiangcloud/linkchain/wallet/types"
 	"github.com/lianxiangcloud/linkchain/wallet/wallet"
+	"github.com/lianxiangcloud/linkchain/libs/cryptonote/ringct"
 )
 
 // PublicTransactionPoolAPI exposes methods for the RPC interface
@@ -365,6 +366,17 @@ func (s *PublicTransactionPoolAPI) CheckProofKey(ctx context.Context, args wtype
 					ok := xcrypto.EcdhDecode(ecdh, lkctypes.Key(scalar), false)
 					if !ok {
 						return nil, err
+					}
+					//check encode amount is valid
+					outAmountKeys := []lkctypes.Key{ecdh.Amount}
+					outMKeys := lkctypes.KeyV{lkctypes.Key(scalar)}
+					_, tCommits, _, err := ringct.ProveRangeBulletproof(outAmountKeys, outMKeys)
+					if err != nil || len(tCommits) != 1{
+						return nil, wtypes.ErrTransInvalid
+					}
+					tMask, _ := ringct.Scalarmult8(tCommits[0])
+					if !bytes.Equal(tx.RCTSig.OutPk[outIdx].Mask[:], tMask[:]) {
+						return nil, wtypes.ErrTransInvalid
 					}
 					ret.Records = append(ret.Records, &wtypes.VerifyProofKey{
 						Hash:   args.Hash,
