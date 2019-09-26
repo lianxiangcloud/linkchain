@@ -126,16 +126,16 @@ func GetSeedsFromBootSvr(bootSvr string, priv crypto.PrivKey, logger log.Logger)
 
 	var respBytes []byte
 	var retry int
+	var bootNum = GetBootNodesNum()
 	for {
 		respBytes, err = HttpPost(buildGetSeedsURL(bootSvr), postContent)
 		if err != nil {
-			logger.Error("GetSeedsFromBootSvr", "retry", retry, "HttpPost err", err)
+			logger.Error("GetSeedsFromBootSvr", "retry", retry, "bootSvr", bootSvr, "HttpPost err", err)
+			bootSvr = GetBestBootNode()
 			retry++
-			if retry > 3 {
+			if retry > bootNum {
 				return
 			}
-
-			time.Sleep(time.Second * time.Duration(3*retry))
 			continue
 		}
 		break
@@ -185,18 +185,20 @@ func RapNodes(seeds []Rnode, logger log.Logger) (nodes []*common.Node) {
 	return
 }
 
-func GetCurrentHeightOfChain(bootSvr string, logger log.Logger) (height uint64, err error) {
+func GetCurrentHeightOfChain(logger log.Logger) (height uint64, err error) {
 	var respBytes []byte
 	var retry int
+	var bootNum = GetBootNodesNum()
+	bootSvr := GetBestBootNode()
 	for {
 		respBytes, err = HttpPost(buildGetCurrentHeight(bootSvr), "")
 		if err != nil {
-			logger.Error("GetCurrentHeightOfChain", "retry", retry, "HttpPost err", err)
+			logger.Error("GetCurrentHeightOfChain", "retry", retry, "bootSvr", bootSvr, "HttpPost err", err)
+			bootSvr = GetBestBootNode()
 			retry++
-			if retry > 3 {
+			if retry > bootNum {
 				return
 			}
-			time.Sleep(time.Second * time.Duration(3*retry))
 			continue
 		}
 		break
