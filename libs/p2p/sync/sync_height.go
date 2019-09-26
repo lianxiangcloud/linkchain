@@ -80,7 +80,7 @@ func (sm *SyncHeightManager) heightProbe() {
 				}
 				myLastHeight = myCurrentHeight
 
-				lkchainHeight, err := bootnode.GetCurrentHeightOfChain(sm.sw.BootNodeAddr(), sm.logger)
+				lkchainHeight, err := bootnode.GetCurrentHeightOfChain(sm.logger)
 				if err != nil {
 					sm.logger.Report("SyncHeightManager", "logID", types.LogIdBootNodeFail, "getCurrentHeightOfChain err", err, "bootnodeAddr", sm.sw.BootNodeAddr())
 					timer.Reset(minCheckInterval)
