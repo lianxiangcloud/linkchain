@@ -477,6 +477,7 @@ func (la *LinkAccount) processNewTransaction(tx *tctypes.UTXOTransaction, height
 			realDeriKey, subaddrIndex, err := tctypes.IsOutputBelongToAccount(la.account.GetKeys(), la.account.KeyIndex, ro.OTAddr, derivationKeys, recIdx)
 			if err != nil {
 				la.Logger.Info("IsOutputBelongToAccount fail", "ro.OTAddr", ro.OTAddr, "derivationKey", derivationKey, "recIdx", recIdx, "err", err)
+				myTx.Outputs = append(myTx.Outputs, types.UTXOOutput{OTAddr: (common.Hash)(ro.OTAddr)})
 				continue
 			}
 
