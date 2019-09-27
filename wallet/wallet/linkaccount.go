@@ -588,9 +588,6 @@ func (la *LinkAccount) processNewTransaction(tx *tctypes.UTXOTransaction, height
 	for _, i := range tx.Inputs {
 		switch ri := i.(type) {
 		case *tctypes.UTXOInput:
-
-			gidx := uint64(0)
-
 			keyimage := ri.KeyImage
 			iTransfer, ok := la.keyImages[keyimage]
 			if ok {
@@ -606,9 +603,8 @@ func (la *LinkAccount) processNewTransaction(tx *tctypes.UTXOTransaction, height
 				tids = append(tids, iTransfer)
 				la.updateBalance(tx.TokenID, uod.SubAddrIndex, false, amount)
 				la.Logger.Info("processNewTransaction", "utxoTotalBalance", la.utxoTotalBalance, "iTransfer", iTransfer, "amount", amount.String())
-				gidx = uod.GlobalIndex
+				myTx.Inputs = append(myTx.Inputs, types.UTXOInput{GlobalIndex: hexutil.Uint64(iTransfer)})
 			}
-			myTx.Inputs = append(myTx.Inputs, types.UTXOInput{GlobalIndex: hexutil.Uint64(gidx)})
 		case *tctypes.AccountInput:
 			from, err := tx.From()
 			if err != nil {
