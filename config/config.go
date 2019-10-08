@@ -306,11 +306,11 @@ type RPCConfig struct {
 func DefaultRPCConfig() *RPCConfig {
 	return &RPCConfig{
 		IpcEndpoint:  "linkchain.ipc",
-		HTTPEndpoint: ":8000",
+		HTTPEndpoint: "127.0.0.1:16000",
 		HTTPModules:  []string{"web3", "eth", "personal", "debug", "txpool", "net"},
 		HTTPCores:    []string{"*"},
 		VHosts:       []string{"*"},
-		WSEndpoint:   ":8001",
+		WSEndpoint:   "127.0.0.1:18000",
 		WSModules:    []string{"web3", "eth", "personal", "debug", "txpool", "net", "lk"},
 		WSExposeAll:  true,
 		WSOrigins:    []string{"*"},
@@ -322,8 +322,8 @@ func DefaultRPCConfig() *RPCConfig {
 // TestRPCConfig returns a configuration for testing the RPC server
 func TestRPCConfig() *RPCConfig {
 	cfg := DefaultRPCConfig()
-	cfg.HTTPEndpoint = "0.0.0.0:46000"
-	cfg.WSEndpoint = "0.0.0.0:48000"
+	cfg.HTTPEndpoint = "127.0.0.1:46000"
+	cfg.WSEndpoint = "127.0.0.1:48000"
 	return cfg
 }
 
