@@ -65,6 +65,7 @@ type SignUTXORet struct {
 type UTXOAddInfo struct {
 	Subaddrs  []uint64 `json:"subaddrs"`
 	OutAmount *big.Int `json:"outamount"`
+	ChangeIdx int      `json:"change_idx"`
 }
 
 type SignUTXOTransactionResult struct {
@@ -284,6 +285,7 @@ type AccountOutput struct {
 type UTXOOutput struct {
 	OTAddr      common.Hash    `json:"otaddr"`
 	GlobalIndex hexutil.Uint64 `json:"global_index"`
+	IsChange    bool           `json:"is_change"`
 }
 
 type UTXOOutputDetail struct {

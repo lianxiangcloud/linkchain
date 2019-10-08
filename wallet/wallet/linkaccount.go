@@ -425,6 +425,14 @@ func (la *LinkAccount) processBlock(block *rtypes.RPCBlock) (ids []uint64, myTxs
 	return ids, myTxs, nil
 }
 
+// isChangeOutput return true if local addinfo output idx is a change output
+func (la *LinkAccount) isChangeOutput(addinfo *types.UTXOAddInfo, idx int) bool {
+	if addinfo == nil {
+		return false
+	}
+	return addinfo.ChangeIdx == idx
+}
+
 func (la *LinkAccount) processNewTransaction(tx *tctypes.UTXOTransaction, height uint64) (tids []uint64, myTx *types.UTXOTransaction, err error) {
 	la.Logger.Info("processNewTransaction", "height", height, "txhash", tx.Hash())
 
@@ -435,6 +443,11 @@ func (la *LinkAccount) processNewTransaction(tx *tctypes.UTXOTransaction, height
 	myTx.Hash = tx.Hash()
 	myTx.Fee = (*hexutil.Big)(new(big.Int).Set(tx.Fee))
 	myTx.TxFlag = uint8(0)
+
+	addinfo, err := la.GetUTXOAddInfo(myTx.Hash)
+	if err != nil {
+		la.Logger.Info("processNewTransaction GetUTXOAddInfo fail, not save tx in local", "hash", myTx.Hash)
+	}
 
 	// output
 	received := big.NewInt(0)
@@ -565,7 +578,7 @@ func (la *LinkAccount) processNewTransaction(tx *tctypes.UTXOTransaction, height
 			la.keyImages[uod.KeyImage] = uint64(tid)
 			tids = append(tids, uint64(tid))
 
-			myTx.Outputs = append(myTx.Outputs, types.UTXOOutput{OTAddr: (common.Hash)(ro.OTAddr), GlobalIndex: (hexutil.Uint64)(tid)})
+			myTx.Outputs = append(myTx.Outputs, types.UTXOOutput{OTAddr: (common.Hash)(ro.OTAddr), GlobalIndex: (hexutil.Uint64)(tid), IsChange: la.isChangeOutput(addinfo, i)})
 			myTx.TxFlag = myTx.TxFlag | txUout
 
 			la.Logger.Info("processNewTransaction output", "KeyImage", uod.KeyImage.String(), "subaddrIndex", subaddrIndex, "tx.RKey", tx.RKey, "uod.Amount", uod.Amount.String())

@@ -757,6 +757,7 @@ func (wallet *Wallet) createUinTransaction(w accounts.Wallet, acc accounts.Accou
 				}
 				addingFee = true
 			} else {
+				changeIdx := int(-1)
 				selectSources, err := wallet.constructSourceEntry(selectedIndice)
 				if err != nil {
 					wallet.Logger.Error("createUinTransaction constructSourceEntry fail", "err", err)
@@ -769,6 +770,7 @@ func (wallet *Wallet) createUinTransaction(w accounts.Wallet, acc accounts.Accou
 						Addr:     wallet.currAccount.account.Keys[chargeAccIdx].Addr,
 						IsChange: true,
 					}
+					changeIdx = len(paidDests)
 					paidDests = append(paidDests, changeEntry)
 					wallet.Logger.Debug("createUinTransaction add changeEntry", "chargeAccIdx", chargeAccIdx, "Addr", changeEntry.Addr, "Amount", changeEntry.Amount.String())
 				}
@@ -808,7 +810,7 @@ func (wallet *Wallet) createUinTransaction(w accounts.Wallet, acc accounts.Accou
 
 				//save trans additional info. such as paid subaddress, outamount
 				subAddrs := wallet.getSubaddrs(selectedIndice)
-				err = wallet.currAccount.saveAddInfo(utxoTrans.Hash(), &wtypes.UTXOAddInfo{Subaddrs: subAddrs, OutAmount: outAmount})
+				err = wallet.currAccount.saveAddInfo(utxoTrans.Hash(), &wtypes.UTXOAddInfo{Subaddrs: subAddrs, OutAmount: outAmount, ChangeIdx: changeIdx})
 				if err != nil {
 					wallet.Logger.Error("createUinTransaction saveAddInfo fail", "err", err)
 					return nil, err
