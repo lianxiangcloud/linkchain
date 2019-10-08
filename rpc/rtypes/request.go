@@ -45,7 +45,13 @@ func (args SendSpecTxArgs) ToTransaction() (types.Tx, error) {
 	if !ok {
 		return nil, types.ErrParams
 	}
-	return txArgs.toTransaction(), nil
+
+	tx := txArgs.toTransaction()
+	if tx == nil {
+		return nil, types.ErrParams
+	}
+
+	return tx, nil
 }
 
 type strVals struct {
@@ -63,6 +69,9 @@ type sendContractCreateTxArgs struct {
 }
 
 func (args sendContractCreateTxArgs) toTransaction() types.Tx {
+	if args.Payload == nil || args.AccountNonce == nil {
+		return nil
+	}
 	var input []byte
 	input = *args.Payload
 	return &types.ContractCreateTx{
@@ -83,6 +92,9 @@ type sendContractUpgradeTxArgs struct {
 }
 
 func (args sendContractUpgradeTxArgs) toTransaction() types.Tx {
+	if args.Payload == nil || args.AccountNonce == nil {
+		return nil
+	}
 	var input []byte
 	input = *args.Payload
 	return &types.ContractUpgradeTx{
