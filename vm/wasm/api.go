@@ -765,14 +765,7 @@ func (t *TCTransferToken) Gas(index int64, ops interface{}, args []uint64) (uint
 			return 0, errGasUintOverflow
 		}
 		eng.AddFee(fee)
-	} else {
-		fee := gasTokenFee(eng, to, val)
-		if transferTokenGas, overflow = math.SafeAdd(transferTokenGas, fee); overflow {
-			return 0, errGasUintOverflow
-		}
-		eng.AddFee(fee)
 	}
-
 	return transferTokenGas, nil
 
 }
@@ -862,12 +855,6 @@ func (t *TCSelfDestruct) Gas(index int64, ops interface{}, args []uint64) (uint6
 	for i := 0; i < len(tv); i++ {
 		if common.IsLKC(tv[i].TokenAddr) {
 			fee := gasFee(eng, to, tv[i].Value)
-			if destructGas, overflow = math.SafeAdd(destructGas, fee); overflow {
-				return 0, errGasUintOverflow
-			}
-			eng.AddFee(fee)
-		} else {
-			fee := gasTokenFee(eng, to, tv[i].Value)
 			if destructGas, overflow = math.SafeAdd(destructGas, fee); overflow {
 				return 0, errGasUintOverflow
 			}
@@ -1581,19 +1568,6 @@ func gasFee(eng *vm.Engine, toAddr common.Address, val *big.Int) uint64 {
 		fee = types.CalNewAmountGas(val, types.EverContractLiankeFee)
 	} else {
 		fee = types.CalNewAmountGas(val, types.EverLiankeFee)
-	}
-	return fee
-}
-
-func gasTokenFee(eng *vm.Engine, toAddr common.Address, val *big.Int) uint64 {
-	if val.Sign() == 0 {
-		return 0
-	}
-	var fee uint64
-	if eng.State.GetContractCode(toAddr.Bytes()) != nil {
-		fee = 0
-	} else {
-		fee = uint64(types.MinGasLimit)
 	}
 	return fee
 }

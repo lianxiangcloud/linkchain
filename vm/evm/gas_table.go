@@ -444,11 +444,6 @@ func gasSuicide(gt cfg.GasTable, evm *EVM, contract *Contract, stack *Stack, mem
 			if gas, overflow = math.SafeAdd(gas, fee); overflow {
 				return 0, errGasUintOverflow
 			}
-		} else {
-			fee := gasTokenFee(evm, to, tvs[i].Value)
-			if gas, overflow = math.SafeAdd(gas, fee); overflow {
-				return 0, errGasUintOverflow
-			}
 		}
 	}
 	if gas > 0 {
@@ -501,11 +496,6 @@ func gasTransferToken(gt cfg.GasTable, evm *EVM, contract *Contract, stack *Stac
 	var fee uint64
 	if common.IsLKC(token) {
 		fee = gasFee(evm, to, amount)
-		if gas, overflow = math.SafeAdd(gas, fee); overflow {
-			return 0, errGasUintOverflow
-		}
-	} else {
-		fee = gasTokenFee(evm, to, amount)
 		if gas, overflow = math.SafeAdd(gas, fee); overflow {
 			return 0, errGasUintOverflow
 		}
@@ -579,19 +569,6 @@ func gasFee(evm *EVM, toAddr common.Address, val *big.Int) uint64 {
 		fee = types.CalNewAmountGas(val, types.EverLiankeFee)
 	} else {
 		fee = types.CalNewAmountGas(val, types.EverContractLiankeFee)
-	}
-	return fee
-}
-
-func gasTokenFee(evm *EVM, toAddr common.Address, val *big.Int) uint64 {
-	if val.Sign() <= 0 {
-		return 0
-	}
-	var fee uint64
-	if evm.StateDB.IsContract(toAddr) {
-		fee = 0
-	} else {
-		fee = uint64(types.MinGasLimit)
 	}
 	return fee
 }
