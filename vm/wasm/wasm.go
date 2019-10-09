@@ -471,12 +471,12 @@ func (wasm *WASM) Create(c types.ContractRef, data []byte, gas uint64, value *bi
 		return nil, common.EmptyAddress, gas, fmt.Errorf("Invalid InitArgs Length for Contract Init Function")
 	}
 
-	// Ensure there's no existing contract already at the designated address
+	contractAddr = crypto.CreateAddress(caller.Address(), wasm.StateDB.GetNonce(caller.Address()), code)
+
 	nonce := wasm.StateDB.GetNonce(caller.Address())
 	wasm.StateDB.SetNonce(caller.Address(), nonce+1)
 
-	contractAddr = crypto.CreateAddress(caller.Address(), wasm.Nonce, code)
-
+	// Ensure there's no existing contract already at the designated address
 	contractHash := wasm.StateDB.GetCodeHash(contractAddr)
 	if wasm.StateDB.GetNonce(contractAddr) != 0 || (contractHash != common.EmptyHash && contractHash != emptyCodeHash) {
 		return nil, common.EmptyAddress, 0, vm.ErrContractAddressCollision
