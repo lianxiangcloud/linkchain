@@ -122,7 +122,7 @@ func (tx *ContractCreateTx) txType() SupportType {
 //IMessage
 func (tx *ContractCreateTx) TokenAddress() common.Address { return common.EmptyAddress }
 func (tx *ContractCreateTx) Data() []byte                 { return common.CopyBytes(tx.Payload) }
-func (tx *ContractCreateTx) Gas() uint64                  { return ParGasLimit * 1000 }
+func (tx *ContractCreateTx) Gas() uint64                  { return uint64(MaxGasLimit) * 2 }
 func (tx *ContractCreateTx) GasPrice() *big.Int           { return new(big.Int).SetInt64(ParGasPrice) }
 func (tx *ContractCreateTx) Value() *big.Int              { return new(big.Int).Set(tx.Amount) }
 func (tx *ContractCreateTx) Nonce() uint64                { return tx.ContractCreateMainInfo.AccountNonce }
