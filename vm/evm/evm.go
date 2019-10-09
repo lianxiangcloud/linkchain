@@ -532,11 +532,11 @@ func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64,
 	if !evm.CanTransfer(evm.StateDB, caller.Address(), common.EmptyAddress, value) {
 		return nil, common.EmptyAddress, gas, ErrInsufficientBalance
 	}
-	// Ensure there's no existing contract already at the designated address
+
 	nonce := evm.StateDB.GetNonce(caller.Address())
 	evm.StateDB.SetNonce(caller.Address(), nonce+1)
 
-	contractAddr = crypto.CreateAddress(caller.Address(), evm.Nonce, codeAndHash.code)
+	// Ensure there's no existing contract already at the designated address
 	contractHash := evm.StateDB.GetCodeHash(contractAddr)
 	if evm.StateDB.GetNonce(contractAddr) != 0 || (contractHash != common.EmptyHash && contractHash != emptyCodeHash) {
 		return nil, common.EmptyAddress, 0, ErrContractAddressCollision
@@ -605,7 +605,7 @@ func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64,
 func (evm *EVM) Create(c types.ContractRef, code []byte, gas uint64, value *big.Int) (ret []byte, contractAddr common.Address, leftOverGas uint64, err error) {
 
 	caller := c.(ContractRef)
-	contractAddr = crypto.CreateAddress(caller.Address(), evm.Nonce, code)
+	contractAddr = crypto.CreateAddress(caller.Address(), evm.StateDB.GetNonce(caller.Address()), code)
 
 	return evm.create(caller, &codeAndHash{code: code}, gas, value, contractAddr)
 }
