@@ -2,7 +2,6 @@ package bootnode
 
 import (
 	"math/rand"
-	"strings"
 	"sync"
 
 	"github.com/lianxiangcloud/linkchain/libs/log"
@@ -22,19 +21,14 @@ var (
 )
 
 //UpdateBootNode update MainnetBootnodes from bootnodeAddrs,bootnodeAddrs's format are like https://ip1:port1,https://ip2:port2
-func UpdateBootNode(bootnodeAddrs string, logger log.Logger) {
-	var bootNodes []string
-	endpoints := strings.Split(bootnodeAddrs, ",")
-	for i := 0; i < len(endpoints); i++ {
-		bootNodes = append(bootNodes, endpoints[i])
-	}
+func UpdateBootNode(bootNodes []string, logger log.Logger) {
 	if len(bootNodes) > 0 {
 		bootNodeLocker.Lock()
 		index = rand.Intn(len(bootNodes))
 		MainnetBootnodes = bootNodes
 		bootNodeLocker.Unlock()
 	}
-	logger.Info("UpdateBootNode", "index", index, "len(endpoints)", len(endpoints), "len(bootNodes)", len(bootNodes))
+	logger.Info("UpdateBootNode", "index", index, "len(bootNodes)", len(bootNodes))
 }
 
 func GetBootNodesNum() int {

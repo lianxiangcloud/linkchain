@@ -22,8 +22,10 @@ func AddNodeFlags(cmd *cobra.Command) {
 	cmd.Flags().String("log_dir", config.BaseConfig.LogPath, "log_dir")
 	cmd.Flags().Bool("test_net", config.BaseConfig.TestNet, "signparam will be set to 29154 if this flag is set")
 
-	cmd.Flags().String("daemon.peer_rpc", config.Daemon.PeerRPC, "peer rpc url")
+	cmd.Flags().StringSlice("daemon.peer_rpc", config.Daemon.PeerRPC, "peer rpc url")
 	cmd.Flags().Bool("daemon.sync_quick", config.Daemon.SyncQuick, "wallet sync block use quick api")
+	cmd.Flags().Bool("daemon.skip_verify", config.Daemon.SkipVerify, "set daemon skip verify https")
+	cmd.Flags().StringSlice("daemon.bootnode", config.Daemon.BootNode, "set daemon bootnode")
 	cmd.Flags().String("daemon.nc", config.Daemon.NC, "set daemon header nc")
 	cmd.Flags().String("daemon.origin", config.Daemon.Origin, "set daemon header origin")
 	cmd.Flags().String("daemon.appversion", config.Daemon.Appversion, "set daemon header appversion")

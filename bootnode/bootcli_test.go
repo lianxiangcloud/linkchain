@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/lianxiangcloud/linkchain/libs/log"
+	. "github.com/prashantv/gostub"
 )
 
 func TestParseResponse(t *testing.T) {
@@ -22,5 +23,17 @@ func TestParseResponse(t *testing.T) {
 	nodes := RapNodes(resp.Seeds, log.Test())
 	for _, n := range nodes {
 		t.Logf("%v", n)
+	}
+}
+
+func TestGetXroute(t *testing.T) {
+	stubs := Stub(&MainnetBootnodes, []string{"https://bootnode.lianxiangcloud.com"})
+	defer stubs.Reset()
+	xroute, err := GetXroute(log.Test())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, peer := range xroute {
+		t.Logf("%v", peer)
 	}
 }

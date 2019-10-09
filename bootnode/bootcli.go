@@ -35,6 +35,7 @@ const (
 	TCP            = "tcp"
 	RouteGetSeeds  = "api/bootnode"
 	RouteGetHeight = "api/height"
+	RouteGetXroute = "api/xroute"
 )
 
 type Rnode struct {
@@ -42,23 +43,29 @@ type Rnode struct {
 	Endpoint *Endpoint     `json:"endpoint,omitempty"`
 }
 
-type GeetSeedsReq struct {
+type getSeedsReq struct {
 	Time   int64  `json:"time"`
 	Sign   string `json:"sign"`
 	Pubkey string `json:"pubkey"`
 }
 
-type GeetSeedsResp struct {
+type getSeedsResp struct {
 	Code    int     `json:"code"` //0:success，other:failed
 	Message string  `json:"message"`
 	Type    int     `json:"type"` //The identity type of this node, reference NodeType
 	Seeds   []Rnode `json:"nodes"`
 }
 
-type GeetHeightResp struct {
+type getHeightResp struct {
 	Code    int    `json:"code"` //0:success，other:failed
 	Message string `json:"message"`
 	Height  uint64 `json:"height"`
+}
+
+type xrouteResp struct {
+	Code    int      `json:"code"` //0:success，other:failed
+	Message string   `json:"message"`
+	Xroute  []string `json:"xroute"`
 }
 
 func buildGetSeedsURL(url string) string {
@@ -67,6 +74,10 @@ func buildGetSeedsURL(url string) string {
 
 func buildGetCurrentHeight(url string) string {
 	return fmt.Sprintf("%s/%s", url, RouteGetHeight)
+}
+
+func buildGetXrouteURL(url string) string {
+	return fmt.Sprintf("%s/%s", url, RouteGetXroute)
 }
 
 func GetSeeds(bootSouce string, priv crypto.PrivKey, logger log.Logger) (nodes []*common.Node, localNodeType types.NodeType, err error) {
@@ -100,7 +111,7 @@ func getSeedsFromFile(bootSouce string, logger log.Logger) (nodes []*common.Node
 }
 
 func parseAccounts(data []byte, logger log.Logger) (nodes []*common.Node, localNodeType types.NodeType, err error) {
-	var resp GeetSeedsResp
+	var resp getSeedsResp
 	if err = json.Unmarshal(data, &resp); err != nil {
 		return
 	}
@@ -118,7 +129,7 @@ func GetSeedsFromBootSvr(bootSvr string, priv crypto.PrivKey, logger log.Logger)
 		return
 	}
 
-	postContent := GeetSeedsReq{
+	postContent := getSeedsReq{
 		Time:   timeNowSecond,
 		Sign:   hex.EncodeToString(sign.Bytes()),
 		Pubkey: hexutil.Encode(priv.PubKey().Bytes()),
@@ -141,7 +152,7 @@ func GetSeedsFromBootSvr(bootSvr string, priv crypto.PrivKey, logger log.Logger)
 		break
 	}
 
-	var resp GeetSeedsResp
+	var resp getSeedsResp
 	err = json.Unmarshal(respBytes, &resp)
 	if err != nil {
 		logger.Error("GetSeedsFromBootSvr", "Unmarshal err", err)
@@ -204,7 +215,7 @@ func GetCurrentHeightOfChain(logger log.Logger) (height uint64, err error) {
 		break
 	}
 
-	var resp GeetHeightResp
+	var resp getHeightResp
 	err = json.Unmarshal(respBytes, &resp)
 	if err != nil {
 		logger.Error("GetCurrentHeightOfChain", "Unmarshal err", err)
@@ -221,4 +232,37 @@ func GetLocalNodeType() types.NodeType {
 	nodeTypeLocker.RLock()
 	defer nodeTypeLocker.RUnlock()
 	return LocalNodeType
+}
+
+// GetXroute req xroute from bootnode, return xroute array
+func GetXroute(logger log.Logger) (xroute []string, err error) {
+	var respBytes []byte
+	var retry int
+	var bootNum = GetBootNodesNum()
+	bootSvr := GetBestBootNode()
+	for {
+		respBytes, err = HttpPost(buildGetXrouteURL(bootSvr), "")
+		if err != nil {
+			logger.Error("GetXroute", "retry", retry, "bootSvr", bootSvr, "HttpPost err", err)
+			bootSvr = GetBestBootNode()
+			retry++
+			if retry > bootNum {
+				return
+			}
+			continue
+		}
+		break
+	}
+
+	var resp xrouteResp
+	err = json.Unmarshal(respBytes, &resp)
+	if err != nil {
+		logger.Error("GetXroute", "Unmarshal err", err)
+		return
+	}
+	if resp.Code != Succ {
+		err = fmt.Errorf("GetXroute code:%v != success,Retmsg:%v", resp.Code, resp.Message)
+	}
+	xroute = resp.Xroute
+	return
 }
