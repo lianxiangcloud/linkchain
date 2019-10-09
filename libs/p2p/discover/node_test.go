@@ -5,6 +5,7 @@ import (
 
 	"fmt"
 
+	"github.com/lianxiangcloud/linkchain/libs/crypto"
 	common "github.com/lianxiangcloud/linkchain/libs/p2p/common"
 )
 
@@ -24,5 +25,26 @@ func TestNodeMarshal(t *testing.T) {
 	}
 	if id != id2 {
 		t.Fatalf("id:%v !=  id2:%v", id, id2)
+	}
+}
+
+func TestLogDist(t *testing.T) {
+	a := common.NodeID{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
+	b := common.NodeID{2, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
+	l := LogDist(a, b)
+	fmt.Printf("l:%d bucketMinDistance:%d\n", l, bucketMinDistance)
+}
+
+func TestRandLogDist(t *testing.T) {
+	for i := 0; i < 50; i++ {
+		priv1 := crypto.GenPrivKeyEd25519()
+		a := common.TransPubKeyToNodeID(priv1.PubKey())
+		priv2 := crypto.GenPrivKeyEd25519()
+		b := common.TransPubKeyToNodeID(priv2.PubKey())
+		l := LogDist(a, b)
+		if l < 250 {
+			fmt.Printf("i:%d a:%v b:%v\n", i, a, b)
+			fmt.Printf("l:%d bucketMinDistance:%d\n", l, bucketMinDistance)
+		}
 	}
 }

@@ -64,6 +64,10 @@ const (
 	seedMaxAge         = 5 * 24 * time.Hour
 )
 
+var (
+	MaxBucketSize = hashBits
+)
+
 // DhtTable is the 'node table', a Kademlia-like index of neighbor nodes. The table keeps
 // itself up-to-date by verifying the liveness of neighbors and requesting their node
 // records when announcements of a new record version are received.
@@ -175,6 +179,16 @@ func (tab *DhtTable) Start() {
 		return
 	}
 	go tab.loop()
+	tab.udpCon.start()
+}
+
+//Start start dht service
+func (tab *DhtTable) StartWithOutPing() {
+	tab.log.Info("DhtTable StartWithOutPing")
+	if tab == nil {
+		return
+	}
+	go tab.miniLoop()
 	tab.udpCon.start()
 }
 
@@ -293,7 +307,33 @@ func (tab *DhtTable) ReadRandomNodes(buf []*common.Node) (nodeNum int) {
 	return
 }
 
-func (tab *DhtTable) ReadNodesFromKbucket(buf []*common.Node) (nodeNum int) {
+func (tab *DhtTable) ReadAllNodesFromKbucket() (buckets [][]*node) {
+	if !tab.isInitDone() {
+		tab.log.Info("isInitDone not done")
+		return nil
+	}
+	buckets = tab.readAllNodesFromBucket()
+	return
+}
+
+func (tab *DhtTable) readAllNodesFromBucket() (buckets [][]*node) {
+	tab.mutex.Lock()
+	defer tab.mutex.Unlock()
+
+	// Find all non-empty buckets and get a fresh slice of their entries.
+	for _, b := range &tab.buckets {
+		if len(b.entries) > 0 {
+			buckets = append(buckets, b.entries)
+		}
+	}
+	if len(buckets) == 0 {
+		tab.log.Info("DhtTable len(buckets) = 0")
+		return nil
+	}
+	return buckets
+}
+
+func (tab *DhtTable) ReadRandNodesFromKbucket(buf []*common.Node) (nodeNum int) {
 	if !tab.isInitDone() {
 		tab.log.Info("isInitDone not done")
 		return 0
@@ -483,6 +523,60 @@ loop:
 	close(tab.closed)
 }
 
+// loop schedules runs of doRefresh, doRevalidate and copyLiveNodes.
+func (tab *DhtTable) miniLoop() {
+	tab.log.Debug("DhtTable loop2")
+	var (
+		revalidate     = time.NewTimer(tab.nextRevalidateTime())
+		refresh        = time.NewTicker(refreshInterval)
+		copyNodes      = time.NewTicker(copyNodesInterval)
+		refreshDone    = make(chan struct{})           // where doRefresh reports completion
+		revalidateDone chan struct{}                   // where doRevalidate reports completion
+		waiting        = []chan struct{}{tab.initDone} // holds waiting callers while doRefresh runs
+	)
+	defer refresh.Stop()
+	defer revalidate.Stop()
+	defer copyNodes.Stop()
+
+	// Start initial refresh.
+	go tab.doRefresh(refreshDone)
+loop:
+	for {
+		select {
+		case <-refresh.C:
+			tab.seedRand()
+			if refreshDone == nil {
+				refreshDone = make(chan struct{})
+				go tab.doRefresh(refreshDone)
+			}
+		case req := <-tab.refreshReq:
+			waiting = append(waiting, req)
+			if refreshDone == nil {
+				refreshDone = make(chan struct{})
+				go tab.doRefresh(refreshDone)
+			}
+		case <-refreshDone:
+			for _, ch := range waiting {
+				close(ch)
+			}
+			waiting, refreshDone = nil, nil
+		case <-tab.closeReq:
+			break loop
+		}
+	}
+
+	if refreshDone != nil {
+		<-refreshDone
+	}
+	for _, ch := range waiting {
+		close(ch)
+	}
+	if revalidateDone != nil {
+		<-revalidateDone
+	}
+	close(tab.closed)
+}
+
 // lookup performs a network search for nodes close to the given target. It approaches the
 // target by querying nodes that are closer to it on each iteration. The given target does
 // not need to be an actual node identifier.
@@ -616,7 +710,7 @@ func (tab *DhtTable) loadSeedNodes() {
 		}
 		err, _ := tab.ping(&seed.Node)
 		if err != nil {
-			tab.log.Debug("ping failed", "err", err, "id", seed.ID, "addr", seed.addr(), "tcpPort", seed.TCP_Port, "udpPort", seed.UDP_Port)
+			tab.log.Info("ping failed", "err", err, "id", seed.ID, "addr", seed.addr(), "tcpPort", seed.TCP_Port, "udpPort", seed.UDP_Port)
 			continue
 		}
 		tab.log.Trace("ping success", "id", seed.ID, "addr", seed.addr(), "tcpPort", seed.TCP_Port, "udpPort", seed.UDP_Port)
@@ -763,8 +857,8 @@ func (tab *DhtTable) addSeenNode(n *node) {
 		// Already in bucket, don't add.
 		return
 	}
-	if len(b.entries) >= bucketSize {
-		tab.log.Debug("len(b.entries) >= bucketSize", "len(b.entries)", len(b.entries))
+	if len(b.entries) >= MaxBucketSize {
+		tab.log.Debug("len(b.entries) >= MaxBucketSize", "len(b.entries)", len(b.entries))
 		// Bucket full, maybe add as replacement.
 		tab.addReplacement(b, n)
 		return
@@ -828,7 +922,7 @@ func (tab *DhtTable) addVerifiedNode(n *node) {
 		// Already in bucket, moved to front.
 		return
 	}
-	if len(b.entries) >= bucketSize {
+	if len(b.entries) >= MaxBucketSize {
 		// Bucket full, maybe add as replacement.
 		tab.addReplacement(b, n)
 		return
@@ -838,7 +932,7 @@ func (tab *DhtTable) addVerifiedNode(n *node) {
 		return
 	}
 	// Add to front of bucket.
-	b.entries, _ = pushNode(b.entries, n, bucketSize)
+	b.entries, _ = pushNode(b.entries, n, MaxBucketSize)
 	b.replacements = deleteNode(b.replacements, n)
 	n.addedAt = time.Now()
 	if tab.nodeAddedHook != nil {
