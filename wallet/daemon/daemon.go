@@ -9,20 +9,24 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"sync"
 	"time"
 
+	"github.com/lianxiangcloud/linkchain/bootnode"
 	"github.com/lianxiangcloud/linkchain/libs/log"
 	"github.com/lianxiangcloud/linkchain/wallet/config"
 )
 
 // client return a http client to peer rpc
 type client struct {
-	Addr          string
+	Addrs         []string
+	AddrIdx       int
 	HTTPClient    *http.Client
 	NC            string
 	Origin        string
 	Appversion    string
 	DaemonVersion string
+	lock          sync.Mutex
 }
 
 var gDaemonClient *client
@@ -33,18 +37,30 @@ const (
 )
 
 // InitClient init Client with config.DaemonConfig
-func InitClient(daemonConfig *config.DaemonConfig, walletVersion string) {
+func InitClient(daemonConfig *config.DaemonConfig, walletVersion string, logger log.Logger) {
 	gDaemonClient = &client{
-		Addr:          daemonConfig.PeerRPC,
+		Addrs:         daemonConfig.PeerRPC,
+		AddrIdx:       0,
 		NC:            daemonConfig.NC,
 		Origin:        daemonConfig.Origin,
 		Appversion:    daemonConfig.Appversion,
 		DaemonVersion: walletVersion,
 	}
 
+	if len(gDaemonClient.Addrs) == 0 {
+		xroute, err := bootnode.GetXroute(logger)
+		if err != nil {
+			panic(err)
+		}
+		if len(xroute) == 0 {
+			panic("bootnode.GetXroute len(xroute) == 0")
+		}
+		gDaemonClient.Addrs = xroute
+	}
+
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: false,
+			InsecureSkipVerify: daemonConfig.SkipVerify,
 		},
 		ResponseHeaderTimeout: 2 * time.Minute,
 		DisableCompression:    true,
@@ -62,6 +78,22 @@ func InitClient(daemonConfig *config.DaemonConfig, walletVersion string) {
 	}
 }
 
+// setNextAddr if http do fail,choose another one
+func setNextAddr() {
+	gDaemonClient.lock.Lock()
+	gDaemonClient.AddrIdx++
+	if gDaemonClient.AddrIdx >= len(gDaemonClient.Addrs) {
+		gDaemonClient.AddrIdx = 0
+	}
+	gDaemonClient.lock.Unlock()
+}
+
+func getAddr() string {
+	// gDaemonClient.lock.Lock()
+	return gDaemonClient.Addrs[gDaemonClient.AddrIdx]
+	// gDaemonClient.lock.Unlock()
+}
+
 // CallJSONRPC call  /json_rpc func
 // curl -X POST http://127.0.0.1:18081/json_rpc -d '{"jsonrpc":"2.0","id":"0","method":"get_block","params":{"height":912345}}' -H 'Content-Type: application/json'
 func CallJSONRPC(method string, params interface{}) ([]byte, error) {
@@ -70,7 +102,7 @@ func CallJSONRPC(method string, params interface{}) ([]byte, error) {
 		urlPath = method[4:]
 	}
 
-	url := fmt.Sprintf("%s/%s", gDaemonClient.Addr, urlPath)
+	url := fmt.Sprintf("%s/%s", getAddr(), urlPath)
 
 	requestData := make(map[string]interface{})
 
@@ -99,6 +131,7 @@ func CallJSONRPC(method string, params interface{}) ([]byte, error) {
 	resp, err := client.Do(req)
 	if err != nil {
 		// log.Error("CallJSONRPC client.Do", "err", err)
+		setNextAddr()
 		return nil, fmt.Errorf("client.Do: %v", err)
 	}
 	defer resp.Body.Close()

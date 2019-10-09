@@ -3,6 +3,7 @@ package node
 import (
 	"github.com/lianxiangcloud/linkchain/accounts"
 	"github.com/lianxiangcloud/linkchain/accounts/keystore"
+	"github.com/lianxiangcloud/linkchain/bootnode"
 	cmn "github.com/lianxiangcloud/linkchain/libs/common"
 	dbm "github.com/lianxiangcloud/linkchain/libs/db"
 	"github.com/lianxiangcloud/linkchain/libs/log"
@@ -54,8 +55,11 @@ func makeAccountManager(config *cfg.Config) (*accounts.Manager, error) {
 func NewNode(config *cfg.Config, logger log.Logger, dbProvider DBProvider) (*Node, error) {
 	// logger.With("module", "node")
 	// logger.Info("DefaultNewNode", "conf", *config)
+	if len(config.Daemon.BootNode) != 0 {
+		bootnode.UpdateBootNode(config.Daemon.BootNode, logger)
+	}
 	// init daemon
-	daemon.InitClient(config.Daemon, wallet.WalletVersion)
+	daemon.InitClient(config.Daemon, wallet.WalletVersion, logger)
 
 	// init db
 	walletDB, err := dbProvider(&DBContext{"wallet", config})

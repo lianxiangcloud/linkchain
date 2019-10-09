@@ -56,7 +56,7 @@ func AddNodeFlags(cmd *cobra.Command) {
 	cmd.Flags().Uint64("clear_data_interval", config.BaseConfig.ClearDataInterval, "number of seconds between two startup cleanups")
 	cmd.Flags().Bool("save_balance_record", config.BaseConfig.SaveBalanceRecord, "open transactions record storage")
 	//bootnode
-	cmd.Flags().String("bootnode.addrs", config.BootNodeSvr.Addrs, "Addr or filepath of the bootnode")
+	cmd.Flags().StringSlice("bootnode.addrs", config.BootNodeSvr.Addrs, "Addr or filepath of the bootnode")
 }
 
 // NewRunNodeCmd returns the command that allows the CLI to start a node.

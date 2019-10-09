@@ -22,9 +22,10 @@ import (
 func TestCallJSONRPC(t *testing.T) {
 	defer gock.Off()
 	config := cfg.DefaultConfig()
-	config.Daemon.PeerRPC = "http://127.0.0.1:15000"
+	config.Daemon.PeerRPC = []string{"http://127.0.0.1:15000"}
+	config.Daemon.SkipVerify = true
 
-	InitDaemonClient(config.Daemon)
+	InitClient(config.Daemon, "0.1.1", log.TestingLogger())
 	log.ParseLogLevel("*:error", log.Root(), "info")
 
 	host := "http://127.0.0.1:15000/blockNumber"
@@ -40,11 +41,13 @@ func TestCallJSONRPC(t *testing.T) {
 			gock.New(host).
 				// Post("").
 				MatchType(matchType).
-				BodyString(bodyOK).
+				// BodyString(bodyOK).
 				Reply(replyOK).
 				BodyString(bodyReturnOK)
 
-			gock.InterceptClient(gDaemonClient.HttpClient)
+			gock.InterceptClient(gDaemonClient.HTTPClient)
+
+			log.Debug("TestCallJSONRPC", "host", host, "body", bodyOK)
 
 			p := make([]interface{}, 0)
 			body, err := CallJSONRPC("eth_blockNumber", p)
@@ -57,25 +60,26 @@ func TestCallJSONRPC(t *testing.T) {
 			gock.New(host).
 				// Post("").
 				MatchType(matchType).
-				BodyString(bodyOK).
+				// BodyString(bodyOK).
 				Reply(replyServerErr).
 				BodyString(bodyReturnOK)
 
-			gock.InterceptClient(gDaemonClient.HttpClient)
+			gock.InterceptClient(gDaemonClient.HTTPClient)
 
 			p := make([]interface{}, 0)
-			_, err := CallJSONRPC("eth_blockNumber", p)
+			body, err := CallJSONRPC("eth_blockNumber", p)
+			log.Debug("TestCallJSONRPC", "body", string(body), "err", err)
 			So(err != nil, ShouldBeTrue)
 		})
 		Convey("http status 404", func() {
 			gock.New(host).
 				// Post("").
 				MatchType(matchType).
-				BodyString(bodyOK).
+				// BodyString(bodyOK).
 				Reply(replyNotFound).
 				BodyString(bodyReturnOK)
 
-			gock.InterceptClient(gDaemonClient.HttpClient)
+			gock.InterceptClient(gDaemonClient.HTTPClient)
 
 			p := make([]interface{}, 0)
 			_, err := CallJSONRPC("eth_blockNumber", p)
@@ -85,11 +89,11 @@ func TestCallJSONRPC(t *testing.T) {
 			gock.New(host).
 				// Post("").
 				MatchType(matchType).
-				BodyString(bodyOK).
+				// BodyString(bodyOK).
 				Reply(replyOK).
 				BodyString(bodyReturnOK)
 
-			client := gDaemonClient.HttpClient
+			client := gDaemonClient.HTTPClient
 
 			guard := PatchInstanceMethod(reflect.TypeOf(client), "Do", func(*http.Client, *http.Request) (*http.Response, error) {
 				return nil, fmt.Errorf("client do err")
@@ -106,11 +110,11 @@ func TestCallJSONRPC(t *testing.T) {
 			gock.New(host).
 				// Post("").
 				MatchType(matchType).
-				BodyString(bodyOK).
+				// BodyString(bodyOK).
 				Reply(replyOK).
 				BodyString(bodyReturnOK)
 
-			client := gDaemonClient.HttpClient
+			client := gDaemonClient.HTTPClient
 
 			guard := Patch(ioutil.ReadAll, func(r io.Reader) ([]byte, error) {
 				return nil, fmt.Errorf("ioutil.ReadAll err")
@@ -127,11 +131,11 @@ func TestCallJSONRPC(t *testing.T) {
 			gock.New(host).
 				// Post("").
 				MatchType(matchType).
-				BodyString(bodyOK).
+				// BodyString(bodyOK).
 				Reply(replyOK).
 				BodyString(bodyReturnOK)
 
-			client := gDaemonClient.HttpClient
+			client := gDaemonClient.HTTPClient
 
 			guard := Patch(http.NewRequest, func(method, url string, body io.Reader) (*http.Request, error) {
 				return nil, fmt.Errorf("http.NewRequest err")
@@ -149,11 +153,11 @@ func TestCallJSONRPC(t *testing.T) {
 			gock.New(host).
 				// Post("").
 				MatchType(matchType).
-				BodyString(bodyOK).
+				// BodyString(bodyOK).
 				Reply(replyOK).
 				BodyString(bodyReturnOK)
 
-			client := gDaemonClient.HttpClient
+			client := gDaemonClient.HTTPClient
 
 			guard := Patch(json.Marshal, func(v interface{}) ([]byte, error) {
 				return nil, fmt.Errorf("json.Marshal err")
