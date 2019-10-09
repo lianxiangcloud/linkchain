@@ -6,6 +6,7 @@ import (
 	"math/big"
 
 	"github.com/lianxiangcloud/linkchain/libs/common"
+	"github.com/lianxiangcloud/linkchain/libs/hexutil"
 	"github.com/lianxiangcloud/linkchain/libs/log"
 	"github.com/lianxiangcloud/linkchain/libs/rpc"
 	"github.com/lianxiangcloud/linkchain/libs/ser"
@@ -321,7 +322,7 @@ func (ps *PubsubApi) LogsSubscribe(ctx context.Context, crit filters.FilterCrite
 			select {
 			case ev := <-logsCh:
 				logs := ev.(types.EventDataLog).Logs
-				logs = filterLogs(logs, crit.FromBlock, crit.ToBlock, crit.Addresses, crit.Topics)
+				logs = filterLogs(logs, crit.FromBlock.ToInt(), crit.ToBlock.ToInt(), crit.Addresses, crit.Topics)
 				for _, l := range logs {
 					notifier.Notify(subscription.ID, l)
 					log.Info("rpc: notify success", "suber", suberName, "log", l)
@@ -348,15 +349,15 @@ func (ps *PubsubApi) LogsSubscribe(ctx context.Context, crit filters.FilterCrite
 func (ps *PubsubApi) GetLogs(ctx context.Context, crit filters.FilterCriteria) ([]*types.Log, error) {
 	// Convert the RPC block numbers into internal representations
 	if crit.FromBlock == nil {
-		crit.FromBlock = big.NewInt(rpc.LatestBlockNumber.Int64())
+		crit.FromBlock = (*hexutil.Big)(big.NewInt(rpc.LatestBlockNumber.Int64()))
 	}
 	if crit.ToBlock == nil {
-		crit.ToBlock = big.NewInt(rpc.LatestBlockNumber.Int64())
+		crit.ToBlock = (*hexutil.Big)(big.NewInt(rpc.LatestBlockNumber.Int64()))
 	}
 	log.Trace("rpc GetLogs:", "crit", crit.String())
 
 	// Create and run the filter to get all the logs
-	filter := filters.New(ps.backend(), crit.FromBlock.Int64(), crit.ToBlock.Int64(), crit.Addresses, crit.Topics)
+	filter := filters.New(ps.backend(), crit.FromBlock.ToInt().Int64(), crit.ToBlock.ToInt().Int64(), crit.Addresses, crit.Topics)
 
 	logs, err := filter.Logs(ctx)
 	if err != nil {

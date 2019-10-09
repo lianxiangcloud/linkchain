@@ -40,8 +40,8 @@ type Backend interface {
 
 // FilterCriteria represents a request to create a new filter.
 type FilterCriteria struct {
-	FromBlock *big.Int         `json:"from"`
-	ToBlock   *big.Int         `json:"to"`
+	FromBlock *hexutil.Big     `json:"fromBlock"`
+	ToBlock   *hexutil.Big     `json:"toBlock"`
 	Addresses []common.Address `json:"addrs" gencodec:"required"`
 	Topics    [][]common.Hash  `json:"topics" gencodec:"required"`
 }
