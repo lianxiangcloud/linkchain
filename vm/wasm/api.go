@@ -1454,7 +1454,7 @@ func (t *TCCallContract) Gas(index int64, ops interface{}, args []uint64) (uint6
 	return gasCallContract(eng, index, args)
 }
 
-// char * TC_CallContract(char *app, char *action. char *arg)
+// char * TC_CallContract(char *app, char *action. char *arg, char *amount)
 func tcCallContract(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 	if len(args) < 2 {
 		return 0, vm.ErrAppInput
@@ -1470,38 +1470,79 @@ func tcCallContract(eng *vm.Engine, index int64, args []uint64) (uint64, error) 
 	if err != nil {
 		return 0, err
 	}
+	if !common.IsHexAddress(string(appName)) {
+		return 0, fmt.Errorf("%s is not a address", appName)
+	}
 	action, err := vmem.GetString(args[1])
 	if err != nil {
 		return 0, err
 	}
 
 	var params []byte
-	if len(args) == 3 {
+	if len(args) >= 3 {
 		params, err = vmem.GetString(args[2])
 		if err != nil {
 			return 0, err
 		}
 	}
 
+	var val *big.Int
+	if len(args) >= 4 {
+		valTmp, err := vmem.GetString(args[3])
+		if err != nil {
+			return 0, vm.ErrInvalidApiArgs
+		}
+		if len(valTmp) > 0 {
+			var ok bool
+			val, ok = big.NewInt(0).SetString(string(valTmp), 0)
+			if !ok || val.Sign() < 0 {
+				return 0, vm.ErrInvalidApiArgs
+			}
+		}
+	}
+
+	// get start index of otxs
+	mWasm, ok := eng.Ctx.(*WASM)
+	if !ok {
+		eng.Logger().Error("TC_CallContract get WASM failed")
+		return 0, fmt.Errorf("TC_CallContract get WASM failed")
+	}
+	startTxRecordsIndex := len(mWasm.otxs)
+
+	if val != nil && val.Sign() > 0 {
+		from := common.BytesToAddress(eng.Contract.Address().Bytes())
+		to := common.HexToAddress(string(appName))
+		eng.Logger().Debug("[Engine] TC_CallContract", "from", from.String(), "to", to.String(), "val", val)
+		mState := eng.State.(types.StateDB)
+		if mState.GetBalance(from).Cmp(val) < 0 {
+			return 0, vm.ErrBalanceNotEnough
+		}
+		mState.SubBalance(from, val)
+		mState.AddBalance(to, val)
+
+		mWasm.otxs = append(mWasm.otxs,
+			types.GenBalanceRecord(from, to, types.AccountAddress, types.AccountAddress, types.TxContract, common.EmptyAddress, val))
+	}
+
 	toFrame, err := eng.NewApp(string(appName), nil, false)
-	if err != nil {
-		return 0, err
+	if err != nil || len(action) == 0 {
+		if val == nil {
+			return 0, err
+		} else {
+			return 0, nil
+		}
 	}
 	preContract := eng.Contract
-	//callContract not support transfer
-	eng.Contract = vm.NewContractInner(preContract, vm.AccountRef(common.HexToAddress(string(appName))), big.NewInt(0), eng.Gas())
+	if val == nil {
+		val = big.NewInt(0)
+	}
+	eng.Contract = vm.NewContractInner(preContract, vm.AccountRef(common.HexToAddress(string(appName))), val, eng.Gas())
 	eng.Contract.Input = make([]byte, len(action)+len(params)+1)
 	copy(eng.Contract.Input[0:], action)
 	copy(eng.Contract.Input[len(action):], []byte{'|'})
 	copy(eng.Contract.Input[1+len(action):], params)
 	eng.Logger().Debug("[Engine] TC_CallContract", "app", string(appName), "action", string(action), "params", string(params))
 
-	// get start index of otxs
-	mWasm, ok := eng.Ctx.(*WASM)
-	if !ok {
-		eng.Logger().Error("TC_CallContract get WASM failed")
-	}
-	startTxRecordsIndex := len(mWasm.otxs)
 	retPointer, err := eng.Run(toFrame, eng.Contract.Input)
 	if err != nil {
 		// remove transaction records
@@ -1529,15 +1570,55 @@ func tcCallContract(eng *vm.Engine, index int64, args []uint64) (uint64, error) 
 func gasCallContract(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 	app, _ := eng.RunningAppFrame()
 	vmem := app.VM.VMemory()
+	toTmp, err := vmem.GetString(args[0])
+	if err != nil || !common.IsHexAddress(string(toTmp)) {
+		return 0, vm.ErrInvalidApiArgs
+	}
+	to := common.HexToAddress(string(toTmp))
 	actionLen, err := vmem.Strlen(args[1])
 	if err != nil {
 		return 0, err
 	}
 	paramLen := 0
-	if len(args) == 3 {
+	if len(args) >= 3 {
 		paramLen, err = vmem.Strlen(args[2])
 		if err != nil {
 			return 0, err
+		}
+	}
+	var val *big.Int
+	if len(args) >= 4  {
+		valTmp, err := vmem.GetString(args[3])
+		if err != nil {
+			return 0, err
+		}
+		if len(valTmp) > 0 {
+			var ok bool
+			val, ok = big.NewInt(0).SetString(string(valTmp), 0)
+			if !ok || val.Sign() < 0 {
+				return 0, vm.ErrInvalidApiArgs
+			}
+		}
+	}
+	transferGas := uint64(0)
+	if val != nil && val.Sign() >= 0 {
+		transferGas, err = vm.GasTransfer(eng, index, args)
+		if err != nil {
+			return 0, err
+		}
+		var overflow bool
+		fee := gasFee(eng, to, val)
+		if transferGas, overflow = math.SafeAdd(transferGas, fee); overflow {
+			return 0, errGasUintOverflow
+		}
+		eng.AddFee(fee)
+
+		code := eng.State.GetContractCode(to.Bytes())
+		if len(code) == 0 && eng.AppByName(string(toTmp)) == nil {
+			return transferGas, nil
+		}
+		if actionLen == 0 {
+			return transferGas, nil
 		}
 	}
 	dataLen := actionLen + paramLen
@@ -1547,6 +1628,9 @@ func gasCallContract(eng *vm.Engine, index int64, args []uint64) (uint64, error)
 		return 0, vm.ErrGasOverflow
 	}
 	if gas, overflow = vm.SafeAdd(gas, wordGas); overflow {
+		return 0, vm.ErrGasOverflow
+	}
+	if gas, overflow = vm.SafeAdd(gas, transferGas); overflow {
 		return 0, vm.ErrGasOverflow
 	}
 
