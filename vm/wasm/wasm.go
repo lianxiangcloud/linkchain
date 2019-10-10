@@ -67,7 +67,6 @@ type Context struct {
 	Difficulty  *big.Int       // Provides information for DIFFICULTY
 
 	WasmGasRate uint64
-	Nonce       uint64
 }
 
 // NewWASMContext creates a new context for use in the WASM.
@@ -91,7 +90,6 @@ func NewWASMContext(header *types.Header, chain ChainContext, author *common.Add
 		Difficulty:     new(big.Int).Set(defaultDifficulty),
 		GasLimit:       header.GasLimit,
 		WasmGasRate:    gasRate,
-		Nonce:          0,
 	}
 
 	return ctx
@@ -232,8 +230,6 @@ func (wasm *WASM) Reset(msg types.Message) {
 	wasm.Context.Origin = msg.MsgFrom()                      //origin
 	wasm.Context.GasPrice = new(big.Int).Set(msg.GasPrice()) //gasPrice
 	wasm.Context.Token = common.EmptyAddress
-	wasm.Context.Nonce = msg.Nonce() //nonce
-
 	wasm.otxs = make([]types.BalanceRecord, 0)
 }
 
