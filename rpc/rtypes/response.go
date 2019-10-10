@@ -276,28 +276,30 @@ func NewRPCBlock(b *types.Block, inclTx bool, fullTx bool) *RPCBlock {
 	return block
 }
 
+type RPCBlockUTXO struct {
+	Height          hexutil.Uint64   `json:"number"`
+	Hash            *common.Hash     `json:"hash"`
+	Time            hexutil.Uint64   `json:"timestamp"`
+	ParentHash      common.Hash      `json:"parentHash"`
+	Txs             Txs              `json:"transactions"`
+	TokenOutputSeqs map[string]int64 `json:"token_output_seqs"`
+}
+
 // NewRPCBlockUTXO converts the given block to the RPC output which depends on fullTx. If inclTx is true transactions are
 // returned. When fullTx is true the returned block contains full transaction details, otherwise it will only contain
 // transaction hashes.
 // only return utxo txs.
-func NewRPCBlockUTXO(b *types.Block, inclTx bool, fullTx bool, tokenOutputSeqs map[string]int64) *RPCBlock {
+func NewRPCBlockUTXO(b *types.Block, inclTx bool, fullTx bool, tokenOutputSeqs map[string]int64) *RPCBlockUTXO {
 	if b == nil || b.Header == nil {
 		return nil
 	}
-	head := b.Header // copies the header once
+
 	hash := b.Hash()
-	block := &RPCBlock{
-		Height:          (*hexutil.Big)(big.NewInt(int64(head.Height))),
+	block := &RPCBlockUTXO{
+		Height:          hexutil.Uint64(b.Header.Height),
 		Hash:            &hash,
-		Coinbase:        &head.Coinbase,
-		Time:            (*hexutil.Big)(big.NewInt(int64(head.Time))),
-		ParentHash:      head.ParentHash,
-		DataHash:        head.DataHash,
-		StateHash:       b.StateHash,
-		ReceiptHash:     head.ReceiptHash,
-		GasLimit:        hexutil.Uint64(head.GasLimit),
-		GasUsed:         hexutil.Uint64(head.GasUsed),
-		Bloom:           head.Bloom(),
+		Time:            hexutil.Uint64(b.Header.Time),
+		ParentHash:      b.Header.ParentHash,
 		TokenOutputSeqs: tokenOutputSeqs,
 	}
 
@@ -324,7 +326,6 @@ func NewRPCBlockUTXO(b *types.Block, inclTx bool, fullTx bool, tokenOutputSeqs m
 			}
 		default:
 		}
-
 	}
 	block.Txs = transactions
 
