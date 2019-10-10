@@ -41,6 +41,7 @@
         - [ltk_getTransactionReceipt](#ltk_gettransactionreceipt)
         - [ltk_estimateGas](#ltk_estimategas)
         - [ltk_signTransaction](#ltk_signtransaction)
+        - [ltk_signHash](#ltk_signHash)
         - [ltk_sendRawTransaction](#ltk_sendrawtransaction)
         - [ltk_sendRawUTXOTransaction](#ltk_sendrawutxotransaction)
         - [ltk_getLocalUTXOTxsByHeight](#ltk_getlocalutxotxsbyheight)
@@ -394,6 +395,25 @@ curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"l
 #utxo 转 多utxo
 curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"ltk_signUTXOTransaction","params":[{"subaddrs":[0],"dests":[{"addr":"oRWauC7hnjcupPN2UMzT3fTVpv99jv2ZEmr4QV6kYjG8XaeWHTNBRXeQq2yeEHgbm85Zqu6DBjTLYZxPEJUwRugrgeUkyY","amount":"0x4563918244f40000"},{"addr":"bwcJ9V3z7uW1fbYm2L6HuCGiuaTSVr5dq7ir49ViFBNeYYQqMuUM6S16aWKz4HmGRFGDb5RnfVBv7uGeySjkzUkmEbGKRN","amount":"0x4563918244f40000"}]}]}' -H 'Content-Type: application/json'|json_pp
 ```
+
+### ltk_signHash
+功能：通过钱包对hash值进行签名
+参数：
+address 解锁的钱包账户
+hash hash数据
+返回：
+签名后的signature
+示例：
+```shell
+curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","method":"ltk_signHash","params":["0xa73810e519e1075010678d706533486d8ecc8000","0xb7804371ebae4e9dc99e306e835f96f7056f87c0178730bbdb86e7b0a1ea6717"],"id":67}' -H 'Content-Type:application/json' |json_pp
+{
+	"id" : 67,
+	"jsonrpc" : "2.0",
+	"result" : "0xe3f70a209f0b38c06d26333915acc705561e1fc0a7b088e22470ff134fe61a312a6f594a320bd15c355bcae57fd9892cad04eeba2b51d09646daab5596d1465700"
+}
+```
+	
+
 
 ### ltk_sendUTXOTransaction
 
