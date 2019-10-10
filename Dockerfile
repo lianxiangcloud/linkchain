@@ -1,5 +1,5 @@
 # builder stage
-FROM centos:7 as builder
+FROM centos:7 
 
 ENV PATH=${PATH}:/usr/local/go/bin \
     CGO_LDFLAGS=-L/usr/local/lklibs/ \
