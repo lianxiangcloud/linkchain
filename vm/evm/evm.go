@@ -533,8 +533,10 @@ func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64,
 		return nil, common.EmptyAddress, gas, ErrInsufficientBalance
 	}
 
-	nonce := evm.StateDB.GetNonce(caller.Address())
-	evm.StateDB.SetNonce(caller.Address(), nonce+1)
+	if evm.depth != 0 {
+		nonce := evm.StateDB.GetNonce(caller.Address())
+		evm.StateDB.SetNonce(caller.Address(), nonce+1)
+	}
 
 	// Ensure there's no existing contract already at the designated address
 	contractHash := evm.StateDB.GetCodeHash(contractAddr)
@@ -626,9 +628,6 @@ func (evm *EVM) Interpreter() types.Interpreter { return evm.interpreter }
 
 func (evm *EVM) Upgrade(c types.ContractRef, contactAddr common.Address, code []byte) {
 	log.Error("evm should not support upgrade")
-	caller := c.(ContractRef)
-	nonce := evm.StateDB.GetNonce(caller.Address())
-	evm.StateDB.SetNonce(caller.Address(), nonce+1)
 }
 
 //Token

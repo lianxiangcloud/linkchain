@@ -448,8 +448,6 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, byteCodeG
 			log.Debug("contract Create, but this is from")
 		}
 	} else {
-		st.state.SetNonce(msg.MsgFrom(), st.state.GetNonce(sender.Address())+1)
-
 		var totalFee uint64
 		needRefund := true
 		isNewFeeRule := st.state.IsContract(*msg.To()) && msg.Value().Sign() > 0
@@ -490,6 +488,8 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, byteCodeG
 
 		log.Debug("contract Call", "st.gas", st.gas, "byteCodeGas", byteCodeGas, "vmerr", vmerr)
 	}
+	// set nonce MUST be processed after create/update contract
+	st.state.SetNonce(msg.MsgFrom(), st.state.GetNonce(sender.Address())+1)
 
 	if msg.To() != nil && !st.state.IsContract(*msg.To()) {
 		log.Debug("deduct all gas", "remainGas", st.gas, "gasLimit", msg.Gas(), "gasPrice", msg.GasPrice().String())
