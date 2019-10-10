@@ -3,9 +3,10 @@
 <!-- TOC -->
 
 - [编译运行享云链](#编译运行享云链)
-    - [创建本地数据目录](#创建本地数据目录)
-    - [获取编译镜像](#获取编译镜像)
-    - [编译可执行程序](#编译可执行程序)
+    - [克隆项目](#克隆项目)
+    - [进入项目目录](#进入项目目录)
+    - [构建镜像](#构建镜像)
+    - [启动容器](#启动容器)
     - [运行享云链节点](#运行享云链节点)
     - [测试模式运行单节点本地测试网络](#测试模式运行单节点本地测试网络)
     - [启动一个本地钱包](#启动一个本地钱包)
@@ -15,46 +16,39 @@
 
 本文档将介绍如何通过docker编译享云链节点源码，并启动一个享云链的peer节点，或者运行测试节点。
 
-## 创建本地数据目录
+## 克隆项目
 
-`mkdir -p ~/blockdata`
+`$ git clone https://github.com/lianxiangcloud/linkchain.git`
 
-## 获取编译镜像
+## 进入项目目录
 
-`$ docker run -dit -v ~/blockdata:/blockdata --name linkchain --net=host garrixwong/go1.12-boost-centos7:0.1.0`
+`$ cd linkchain`
+
+## 构建镜像
+
+`$ sudo docker image build -t lkbuilder .`
+构建镜像过程中，会默认执行一次项目编译
+
+构建成功后，可以查看到镜像信息  
 
 ```bash
-Unable to find image 'garrixwong/go1.12-boost-centos7:0.1.0' locally
-0.1.0: Pulling from garrixwong/go1.12-boost-centos7
-d8d02d457314: Already exists  
-ec488c4822b0: Pull complete  
-Digest: sha256:eb468b5c0615ead9329585c28f2f4beca0fc3a61a7650285e46c2c3ec3674f07
-Status: Downloaded newer image for garrixwong/go1.12-boost-centos7:0.1.0
-1461aaf1b2d6e9954909105d8faca90c2193b028cec30da0340cc21ad4fe73f2
+$ sudo docker images
+REPOSITORY                        TAG                 IMAGE ID            CREATED              SIZE
+lkbuilder                         latest              3e70915811c4        About a minute ago   2.24GB
 ```
 
-## 编译可执行程序
+## 启动容器
 
-进入docker容器内  
-`$ docker exec -it linkchain /bin/bash`
-
-创建目录软连接  
-`mkdir -p ~/blockdata && ln -s ~/blockdata /blockdata`
-
-进入源代码目录  
-`$ cd linkchain`
+`$ sudo docker run -ti lkbuilder`
 
 拉取最新代码  
 `$ git pull`
 
-设置环境变量  
-`$ export PATH=$PATH:/usr/local/go/bin && scl enable devtoolset-8 bash`
-
 执行编译打包  
 `$ ./build.sh`
 
-编译成功后在/linkchain/pack/lkchain/bin/目录能看到编译后的文件：  
-`$ ll /linkchain/pack/lkchain/bin/`
+编译成功后在/src/pack/lkchain/bin/目录能看到编译后的文件：  
+`$ ll /src/pack/lkchain/bin/`
 
 ```bash
 total 89668
@@ -62,7 +56,7 @@ total 89668
 ```
 
 查看查询后版本号  
-`/linkchain/pack/lkchain/bin/lkchain version`
+`$ /src/pack/lkchain/bin/lkchain version`
 
 ```bash
 linkchain version: 0.1.0, gitCommit:7f5d2a3e
@@ -71,27 +65,27 @@ linkchain version: 0.1.0, gitCommit:7f5d2a3e
 ## 运行享云链节点
 
 进入docker容器内  
-`$ docker exec -it linkchain /bin/bash`
+`$ sudo docker run -ti lkbuilder`
 
 进入启动脚本目录  
-`cd /linkchain/pack/lkchain/sbin`
+`$ cd /src/pack/lkchain/sbin`
 
 第一次运行节点，需要执行初始化  
-`./start.sh init`
+`$ ./start.sh init`
 
 启动节点  
-`./start.sh start`
+`$ ./start.sh start`
 
 暂停节点  
-`./start.sh stop`
+`$ ./start.sh stop`
 
 ## 测试模式运行单节点本地测试网络
 
 进入docker容器内  
-`$ docker exec -it linkchain /bin/bash`
+`$ sudo docker run -ti lkbuilder`
 
 初始化  
-`$ sh /linkchain/scripts/test_start.sh init test ~/blockdata/`
+`$ sh /src/scripts/test_start.sh init test ~/blockdata/`
 
 ```bash
 committee contract code nil!!!
@@ -102,7 +96,7 @@ genesisBlock ChainID:chainID block.Hash:0x26cb0291c88674df8614a93eb0e1b5e23b82e3
 ```
 
 启动节点：  
-`$ sh /linkchain/scripts/test_start.sh start test ~/blockdata/`
+`$ sh /src/scripts/test_start.sh start test ~/blockdata/`
 
 ```bash
 start lkchain ...
@@ -111,14 +105,14 @@ pid: 390
 
 测试RPC:
 
-`# curl -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":"0","method":"eth_blockNumber","params":[]}' http://127.0.0.1:11000`
+`$ curl -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":"0","method":"eth_blockNumber","params":[]}' http://127.0.0.1:11000`
 
 ```bash
 {"jsonrpc":"2.0","id":"0","result":"0x0"}
 ```
 
 查看Log:  
-`# tail ~/blockdata/test_logs/lkchain.log`
+`$ tail ~/blockdata/test_logs/lkchain.log`
 
 ```bash
 DEBUG 2019-08-27 03:04:44.797 status report                            module=mempool specGoodTxs=0 goodTxs=0 futureTxs=0
@@ -135,7 +129,7 @@ DEBUG 2019-08-27 03:04:50.822 Broadcasting proposal heartbeat message  module=co
 
 关闭节点:
 
-`# sh /linkchain/scripts/test_start.sh stop test`
+`$ sh /src/scripts/test_start.sh stop test`
 
 ```bash
 kill 390
@@ -143,10 +137,10 @@ kill 390
 
 ## 启动一个本地钱包
 
-`$ docker exec -it linkchain /bin/bash`
+`$ sudo docker run -ti lkbuilder`
 
 进入钱包启动脚本目录  
-`$ cd /linkchain/wallet/sbin`
+`$ cd /src/wallet/sbin`
 
 钱包默认连接本地的peer节点，如果上一步已经启动了一个本地的测试peer，那么现在可以直接启动钱包连接这个peer  
 
@@ -171,11 +165,11 @@ $ curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","method":"personal
 
 ## 运行多节点本地测试网络
 
-`$ docker exec -it linkchain /bin/bash`
+`$ sudo docker run -ti lkbuilder`
 
 初始化4个测试节点：
 
-`$ sh /linkchain/scripts/start_multi.sh init test /blockdata/ 4`
+`$ sh /src/scripts/start_multi.sh init test ~/blockdata/ 4`
 
 ```bash
 init nodeCount, 4
@@ -203,7 +197,7 @@ genesisBlock ChainID:chainID block.Hash:0x26cb0291c88674df8614a93eb0e1b5e23b82e3
 
 启动4个测试节点：
 
-`$ sh /linkchain/scripts/start_multi.sh start test /blockdata/ 4`
+`$ sh /src/scripts/start_multi.sh start test ~/blockdata/ 4`
 
 ```bash
 start nodeCount, 4
@@ -219,14 +213,14 @@ pid: 372
 
 测试RPC:
 
-`# curl -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":"0","method":"eth_blockNumber","params":[]}' http://127.0.0.1:11000`
+`$ curl -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":"0","method":"eth_blockNumber","params":[]}' http://127.0.0.1:11000`
 
 ```bash
 {"jsonrpc":"2.0","id":"0","result":"0x0"}
 ```
 
 查看第一个节点的Log:  
-`# tail /blockdata/_0/test_logs/lkchain.log`
+`$ tail ~/blockdata/_0/test_logs/lkchain.log`
 
 ```bash
 DEBUG 2019-08-27 03:04:44.797 status report                            module=mempool specGoodTxs=0 goodTxs=0 futureTxs=0
@@ -243,7 +237,7 @@ DEBUG 2019-08-27 03:04:50.822 Broadcasting proposal heartbeat message  module=co
 
 关闭节点:
 
-`# sh /linkchain/scripts/start_multi.sh stop test`
+`$ sh /src/scripts/start_multi.sh stop test`
 
 ```bash
 kill 355
