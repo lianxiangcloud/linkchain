@@ -85,6 +85,23 @@ func (s *PublicTransactionPoolAPI) sign(addr common.Address, tx types.Tx) (types
 	return tx1, nil
 }
 
+//SignHash is a rpc that signs a hash with the private key of the given address.
+func (s *PublicTransactionPoolAPI) SignHash(addr common.Address, hash common.Hash) (hexutil.Bytes, error) {
+	// Look up the wallet containing the requested signer
+	account := accounts.Account{Address: addr}
+
+	wallet, err := s.b.AccountManager().Find(account)
+	if err != nil {
+		return nil, wtypes.ErrAccountNotFound
+	}
+	// Request the wallet to sign the hash
+	tx1, err := wallet.SignHash(account, hash.Bytes())
+	if err != nil {
+		return nil, wtypes.ErrSignHash
+	}
+	return tx1, nil
+}
+
 func (s *PublicTransactionPoolAPI) SignTransaction(ctx context.Context, args rtypes.SendTxArgs) (*rtypes.SignTransactionResult, error) {
 	if args.Gas == nil {
 		//return nil, fmt.Errorf("gas not specified")
