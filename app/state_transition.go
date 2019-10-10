@@ -439,13 +439,6 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, byteCodeG
 					st.gas += totalFee
 				}
 			}
-		} else {
-			st.state.SetNonce(msg.MsgFrom(), st.state.GetNonce(sender.Address())+1)
-			st.state.SubTokenBalance(msg.MsgFrom(), msg.TokenAddress(), msg.Value())
-			br := types.GenBalanceRecord(msg.MsgFrom(), common.EmptyAddress, types.AccountAddress, types.NoAddress, types.TxTransfer, msg.TokenAddress(), msg.Value())
-			vmenv.AddOtx(br)
-
-			log.Debug("contract Create, but this is from")
 		}
 	} else {
 		var totalFee uint64

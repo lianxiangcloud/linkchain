@@ -78,7 +78,6 @@ type Context struct {
 	Difficulty  *big.Int       // Provides information for DIFFICULTY
 
 	EvmGasRate uint64
-	Nonce      uint64
 }
 
 // NewEVMContext creates a new context for use in the EVM.
@@ -102,7 +101,6 @@ func NewEVMContext(header *types.Header, chain ChainContext, author *common.Addr
 		Difficulty:     new(big.Int).Set(defaultDifficulty),
 		GasLimit:       header.GasLimit,
 		EvmGasRate:     gasRate,
-		Nonce:          0,
 	}
 
 	return ctx
@@ -231,7 +229,6 @@ func (evm *EVM) Reset(msg types.Message) {
 	evm.Context.Origin   = msg.MsgFrom()
 	evm.Context.GasPrice = new(big.Int).Set(msg.GasPrice())
 	evm.Context.Token    = msg.TokenAddress()
-	evm.Context.Nonce    = msg.Nonce()
 	evm.otxs             = make([]types.BalanceRecord, 0)
 	evm.fees             = make([]uint64, 0)
 	evm.refundFees       = make([]uint64, 0)
