@@ -61,11 +61,11 @@ func (s *PrivateAccountAPI) NewAccount(password string, cue string) (common.Addr
 	return common.EmptyAddress, types.ErrNewAccount
 }
 
-// NewAccount will create a new account and returns the address for the new account.
+// GetCue will return address cue.
 func (s *PrivateAccountAPI) GetCue(addr common.Address) (string, error) {
 	cue, err := fetchKeystore(s.am).GetCue(accounts.Account{Address: addr})
 	if err != nil {
-		return "", types.ErrInnerServer
+		return "", err
 	}
 	return cue, nil
 }
@@ -108,10 +108,7 @@ func (s *PrivateAccountAPI) UnlockAccount(addr common.Address, password string, 
 		}
 	}
 
-	if err != nil {
-		return false, types.ErrInnerServer
-	}
-	return true, nil
+	return err == nil, err
 }
 
 // LockAccount will lock the account associated with the given address when it's unlocked.

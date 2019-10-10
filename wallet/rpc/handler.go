@@ -10,6 +10,7 @@ import (
 
 	"github.com/lianxiangcloud/linkchain/libs/common"
 	"github.com/lianxiangcloud/linkchain/libs/crypto"
+	"github.com/lianxiangcloud/linkchain/libs/cryptonote/ringct"
 	lkctypes "github.com/lianxiangcloud/linkchain/libs/cryptonote/types"
 	"github.com/lianxiangcloud/linkchain/libs/cryptonote/xcrypto"
 	"github.com/lianxiangcloud/linkchain/libs/hexutil"
@@ -18,7 +19,6 @@ import (
 	"github.com/lianxiangcloud/linkchain/types"
 	wtypes "github.com/lianxiangcloud/linkchain/wallet/types"
 	"github.com/lianxiangcloud/linkchain/wallet/wallet"
-	"github.com/lianxiangcloud/linkchain/libs/cryptonote/ringct"
 )
 
 // PublicTransactionPoolAPI exposes methods for the RPC interface
@@ -42,9 +42,7 @@ func (s *PublicTransactionPoolAPI) signUTXOTransaction(ctx context.Context, args
 		return nil, wtypes.ErrUTXONotSupportToken
 	}
 	destsCnt := len(args.Dests)
-	// tosCnt := len(args.Tos)
 	if destsCnt == 0 {
-		//return nil, fmt.Errorf("need more dests")
 		return nil, wtypes.ErrArgsInvalid
 	}
 
@@ -60,7 +58,6 @@ func (s *PublicTransactionPoolAPI) signUTXOTransaction(ctx context.Context, args
 			// utxo address
 			addr, err := wallet.StrToAddress(args.Dests[i].Addr)
 			if err != nil {
-				//return nil, fmt.Errorf("error dests addr:%s", toAddress)
 				return nil, err
 			}
 
@@ -75,7 +72,6 @@ func (s *PublicTransactionPoolAPI) signUTXOTransaction(ctx context.Context, args
 			utxoDestsCnt++
 		} else {
 			if !common.IsHexAddress(toAddress) {
-				//return nil, fmt.Errorf("error dests addr:%s", toAddress)
 				return nil, wtypes.ErrArgsInvalid
 			}
 			if hasOneAccountOutput {
@@ -89,7 +85,6 @@ func (s *PublicTransactionPoolAPI) signUTXOTransaction(ctx context.Context, args
 
 	}
 	if args.From != common.EmptyAddress && hasOneAccountOutput {
-		//return nil, fmt.Errorf("not support tx type,input and output both has account address")
 		return nil, wtypes.ErrTxTypeNotSupport
 	}
 
@@ -375,7 +370,7 @@ func (s *PublicTransactionPoolAPI) CheckProofKey(ctx context.Context, args wtype
 					outAmountKeys := []lkctypes.Key{ecdh.Amount}
 					outMKeys := lkctypes.KeyV{lkctypes.Key(scalar)}
 					_, tCommits, _, err := ringct.ProveRangeBulletproof(outAmountKeys, outMKeys)
-					if err != nil || len(tCommits) != 1{
+					if err != nil || len(tCommits) != 1 {
 						return nil, wtypes.ErrTransInvalid
 					}
 					tMask, _ := ringct.Scalarmult8(tCommits[0])
