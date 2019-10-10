@@ -1,0 +1,22 @@
+#include "tcmethod.hpp"//声明合约方法
+#include "tcapi.hpp"//虚拟机API，TC_Payable
+#include <string>
+class CallTransfer : public TCBaseContract{ //TCBaseContract合约基类
+public:
+    const char* GiveMeMoney(char* message){      //合约类公有成员函数
+        TC_Payable(true);
+        tc::string result("message:");
+        result = result + message + " value:" + TC_GetMsgValue();
+        TC_Prints(result.c_str());
+        return NULL; //返回值s
+    }
+    const char* GiveYouMoney(char* address){      //合约类公有成员函数
+        TC_Payable(true);
+        tc::string result("address:");
+        result = result + address;
+        TC_Prints(result.c_str());
+        TC_CallContract(address, NULL, NULL, "555555555");
+        return NULL; //返回值s
+    }
+};
+TC_ABI(CallTransfer, (GiveMeMoney)(GiveYouMoney))		//TC_ABI声明合约外部接

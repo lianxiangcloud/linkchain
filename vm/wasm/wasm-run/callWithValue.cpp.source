@@ -1,0 +1,21 @@
+#include "tcmethod.hpp"//声明合约方法
+#include "tcapi.hpp"//虚拟机API，TC_Payable
+#include <string>
+class CallWithValue : public TCBaseContract{ //TCBaseContract合约基类
+public:
+    const char* GiveHerMoney(char* address, char* message, char* value){      //合约类公有成员函数
+        TC_Payable(true);
+        auto jsonRoot = TC_JsonNewObject();
+        TC_JsonPutString(jsonRoot, "0", message);
+        TC_CallContract(address, "GiveMeMoney", TC_JsonToString(jsonRoot), value);
+        return NULL;
+    }
+    const char* GiveHerNothing(char* address, char* message){      //合约类公有成员函数
+        TC_Payable(true);
+        auto jsonRoot = TC_JsonNewObject();
+        TC_JsonPutString(jsonRoot, "0", message);
+        TC_CallContract(address, "GiveMeMoney", TC_JsonToString(jsonRoot), NULL);
+        return NULL;
+    }
+};
+TC_ABI(CallWithValue, (GiveHerMoney)(GiveHerNothing))		//TC_ABI声明合约外部接
