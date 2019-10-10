@@ -473,9 +473,6 @@ func (wasm *WASM) Create(c types.ContractRef, data []byte, gas uint64, value *bi
 
 	contractAddr = crypto.CreateAddress(caller.Address(), wasm.StateDB.GetNonce(caller.Address()), code)
 
-	nonce := wasm.StateDB.GetNonce(caller.Address())
-	wasm.StateDB.SetNonce(caller.Address(), nonce+1)
-
 	// Ensure there's no existing contract already at the designated address
 	contractHash := wasm.StateDB.GetCodeHash(contractAddr)
 	if wasm.StateDB.GetNonce(contractAddr) != 0 || (contractHash != common.EmptyHash && contractHash != emptyCodeHash) {
@@ -547,7 +544,6 @@ func (wasm *WASM) Create(c types.ContractRef, data []byte, gas uint64, value *bi
 
 func (wasm *WASM) Upgrade(caller types.ContractRef, contractAddr common.Address, code []byte) {
 	wasm.StateDB.SetCode(contractAddr, code)
-	wasm.StateDB.SetNonce(wasm.Context.Origin, wasm.Context.Nonce+1)
 	vm.AppCache.Delete(contractAddr.String())
 }
 
