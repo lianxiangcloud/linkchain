@@ -222,6 +222,11 @@ func (u *UtxoStore) SaveUtxoOutputs(utxoOutputs []*types.UTXOOutputData) error {
 		u.logger.Error("SaveUtxoOutput db batch commit failed.", "err", err.Error())
 		return err
 	}
+	err = tokenBatch.Commit()
+	if err != nil {
+		u.logger.Error("SaveUtxoOutput db token batch commit failed.", "err", err.Error())
+		return err
+	}
 	// update maxUtxoOutputSeq
 	err = u.saveTokenUtxoOutputSeq(tmpTokenSeq)
 	if err != nil {

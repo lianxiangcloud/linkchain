@@ -720,7 +720,7 @@ func (m *Message) SetOutputData(outputs []OutputData) {
 
 //UTXOTransaction use TODO
 func (m *Message) From(tx Tx, state State) (common.Address, error) {
-	if (m.utxoKind&Ain) == Ain || len(m.accountOutputs) > 0 && state.IsContract(m.accountOutputs[0].To) {
+	if (m.utxoKind&Ain) == Ain || (len(m.accountOutputs) > 0 && state.IsContract(m.accountOutputs[0].To)) || (!common.IsLKC(m.TokenAddress())) {
 		var err error
 		m.from, err = tx.From()
 		return m.from, err
