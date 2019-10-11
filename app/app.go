@@ -486,16 +486,16 @@ func (app *LinkApplication) processBlock(block *types.Block, processResult *Proc
 		app.logger.Info("processHandle", "foundation_addr", config.ContractFoundationAddr.String(), "totalGasFee", totalGasFee.String())
 		processResult.tmpState.AddBalance(config.ContractFoundationAddr, totalGasFee)
 		if err := app.poceedHandle(wasm, block.Coinbase(), totalGasFee, app.logger); err != nil {
-			app.logger.Warn("processBlock: process failed when setPoceeds", "blockHash", block.Hash(), "err", err)
-			return
+			app.logger.Error("processBlock: process failed when setPoceeds", "blockHash", block.Hash(), "err", err)
+			//return
 		}
 	}
 
 	if block.Height%(10*app.lastCoe.VotePeriod) == 0 && len(app.lastTxsResult.Candidates) > 0 && app.awardHandle != nil {
 		app.logger.Info("awardHandle")
 		if err := app.awardHandle(wasm, app.logger); err != nil {
-			app.logger.Warn("processBlock: process failed when allocAward", "blockHash", block.Hash(), "err", err)
-			return
+			app.logger.Error("processBlock: process failed when allocAward", "blockHash", block.Hash(), "err", err)
+			//return
 		}
 	}
 
