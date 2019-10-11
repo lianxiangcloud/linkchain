@@ -306,7 +306,7 @@ func NewNode(config *cfg.Config,
 		return nil, err
 	}
 	p2pLogger := logger.With("module", "p2p")
-	localNodeInfo := MakeNodeInfo(status.ChainID, localNodeType, config.Moniker, config.RPC.HTTPEndpoint)
+	localNodeInfo := MakeNodeInfo(status.ChainID, localNodeType, config.Moniker, config.RPC.HTTPEndpoint, isTrie)
 	p2pmanager, err := p2p.NewP2pManager(p2pLogger, privValidator.GetPrikey(), config.P2P,
 		localNodeInfo, seeds, p2pDB)
 	if err != nil {
@@ -353,7 +353,7 @@ func NewNode(config *cfg.Config,
 	// Make BlockchainReactor
 	bcReactor := bc.NewBlockchainReactor(status.Copy(), blockExec, appHandle, fastSync, p2pmanager)
 	bcReactor.SetLogger(logger.With("module", "blockchain"))
-	bcReactor.KeepFastSync(isTrie)
+	// bcReactor.KeepFastSync(isTrie)
 
 	consensusLogger := logger.With("module", "consensus")
 	if status.Validators.HasAddress(privValidator.GetAddress()) {
@@ -540,7 +540,7 @@ func (n *Node) PrivValidator() types.PrivValidator {
 	return n.privValidator
 }
 
-func MakeNodeInfo(chainID string, nodeType types.NodeType, moniker string, httpEndpoint string) p2p.NodeInfo {
+func MakeNodeInfo(chainID string, nodeType types.NodeType, moniker string, httpEndpoint string, isTrie bool) p2p.NodeInfo {
 	nodeInfo := p2p.NodeInfo{
 		Network: chainID,
 		Version: version.Version,
@@ -556,6 +556,10 @@ func MakeNodeInfo(chainID string, nodeType types.NodeType, moniker string, httpE
 			cmn.Fmt("consensus_version=%v", cs.Version),
 		},
 		Type: nodeType,
+	}
+	if isTrie {
+		// remove MempoolChannel for full_node
+		nodeInfo.Channels = append(nodeInfo.Channels[:5:5], nodeInfo.Channels[6:]...)
 	}
 
 	nodeInfo.Other = append(nodeInfo.Other, cmn.Fmt("rpc_addr=%v", httpEndpoint))
