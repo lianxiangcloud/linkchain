@@ -1,0 +1,23 @@
+language: go
+
+go:
+  - 1.12.x
+
+sudo: required
+
+before_script:
+  - echo "before_script "
+  - mkdir -p libs/cryptonote/xcrypto/libs_linux
+  - wget https://github.com/lianxiangcloud/monero/releases/download/libsxcrypto_v0.1.0/lklibs-centos7-x64.tar.gz
+  - tar zxf lklibs-centos7-x64.tar.gz
+  - cp lklibs/* libs/cryptonote/xcrypto/libs_linux/
+
+script:
+  - echo "test code"
+  - export GO111MODULE=on
+  - unset GOPATH
+  - bash ./build.sh
+  - ./bin/lkchain version
+
+after_success:
+  - echo "after_success"
