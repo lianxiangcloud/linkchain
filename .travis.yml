@@ -3,6 +3,10 @@ language: go
 go:
   - 1.12.x
 
+cache:
+  directories:
+    - $GOPATH/pkg/mod
+
 sudo: required
 
 before_script:
@@ -15,7 +19,6 @@ before_script:
 script:
   - echo "test code"
   - export GO111MODULE=on
-  - unset GOPATH
   - bash ./build.sh
   - ./bin/lkchain version
 
