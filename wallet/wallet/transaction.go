@@ -143,27 +143,27 @@ func (wallet *Wallet) unspentIndicePerSubaddr(from common.Address, tokenID commo
 	return indicePerSubaddr, nil
 }
 
-func (wallet *Wallet) constructSourceEntry(from common.Address, selectIndice []uint64) ([]*types.UTXOSourceEntry, error) {
+func (wallet *Wallet) constructSourceEntry(from common.Address, selectIndice []uint64, tokenID common.Address) ([]*types.UTXOSourceEntry, error) {
 	if 0 == len(selectIndice) {
 		return nil, nil
 	}
 	str, _ := ser.MarshalJSON(selectIndice)
 	wallet.Logger.Debug("constructSourceEntry", "selectIndice", str)
-	//TODO other token
-	maxIdx := wallet.getGOutIndex(common.EmptyAddress)
+
+	maxIdx := wallet.getGOutIndex(tokenID)
 
 	rings, err := wallet.constructRings(from, maxIdx, UTXO_DEFAULT_RING_SIZE, selectIndice)
 	if err != nil {
 		return nil, err
 	}
 	if rings == nil {
-		return wallet.constructSourceEntrySimple(from, selectIndice)
+		return wallet.constructSourceEntrySimple(from, selectIndice, tokenID)
 	}
 	for idx, ring := range rings {
 		str, _ = ser.MarshalJSON(ring)
 		wallet.Logger.Debug("constructSourceEntry", "index", idx, "ring", str)
 	}
-	return wallet.constructSourceEntryNormal(from, selectIndice, rings)
+	return wallet.constructSourceEntryNormal(from, selectIndice, rings, tokenID)
 }
 
 //TODO check performance
@@ -198,7 +198,7 @@ func (wallet *Wallet) constructRings(from common.Address, maxIdx uint64, ringSiz
 	return rings, nil
 }
 
-func (wallet *Wallet) constructSourceEntrySimple(from common.Address, selectIndice []uint64) ([]*types.UTXOSourceEntry, error) {
+func (wallet *Wallet) constructSourceEntrySimple(from common.Address, selectIndice []uint64, tokenID common.Address) ([]*types.UTXOSourceEntry, error) {
 	wallet.Logger.Debug("constructSourceEntrySimple")
 	currAccount, err := wallet.getCurrAccount(from)
 	if err != nil {
@@ -209,7 +209,7 @@ func (wallet *Wallet) constructSourceEntrySimple(from common.Address, selectIndi
 		gIdx := currAccount.Transfers[selectIdx].GlobalIndex
 		gIndice = append(gIndice, gIdx)
 	}
-	ringEntries, err := wallet.api.GetOutputsFromNode(gIndice, common.EmptyAddress)
+	ringEntries, err := wallet.api.GetOutputsFromNode(gIndice, tokenID)
 	if err != nil {
 		wallet.Logger.Error("constructSourceEntrySimple GetOutputsFromNode fail", "err", err)
 		return nil, err
@@ -232,7 +232,7 @@ func (wallet *Wallet) constructSourceEntrySimple(from common.Address, selectIndi
 }
 
 func (wallet *Wallet) constructSourceEntryNormal(from common.Address, selectIndice []uint64,
-	rings map[uint64]ring) ([]*types.UTXOSourceEntry, error) {
+	rings map[uint64]ring, tokenID common.Address) ([]*types.UTXOSourceEntry, error) {
 	currAccount, err := wallet.getCurrAccount(from)
 	if err != nil {
 		return nil, err
@@ -259,7 +259,7 @@ func (wallet *Wallet) constructSourceEntryNormal(from common.Address, selectIndi
 				indice = append(indice, r[j])
 			}
 		}
-		ringEntries, err := wallet.api.GetOutputsFromNode(indice, common.EmptyAddress)
+		ringEntries, err := wallet.api.GetOutputsFromNode(indice, tokenID)
 		if err != nil {
 			wallet.Logger.Error("constructSourceEntryNormal GetOutputsFromNode fail", "err", err)
 			return nil, err
@@ -307,7 +307,7 @@ func (r ring) Less(i, j int) bool {
 //CreateAinTransaction return a UTXOTransaction for account input only
 func (wallet *Wallet) CreateAinTransaction(from common.Address, passwd string, nonce uint64, dests []types.DestEntry,
 	tokenID common.Address, extra []byte) (*types.UTXOTransaction, error) {
-	needMoney, _, err := wallet.checkDest(dests, tokenID, AccountInputMode)
+	needMoney, outKind, err := wallet.checkDest(dests, tokenID, AccountInputMode)
 	if err != nil {
 		wallet.Logger.Error("CreateAinTransaction checkDest fail", "err", err)
 		return nil, err
@@ -324,15 +324,28 @@ func (wallet *Wallet) CreateAinTransaction(from common.Address, passwd string, n
 		wallet.Logger.Error("CreateAinTransaction getTokenBalance fail", "from", from, "tokenID", tokenID, "err", err)
 		return nil, err
 	}
-	if availableMoney.Cmp(needMoney) <= 0 {
+	if availableMoney.Cmp(needMoney) < 0 {
 		return nil, wtypes.ErrBalanceNotEnough
+	}
+	// check token fee available
+	totalFee := big.NewInt(0)
+	if !common.IsLKC(tokenID) {
+		totalFee = wallet.calTokenFee(AccountInputMode, outKind)
+		availableLkcMoney, err := wallet.api.GetTokenBalance(from, common.EmptyAddress)
+		if err != nil {
+			wallet.Logger.Error("CreateAinTransaction getTokenBalance fail", "from", from, "tokenID", tokenID, "err", err)
+			return nil, err
+		}
+		if availableLkcMoney.Cmp(totalFee) <= 0 {
+			return nil, wtypes.ErrTokenFeeNotEnough
+		}
 	}
 	source := &types.AccountSourceEntry{
 		From:   from,
 		Nonce:  nonce,
 		Amount: big.NewInt(0).Set(needMoney),
 	}
-	tx, txKey, err := types.NewAinTransaction(source, dests, tokenID, nil)
+	tx, txKey, err := types.NewAinTokenTransaction(source, dests, tokenID, totalFee, nil)
 	if err != nil {
 		return nil, wtypes.ErrNewAinTrans
 	}
@@ -377,8 +390,8 @@ func (wallet *Wallet) checkDest(dests []types.DestEntry, tokenID common.Address,
 		outKind       = NilOut
 	)
 	for i := 0; i < len(dests); i++ {
-		if dests[i].GetAmount().Sign() <= 0 || dests[i].GetAmount().Cmp(big.NewInt(types.UTXO_COMMITMENT_CHANGE_RATE)) < 0 ||
-			big.NewInt(0).Mod(dests[i].GetAmount(), big.NewInt(types.UTXO_COMMITMENT_CHANGE_RATE)).Sign() != 0 {
+		if dests[i].GetAmount().Sign() <= 0 || dests[i].GetAmount().Cmp(big.NewInt(types.GetUtxoCommitmentChangeRate(tokenID))) < 0 ||
+			big.NewInt(0).Mod(dests[i].GetAmount(), big.NewInt(types.GetUtxoCommitmentChangeRate(tokenID))).Sign() != 0 {
 			return nil, NilOut, wtypes.ErrOutputMoneyInvalid
 		}
 		if types.TypeAcDest == dests[i].Type() {
@@ -395,32 +408,55 @@ func (wallet *Wallet) checkDest(dests []types.DestEntry, tokenID common.Address,
 		}
 		transferMoney.Add(transferMoney, dests[i].GetAmount())
 	}
-	switch mode {
-	case AccountInputMode:
-		needMoney.Add(needMoney, transferMoney)
-		needMoney.Add(needMoney, wallet.estimateTxFee(transferMoney))
-	case UTXOInputMode:
-		needMoney.Add(needMoney, transferMoney)
-		needMoney.Add(needMoney, wallet.estimateTxFee(accTransMoney))
-		if (outKind & UtxoOut) != NilOut { //if only one account item, not add estimateUtxoTxFee
-			needMoney.Add(needMoney, wallet.estimateUtxoTxFee())
+	needMoney.Add(needMoney, transferMoney)
+	if common.IsLKC(tokenID) {
+		switch mode {
+		case AccountInputMode:
+			if transferMoney.Sign() > 0 {
+				needMoney.Add(needMoney, wallet.estimateTxFee(transferMoney))
+			}
+		case UTXOInputMode:
+			if accTransMoney.Sign() > 0 {
+				needMoney.Add(needMoney, wallet.estimateTxFee(accTransMoney))
+			}
+			if (outKind & UtxoOut) != NilOut { //if only one account item, not add estimateUtxoTxFee
+				needMoney.Add(needMoney, wallet.estimateUtxoTxFee())
+			}
+		case MixInputMode:
+			//not support now
+			return nil, NilOut, wtypes.ErrMixInputNotSupport
 		}
-	case MixInputMode:
-		//not support now
-		return nil, NilOut, wtypes.ErrMixInputNotSupport
 	}
 	return needMoney, outKind, nil
 }
 
+func (wallet *Wallet) calTokenFee(mode InputMode, outKind OutKind) *big.Int {
+	fee := big.NewInt(0)
+
+	switch mode {
+	case AccountInputMode:
+		fee.Add(fee, wallet.estimateTxFee(big.NewInt(0)))
+	case UTXOInputMode:
+		if (outKind & UtxoOut) != AccOut {
+			fee.Add(fee, wallet.estimateTxFee(big.NewInt(0)))
+		}
+		if (outKind & UtxoOut) != NilOut { //if only one account item, not add estimateUtxoTxFee
+			fee.Add(fee, wallet.estimateUtxoTxFee())
+		}
+	case MixInputMode:
+		//not support now
+	}
+	return fee
+}
+
+//estimateTxFee envelopes types.CalNewAmountGas()
 //limit account fee > 1e11 and tx fee mod 1e11 == 0
 func (wallet *Wallet) estimateTxFee(transferMoney *big.Int) *big.Int {
-	if transferMoney.Sign() == 0 {
-		return big.NewInt(0)
-	}
 	gasLimit := types.CalNewAmountGas(transferMoney, types.EverLiankeFee)
 	return big.NewInt(0).Mul(big.NewInt(0).SetUint64(gasLimit), big.NewInt(types.GasPrice))
 }
 
+//estimateUtxoTxFee envelopes getter of wallet.utxoGas
 //limit utxo fee > 1e11 and tx fee mod 1e11 == 0
 func (wallet *Wallet) estimateUtxoTxFee() *big.Int {
 	return wallet.utxoGas

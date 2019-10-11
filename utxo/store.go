@@ -84,7 +84,7 @@ func loadTokenUtxoStoreMaxUtxoOutputSeqMap(utxoDB dbm.DB) map[string]int64 {
 
 func (u *UtxoStore) GetMaxUtxoOutputSeq(tokenId common.Address) int64 {
 	u.mapMutex.Lock()
-	val, ok :=  u.maxUtxoOutputSeqTokenMap[tokenId.String()]
+	val, ok := u.maxUtxoOutputSeqTokenMap[tokenId.String()]
 	u.mapMutex.Unlock()
 	if !ok {
 		return -1
@@ -129,11 +129,6 @@ func (u *UtxoStore) saveTokenUtxoOutputSeq(tokenSeqMap map[string]int64) error {
 	tokenOutputSeqs := newTokenUtxoSeqs()
 	u.mapMutex.Lock()
 	for tokenId, seq := range tokenSeqMap {
-		if uint64(seq) < 0 {
-			u.mapMutex.Unlock()
-			u.logger.Error("seq too less.")
-			return errors.New("seq too less")
-		}
 		val := []byte(strconv.FormatInt(seq, positionalNotation))
 		err := u.utxoDB.Put(genTokenMaxSeqKey(tokenId), val)
 		if err != nil {
@@ -148,7 +143,6 @@ func (u *UtxoStore) saveTokenUtxoOutputSeq(tokenSeqMap map[string]int64) error {
 		u.maxUtxoOutputSeqTokenMap[tokenId] = seq
 	}
 	u.mapMutex.Unlock()
-
 	err := u.saveBlockTokenUtxoOutputSeq(tokenOutputSeqs)
 	if err != nil {
 		u.logger.Error("save block tokend utxo outputs seq failed.", "err", err.Error())
@@ -222,6 +216,11 @@ func (u *UtxoStore) SaveUtxoOutputs(utxoOutputs []*types.UTXOOutputData) error {
 		u.logger.Error("SaveUtxoOutput db batch commit failed.", "err", err.Error())
 		return err
 	}
+	err = tokenBatch.Commit()
+	if err != nil {
+		u.logger.Error("SaveUtxoOutput db token batch commit failed.", "err", err.Error())
+		return err
+	}
 	// update maxUtxoOutputSeq
 	err = u.saveTokenUtxoOutputSeq(tmpTokenSeq)
 	if err != nil {
@@ -284,7 +283,7 @@ func (u *UtxoStore) GetUtxoOutputs(seqs []uint64, tokenId common.Address) ([]*ty
 	return utxoOptputs, nil
 }
 
-func (u *UtxoStore) GetRandomUtxoOutputs(counts int, tokenId common.Address) []*types.UTXOOutputData  {
+func (u *UtxoStore) GetRandomUtxoOutputs(counts int, tokenId common.Address) []*types.UTXOOutputData {
 	u.mapMutex.Lock()
 	if int64(counts) > u.maxUtxoOutputSeqTokenMap[tokenId.String()] + 1 {
 		u.logger.Error("GetRandomUtxoOutputs failed. err: counts>maxUtxoOutputSeq",

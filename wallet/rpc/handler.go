@@ -37,10 +37,6 @@ func (s *PublicTransactionPoolAPI) signUTXOTransaction(ctx context.Context, args
 	args.SetDefaults()
 
 	log.Debug("signTx", "input", args)
-	//utxo not support token, next version will support
-	if *args.TokenID != common.EmptyAddress {
-		return nil, wtypes.ErrUTXONotSupportToken
-	}
 	destsCnt := len(args.Dests)
 	if destsCnt == 0 {
 		return nil, wtypes.ErrArgsInvalid
@@ -380,7 +376,7 @@ func (s *PublicTransactionPoolAPI) CheckProofKey(ctx context.Context, args wtype
 					ret.Records = append(ret.Records, &wtypes.VerifyProofKey{
 						Hash:   args.Hash,
 						Addr:   args.Addr,
-						Amount: (*hexutil.Big)(big.NewInt(0).Mul(types.Hash2BigInt(ecdh.Amount), big.NewInt(types.UTXO_COMMITMENT_CHANGE_RATE))),
+						Amount: (*hexutil.Big)(big.NewInt(0).Mul(types.Hash2BigInt(ecdh.Amount), big.NewInt(types.GetUtxoCommitmentChangeRate(tx.TokenID)))),
 					})
 				}
 				outIdx++

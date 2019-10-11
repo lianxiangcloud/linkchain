@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"sort"
 
+	"github.com/lianxiangcloud/linkchain/accounts"
 	"github.com/lianxiangcloud/linkchain/libs/common"
 	lkctypes "github.com/lianxiangcloud/linkchain/libs/cryptonote/types"
 	"github.com/lianxiangcloud/linkchain/types"
@@ -453,14 +454,21 @@ func (wallet *Wallet) directSelection(utxoPool []*UTXOItem, dests []types.DestEn
 		if estimateTxSize(len(selectedUtxos), outputCnt, wallet.getRingSize(len(selectedUtxos))) > UTXO_TX_HIGH_SIZE_LIMIT {
 			return nil, wtypes.ErrTxTooBig
 		}
-		if (outKind&UtxoOut) == NilOut &&
-			(selectedAmount.Cmp(needAmount) == 0 ||
-				selectedAmount.Cmp(big.NewInt(0).Add(needAmount, wallet.estimateUtxoTxFee())) >= 0) {
-			finish = true
+		if common.IsLKC(tokenID) {
+			if (outKind&UtxoOut) == NilOut &&
+				(selectedAmount.Cmp(needAmount) == 0 ||
+					selectedAmount.Cmp(big.NewInt(0).Add(needAmount, wallet.estimateUtxoTxFee())) >= 0) {
+				finish = true
+			}
+			if (outKind&UtxoOut) != NilOut && selectedAmount.Cmp(needAmount) >= 0 {
+				finish = true
+			}
+		} else {
+			if selectedAmount.Cmp(needAmount) >= 0 {
+				finish = true
+			}
 		}
-		if (outKind&UtxoOut) != NilOut && selectedAmount.Cmp(needAmount) >= 0 {
-			finish = true
-		}
+
 		if finish {
 			packets = append(packets, &inOutPacket{
 				Inputs:  selectedUtxos,
@@ -514,7 +522,7 @@ func (wallet *Wallet) checkTxSize(inputCnt int, outKind OutKind) bool {
 
 func (wallet *Wallet) selectionProcess(utxoPool []*UTXOItem, dests []types.DestEntry, changeSubaddr uint64,
 	tokenID common.Address) ([]*inOutPacket, error) {
-	needMoney, outKind, err := wallet.checkDest(dests, common.EmptyAddress, UTXOInputMode)
+	needMoney, outKind, err := wallet.checkDest(dests, tokenID, UTXOInputMode)
 	if err != nil {
 		return nil, err
 	}
@@ -522,7 +530,7 @@ func (wallet *Wallet) selectionProcess(utxoPool []*UTXOItem, dests []types.DestE
 	if err != nil {
 		return nil, err
 	}
-	if (outKind&UtxoOut) == NilOut && selectedAmount.Cmp(needMoney) > 0 {
+	if common.IsLKC(tokenID) && (outKind&UtxoOut) == NilOut && selectedAmount.Cmp(needMoney) > 0 {
 		selectedUtxos, selectedAmount, err = coinSelection(utxoPool, needMoney.Add(needMoney, wallet.estimateUtxoTxFee()))
 		if err != nil {
 			return nil, err
@@ -561,13 +569,13 @@ func (wallet *Wallet) constructUTXOPool(subaddrs []uint64, unspentIndicePerSubad
 	return utxoPool
 }
 
-func (wallet *Wallet) constructRingMembers(from common.Address, packets []*inOutPacket) error {
+func (wallet *Wallet) constructRingMembers(from common.Address, packets []*inOutPacket, tokenID common.Address) error {
 	for _, packet := range packets {
 		selectedIdx := make([]uint64, 0)
 		for _, item := range packet.Inputs {
 			selectedIdx = append(selectedIdx, item.localIdx)
 		}
-		sources, err := wallet.constructSourceEntry(from, selectedIdx)
+		sources, err := wallet.constructSourceEntry(from, selectedIdx, tokenID)
 		if err != nil {
 			return err
 		}
@@ -589,7 +597,7 @@ func (wallet *Wallet) changeAndMerge(selectedUtxos []*UTXOItem, dests []types.De
 	if totalAmount.Cmp(needAmount) < 0 {
 		return nil, wtypes.ErrBalanceNotEnough
 	}
-	if (outKind&UtxoOut) == NilOut && totalAmount.Cmp(needAmount) > 0 {
+	if common.IsLKC(tokenID) && (outKind&UtxoOut) == NilOut && totalAmount.Cmp(needAmount) > 0 {
 		needAmount.Add(needAmount, wallet.estimateUtxoTxFee())
 		if totalAmount.Cmp(needAmount) < 0 {
 			return nil, wtypes.ErrBalanceNotEnough
@@ -688,19 +696,49 @@ func (wallet *Wallet) CreateUinTransaction(from common.Address, subaddrs []uint6
 	if err != nil {
 		return nil, err
 	}
-	if err = wallet.constructRingMembers(from, inOutPackets); err != nil {
+	if err = wallet.constructRingMembers(from, inOutPackets, tokenID); err != nil {
 		return nil, err
 	}
 	currAccount, keys, err := wallet.currAccAndKeys(from)
 	if err != nil {
 		return nil, err
 	}
+	availableLkcMoney := big.NewInt(0)
+	if !common.IsLKC(tokenID) {
+		availableLkcMoney, err = wallet.api.GetTokenBalance(from, common.EmptyAddress)
+		if err != nil {
+			wallet.Logger.Error("CreateAinTransaction getTokenBalance fail", "from", from, "tokenID", tokenID, "err", err)
+			return nil, err
+		}
+	}
 	txs := make([]*types.UTXOTransaction, 0)
 	for _, packet := range inOutPackets {
-		utxoTx, utxoInEphs, mKeys, txKey, err := types.NewUinTransaction(keys, currAccount.account.KeyIndex,
-			packet.Sources, packet.Outputs, tokenID, common.EmptyAddress, extra)
+		fee := big.NewInt(0)
+		if !common.IsLKC(tokenID) {
+			_, outKind, err := wallet.checkDest(packet.Outputs, tokenID, UTXOInputMode)
+			if err != nil {
+				return nil, err
+			}
+			fee = wallet.calTokenFee(UTXOInputMode, outKind)
+			if availableLkcMoney.Cmp(fee) < 0 {
+				return nil, wtypes.ErrTokenFeeNotEnough
+			}
+			availableLkcMoney.Sub(availableLkcMoney, fee)
+		}
+		utxoTx, utxoInEphs, mKeys, txKey, err := types.NewUinTokenTransaction(keys, currAccount.account.KeyIndex,
+			packet.Sources, packet.Outputs, tokenID, common.EmptyAddress, fee, extra)
 		if err != nil {
 			return nil, wtypes.ErrNewUinTrans
+		}
+		if !common.IsLKC(tokenID) {
+			acc := accounts.Account{Address: from}
+			w, err := wallet.accManager.Find(acc)
+			signedTx, err := w.SignTx(acc, utxoTx, types.SignParam)
+			if err != nil {
+				wallet.Logger.Error("createUinTransaction SignTx fail", "err", err)
+				return nil, wtypes.ErrSignTx
+			}
+			utxoTx = signedTx.(*types.UTXOTransaction)
 		}
 		if err = types.UInTransWithRctSig(utxoTx, packet.Sources, utxoInEphs, packet.Outputs, mKeys); err != nil {
 			return nil, wtypes.ErrUinTransWithSign
