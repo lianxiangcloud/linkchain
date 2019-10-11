@@ -486,16 +486,16 @@ func (app *LinkApplication) processBlock(block *types.Block, processResult *Proc
 		app.logger.Info("processHandle", "foundation_addr", config.ContractFoundationAddr.String(), "totalGasFee", totalGasFee.String())
 		processResult.tmpState.AddBalance(config.ContractFoundationAddr, totalGasFee)
 		if err := app.poceedHandle(wasm, block.Coinbase(), totalGasFee, app.logger); err != nil {
-			app.logger.Warn("processBlock: process failed when setPoceeds", "blockHash", block.Hash(), "err", err)
-			return
+			app.logger.Error("processBlock: process failed when setPoceeds", "blockHash", block.Hash(), "err", err)
+			//return
 		}
 	}
 
 	if block.Height%(10*app.lastCoe.VotePeriod) == 0 && len(app.lastTxsResult.Candidates) > 0 && app.awardHandle != nil {
 		app.logger.Info("awardHandle")
 		if err := app.awardHandle(wasm, app.logger); err != nil {
-			app.logger.Warn("processBlock: process failed when allocAward", "blockHash", block.Hash(), "err", err)
-			return
+			app.logger.Error("processBlock: process failed when allocAward", "blockHash", block.Hash(), "err", err)
+			//return
 		}
 	}
 
@@ -1050,14 +1050,17 @@ func CallWasmContract(wasm *wasm.WASM, sender, contractAddr common.Address, amou
 		return nil, fmt.Errorf("exec.NewApp fail: %s", err)
 	}
 
+	snapshot := st.Snapshot()
 	app.EntryFunc = vm.APPEntry
 	ret, err := eng.Run(app, innerContract.Input)
 	if err != nil {
+		st.RevertToSnapshot(snapshot)
 		return nil, fmt.Errorf("eng.Run fail: err=%s", err)
 	}
 	vmem := app.VM.VMemory()
 	result, err := vmem.GetString(ret)
 	if err != nil {
+		st.RevertToSnapshot(snapshot)
 		return nil, fmt.Errorf("vmem.GetString fail: err=%v", err)
 	}
 	return result, nil

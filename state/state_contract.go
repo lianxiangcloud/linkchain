@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"math/big"
 
 	"github.com/lianxiangcloud/linkchain/config"
@@ -202,7 +201,7 @@ func (st *StateDB) GetCandidatesDeposit(addrs []common.Address, logger log.Logge
 			v, ok := big.NewInt(0).SetString(string(value[4:4+len-1]), 0)
 			if !ok {
 				logger.Error("GetCandidatesDeposit: get deposit fail", "addr", addr.String())
-				panic(fmt.Sprintf("GetCandidatesDeposit: get deposit fail addr:%s value:%s", addr.String(), value))
+				//panic(fmt.Sprintf("GetCandidatesDeposit: get deposit fail addr:%s value:%s", addr.String(), value))
 			}
 			deposit = v
 		}
