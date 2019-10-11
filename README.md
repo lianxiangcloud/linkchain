@@ -1,3 +1,7 @@
+# 享云链
+[![Build Status](https://travis-ci.org/lianxiangcloud/linkchain.svg?branch=feature\/v0.1.2)](https://travis-ci.org/lianxiangcloud/linkchain)
+[![License](https://img.shields.io/badge/license-Apache2\.0-green.svg)](LICENSE)
+
 享云链旨在为共享计算、高隐私要求的自由交易场景提供一个高性能的、安全的区块链基础设施。
 
 ---
