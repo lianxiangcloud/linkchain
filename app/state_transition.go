@@ -362,13 +362,14 @@ func (tx *processTransaction) genTransitTxRecord(res *TransitionResult, vmerr er
 				if common.IsLKC(tx.TokenAddress) {
 					fee := new(big.Int).Mul(new(big.Int).SetUint64(tx.InitialGas), tx.GasPrice)
 					otx = types.GenBalanceRecord(in.From, common.EmptyAddress, types.AccountAddress, types.PrivateAddress, types.TxTransfer, tx.TokenAddress, big.NewInt(0).Sub(in.Value, fee))
-				} else {
+					frontotxs = append(frontotxs, otx)
+				} else if in.Value.Sign() > 0 {
 					otx = types.GenBalanceRecord(in.From, common.EmptyAddress, types.AccountAddress, types.PrivateAddress, types.TxTransfer, tx.TokenAddress, in.Value)
+					frontotxs = append(frontotxs, otx)
 				}
-				frontotxs = append(frontotxs, otx)
 			}
 			for _, out := range tx.Outputs {
-				otx = types.GenBalanceRecord(tx.RefundAddr, out.To, types.PrivateAddress, types.AccountAddress, types.TxTransfer, tx.TokenAddress, out.Amount)
+				otx = types.GenBalanceRecord(common.EmptyAddress, out.To, types.PrivateAddress, types.AccountAddress, types.TxTransfer, tx.TokenAddress, out.Amount)
 				frontotxs = append(frontotxs, otx)
 			}
 

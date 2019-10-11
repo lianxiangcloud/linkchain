@@ -372,7 +372,7 @@ func (app *LinkApplication) verifyTxsOnProcess(block *types.Block) error {
 						from, err = cacheTx.From()
 						tx.StoreFrom(from)
 					} else if err = app.CheckTx(tx, true); err == nil { //UTXO CheckBasic
-						if (tx.UTXOKind() & types.Ain) == types.Ain {
+						if (tx.UTXOKind()&types.Ain) == types.Ain || (!common.IsLKC(tx.TokenID)) {
 							from, err = tx.From()
 						}
 					}

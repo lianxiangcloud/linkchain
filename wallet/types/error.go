@@ -64,6 +64,7 @@ var (
 	ErrTransInvalid         = NewWErr(-602016, "transaction output amount invalid")
 	ErrExactMatchFail       = NewWErr(-602017, "DFS exact mathch fail")
 	ErrDestsMergeFail       = NewWErr(-602018, "dests merge fail")
+	ErrTokenFeeNotEnough    = NewWErr(-602019, "balance not enough to pay token fee")
 
 	ErrNoConnectionToDaemon   = NewWErr(-603001, "no_connection_to_daemon")
 	ErrDaemonResponseBody     = NewWErr(-603002, "dameon response body err")
