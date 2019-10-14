@@ -19,22 +19,22 @@ func TestListener(t *testing.T) {
 	listenAddr := fmt.Sprintf(":%d", listenPort)
 	externalAddrString1 := ""
 	//externalAddrString2 := "121.58.96.78"
-	listener, udpCon := NewDefaultListener(types.NodePeer, listenAddr, externalAddrString1, logger)
+	listener, udpCon, _ := NewDefaultListener(types.NodePeer, listenAddr, externalAddrString1, logger)
 	require.Equal(t, listenPort, int(listener.ExternalAddress().Port))
 	_, udpPort := SplitHostPort(udpCon.LocalAddr().String())
 	require.Equal(t, listenPort, udpPort)
 	//bind the same port
-	listener, udpCon = NewDefaultListener(types.NodePeer, listenAddr, externalAddrString1, logger)
+	listener, udpCon, _ = NewDefaultListener(types.NodePeer, listenAddr, externalAddrString1, logger)
 	require.Equal(t, listenPort+1, int(listener.ExternalAddress().Port))
 	_, udpPort = SplitHostPort(udpCon.LocalAddr().String())
 	require.Equal(t, listenPort+1, udpPort)
 	//fullListenAddrString is empty
-	listener, udpCon = NewDefaultListener(types.NodePeer, "", externalAddrString1, logger)
+	listener, udpCon, _ = NewDefaultListener(types.NodePeer, "", externalAddrString1, logger)
 	require.Equal(t, DefaultExternalPort, int(listener.ExternalAddress().Port))
 	_, udpPort = SplitHostPort(udpCon.LocalAddr().String())
 	require.Equal(t, DefaultExternalPort, udpPort)
 	//OutValidator
-	listener, udpCon = NewDefaultListener(types.NodeValidator, "", externalAddrString1, logger)
+	listener, udpCon, _ = NewDefaultListener(types.NodeValidator, "", externalAddrString1, logger)
 	require.Equal(t, DefaultExternalPort+1, int(listener.ExternalAddress().Port))
 	flag := false
 	if udpCon == nil {
@@ -46,7 +46,7 @@ func TestListener(t *testing.T) {
 	listenPort = 51000
 	listenAddr = fmt.Sprintf(":%d", listenPort)
 	externalAddrString2 := "127.0.0.1"
-	listener, udpCon = NewDefaultListener(types.NodePeer, listenAddr, externalAddrString2, logger)
+	listener, udpCon, _ = NewDefaultListener(types.NodePeer, listenAddr, externalAddrString2, logger)
 	require.Equal(t, listenPort, int(listener.ExternalAddress().Port))
 	require.Equal(t, externalAddrString2, listener.ExternalAddress().IP.String())
 	require.Equal(t, externalAddrString2, listener.ExternalAddressHost())
@@ -57,7 +57,7 @@ func TestListener(t *testing.T) {
 	listenPort = listenPort + 1
 	listenAddr = fmt.Sprintf(":%d", listenPort)
 	externalAddrString2 = "137.0.0.1"
-	listener, udpCon = NewDefaultListener(types.NodePeer, listenAddr, externalAddrString2, logger)
+	listener, udpCon, _ = NewDefaultListener(types.NodePeer, listenAddr, externalAddrString2, logger)
 	flag = false
 	if udpCon == nil {
 		flag = true
@@ -66,7 +66,7 @@ func TestListener(t *testing.T) {
 	require.Equal(t, externalAddrString2, listener.ExternalAddress().IP.String())
 	require.Equal(t, listenPort, int(listener.ExternalAddress().Port))
 	//NodeTypeOutValidator have externalAddr
-	listener, udpCon = NewDefaultListener(types.NodeValidator, listenAddr, externalAddrString2, logger)
+	listener, udpCon, _ = NewDefaultListener(types.NodeValidator, listenAddr, externalAddrString2, logger)
 	flag = false
 	if udpCon == nil {
 		flag = true
@@ -76,7 +76,7 @@ func TestListener(t *testing.T) {
 	require.Equal(t, listenPort+1, int(listener.ExternalAddress().Port))
 
 	externalAddrString2 = "127.0.0.1"
-	listener, udpCon = NewDefaultListener(types.NodeValidator, "", externalAddrString2, logger)
+	listener, udpCon, _ = NewDefaultListener(types.NodeValidator, "", externalAddrString2, logger)
 	flag = false
 	if udpCon == nil {
 		flag = true

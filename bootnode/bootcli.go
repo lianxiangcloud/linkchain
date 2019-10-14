@@ -49,7 +49,7 @@ type getSeedsReq struct {
 	Pubkey string `json:"pubkey"`
 }
 
-type getSeedsResp struct {
+type GetSeedsResp struct {
 	Code    int     `json:"code"` //0:success，other:failed
 	Message string  `json:"message"`
 	Type    int     `json:"type"` //The identity type of this node, reference NodeType
@@ -111,7 +111,7 @@ func getSeedsFromFile(bootSouce string, logger log.Logger) (nodes []*common.Node
 }
 
 func parseAccounts(data []byte, logger log.Logger) (nodes []*common.Node, localNodeType types.NodeType, err error) {
-	var resp getSeedsResp
+	var resp GetSeedsResp
 	if err = json.Unmarshal(data, &resp); err != nil {
 		return
 	}
@@ -152,7 +152,7 @@ func GetSeedsFromBootSvr(bootSvr string, priv crypto.PrivKey, logger log.Logger)
 		break
 	}
 
-	var resp getSeedsResp
+	var resp GetSeedsResp
 	err = json.Unmarshal(respBytes, &resp)
 	if err != nil {
 		logger.Error("GetSeedsFromBootSvr", "Unmarshal err", err)

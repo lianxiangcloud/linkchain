@@ -40,7 +40,7 @@ const (
 	recvRate                    int64 = int64(5120000) // 5mB/s
 	// This time limits inbound connection attempts per source IP.
 	inboundThrottleTime      = 30 * time.Second
-	maxInboundNumForSingleIp = 10
+	maxInboundNumForSingleIP = 10
 )
 
 const (
@@ -49,6 +49,7 @@ const (
 )
 
 var (
+	//DefaultNewTableFunc is default function to new table to save nodes's netinfo
 	DefaultNewTableFunc = defaultNewTable
 )
 
@@ -151,10 +152,12 @@ func NewP2pManager(logger log.Logger, myPrivKey crypto.PrivKey, cfg *config.P2PC
 	return sw, nil
 }
 
+//GetConManager return manager of Switch obj
 func (sw *Switch) GetConManager() *ConManager {
 	return sw.manager
 }
 
+//MarkBadNode mark node to blacklist for a long time until blackListTimeout
 func (sw *Switch) MarkBadNode(nodeInfo NodeInfo) {
 	sw.Logger.Info("MarkBadNode", "nodeInfo.PubKey", nodeInfo.PubKey.String(), "id", nodeInfo.ID())
 	sw.blackListLock.Lock()
@@ -207,7 +210,7 @@ func (sw *Switch) BootNodeAddr() string {
 	return bootnode.GetBestBootNode()
 }
 
-func (sw *Switch) UdpCon() *net.UDPConn {
+func (sw *Switch) UDPCon() *net.UDPConn {
 	return sw.udpCon
 }
 
@@ -219,12 +222,61 @@ func defaultNewTable(sw *Switch, seeds []*common.Node) error {
 	return sw.DefaultNewTable(seeds, needDht, false)
 }
 
-func (sw *Switch) DefaultNewTable(seeds []*common.Node, needDht bool, needReNewUdpCon bool) error {
+func (sw *Switch) DefaultNewTable(seeds []*common.Node, needDht bool, needReNewUDPCon bool) error {
 	var err error
 	cfg := common.Config{PrivateKey: sw.nodeKey, SeedNodes: make([]*common.Node, len(seeds))}
 	copy(cfg.SeedNodes, seeds)
-	httpLogger := sw.Logger.With("module", "httpTable")
-	sw.ntab, err = disc.NewHTTPTable(cfg, sw.BootNodeAddr(), bootnode.GetLocalNodeType(), httpLogger)
+	if needDht {
+		sw.newDm(sw.db, needDht)
+		dhtLogger := sw.Logger.With("module", "dhtTable")
+		var conf = sw.GetConfig()
+		var maxDhtDialOutNums int
+		listeners := sw.Listeners()
+		if len(listeners) > 0 {
+			listener := listeners[0]
+			selfnode := &common.Node{
+				IP:       listener.ExternalAddress().IP,
+				UDP_Port: listener.ExternalAddress().Port,
+				TCP_Port: listener.ExternalAddress().Port,
+				ID:       common.NodeID(crypto.Keccak256Hash(sw.NodeKey().PubKey().Bytes())),
+			}
+			if needReNewUDPCon == true {
+				var bindUDPAddr string
+				if sw.upnpFlag == true {
+					bindUDPAddr = listener.ExternalAddress().String()
+				} else {
+					bindUDPAddr = fmt.Sprintf(":%d", listener.ExternalAddress().Port)
+				}
+				addr, err := net.ResolveUDPAddr("udp", bindUDPAddr)
+				if err != nil {
+					sw.Logger.Error("NewDefaultListener", "ResolveUDPAddr err", err, "addr", addr)
+				} else {
+					sw.udpCon, err = net.ListenUDP("udp", addr)
+					if err != nil {
+						sw.Logger.Error("NewDefaultListener", "ListenUDP err", err, "addr", addr)
+					}
+				}
+			}
+			selfInfo := &disc.SlefInfo{
+				Self:      selfnode,
+				ListenCon: sw.UDPCon(),
+			}
+			if bootnode.GetLocalNodeType() == types.NodePeer && sw.upnpFlag == false {
+				maxDhtDialOutNums = conf.MaxNumPeers
+			} else {
+				if conf.MaxNumPeers/defaultDialRatio >= 1 {
+					maxDhtDialOutNums = conf.MaxNumPeers / defaultDialRatio
+				} else {
+					maxDhtDialOutNums = conf.MaxNumPeers
+				}
+			}
+			sw.Logger.Info("DefaultNewTable", "maxDhtDialOutNums", maxDhtDialOutNums, "conf.MaxNumPeers", conf.MaxNumPeers)
+			sw.ntab, err = disc.NewDhtTable(maxDhtDialOutNums, selfInfo, sw.DBManager(), cfg, dhtLogger)
+		}
+	} else {
+		httpLogger := sw.Logger.With("module", "httpTable")
+		sw.ntab, err = disc.NewHTTPTable(cfg, sw.BootNodeAddr(), httpLogger)
+	}
 	return err
 }
 
@@ -468,10 +520,8 @@ func (sw *Switch) DHTPeers() []*common.Node {
 			n := table.ReadNodesFromKbucket(buffer)
 			return buffer[:n]
 		}
-		return nil
-	} else {
-		return nil
 	}
+	return nil
 }
 
 //LocalNodeInfo return the localnode info
@@ -480,7 +530,6 @@ func (sw *Switch) LocalNodeInfo() NodeInfo {
 }
 
 // StopPeerForError disconnects from a peer due to external error.
-// If the peer is persistent, it will attempt to reconnect.
 // TODO: make record depending on reason.
 func (sw *Switch) StopPeerForError(peer Peer, reason interface{}) {
 	sw.Logger.Error("Stopping peer for error", "peer", peer, "err", reason)
@@ -510,54 +559,17 @@ func (sw *Switch) IsDialing(addr *NetAddress) bool {
 	return sw.dialing.Has(addr.IP.String())
 }
 
-// DialPeersAsync dials a list of peers asynchronously in random order (optionally, making them persistent).
-// Used to dial peers from config on startup or from unsafe-RPC (trusted sources).
-func (sw *Switch) DialPeersAsync(peers []string, persistent bool) error {
-	var addrs []string
-	for _, r := range peers {
-		if !sw.peers.HasIP(r) {
-			addrs = append(addrs, r)
-		}
-	}
-
-	netAddrs, errs := NewNetAddressStrings(addrs)
-	// only log errors, dial correct addresses
-	for _, err := range errs {
-		sw.Logger.Error("Error in peer's address", "err", err)
-	}
-	// permute the list, dial them in random order.
-	perm := sw.rng.Perm(len(netAddrs))
-	for i := 0; i < len(perm); i++ {
-		go func(i int) {
-			j := perm[i]
-
-			addr := netAddrs[j]
-			sw.randomSleep(0)
-			err := sw.DialPeerWithAddress(addr, persistent)
-			if err != nil {
-				switch err.(type) {
-				case ErrSwitchConnectToSelf, ErrSwitchDuplicatePeerID:
-					sw.Logger.Debug("Error dialing peer", "err", err)
-				default:
-					sw.Logger.Error("Error dialing peer", "err", err)
-				}
-			}
-		}(i)
-	}
-	return nil
-}
-
 // DialPeerWithAddress dials the given peer and runs sw.addPeer if it connects and authenticates successfully.
-// If `persistent == true`, the switch will always try to reconnect to this peer if the connection ever fails.
-func (sw *Switch) DialPeerWithAddress(addr *NetAddress, persistent bool) error {
+func (sw *Switch) DialPeerWithAddress(addr *NetAddress) error {
 	sw.dialing.Set(addr.IP.String(), addr)
 	defer sw.dialing.Delete(addr.IP.String())
-	err := sw.addOutboundPeerWithConfig(addr, sw.config, persistent)
+	err := sw.addOutboundPeerWithConfig(addr, sw.config)
 	return err
 }
 
+//AddDial try to dials the given peer and return the result
 func (sw *Switch) AddDial(node *common.Node) bool {
-	if node == nil {
+	if node.TCP_Port == 0 {
 		return false
 	}
 	try := &NetAddress{IP: node.IP, Port: node.TCP_Port}
@@ -578,7 +590,7 @@ func (sw *Switch) AddDial(node *common.Node) bool {
 	if connected {
 		peer := sw.Peers().GetByID(hex.EncodeToString(node.ID.Bytes()))
 		if peer != nil {
-			if peer.IsOutbound() { //Indicates that you have actively connected, skipped this node, and tried to select another node
+			if peer.IsOutbound() { //Indicates that you have actively connected, skipped this duplicated node, and tried to select another node
 				return false
 			}
 		}
@@ -592,7 +604,7 @@ func (sw *Switch) AddDial(node *common.Node) bool {
 }
 
 func (sw *Switch) dial(address *NetAddress) error {
-	err := sw.DialPeerWithAddress(address, false)
+	err := sw.DialPeerWithAddress(address)
 	if err != nil {
 		switch err.(type) {
 		case ErrSwitchConnectToSelf, ErrSwitchDuplicatePeerID:
@@ -628,18 +640,18 @@ func (sw *Switch) SetAddrFilter(f func(net.Addr) error) {
 
 //------------------------------------------------------------------------------------
 
-func (srv *Switch) checkInboundConn(remoteIP net.IP) error {
+func (sw *Switch) checkInboundConn(remoteIP net.IP) error {
 	if remoteIP != nil {
 		// Reject Internet peers that try too often.
-		srv.inboundHistory.expire(time.Now())
-		num := srv.inboundConNum(remoteIP)
-		if !netutil.IsLAN(remoteIP) && num >= maxInboundNumForSingleIp {
+		sw.inboundHistory.expire(time.Now())
+		num := sw.inboundConNum(remoteIP)
+		if !netutil.IsLAN(remoteIP) && num >= maxInboundNumForSingleIP {
 			return fmt.Errorf("remoteIP:%v inboundConNum:%d too many connections", remoteIP.String(), num)
 		}
-		if !netutil.IsLAN(remoteIP) && srv.inboundHistory.contains(remoteIP.String()) {
+		if !netutil.IsLAN(remoteIP) && sw.inboundHistory.contains(remoteIP.String()) {
 			return fmt.Errorf("remoteIP:%v too many attempts", remoteIP.String())
 		}
-		srv.inboundHistory.add(remoteIP.String(), time.Now().Add(inboundThrottleTime))
+		sw.inboundHistory.add(remoteIP.String(), time.Now().Add(inboundThrottleTime))
 	}
 	return nil
 }
@@ -718,13 +730,11 @@ func (sw *Switch) addInboundPeerWithConfig(
 func (sw *Switch) addOutboundPeerWithConfig(
 	addr *NetAddress,
 	config *config.P2PConfig,
-	persistent bool,
 ) error {
 	sw.Logger.Info("Dialing peer", "address", addr)
 	peerConn, err := newOutboundPeerConn(
 		addr,
 		config,
-		persistent,
 		sw.nodeKey,
 	)
 	if err != nil {
