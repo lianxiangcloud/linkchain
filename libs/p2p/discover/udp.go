@@ -552,7 +552,7 @@ func (t *udp) pending(id common.NodeID, ip net.IP, ptype byte, callback replyMat
 }
 
 func (t *udp) nodeFromRPC(sender *net.UDPAddr, rn rpcNode) (*node, error) {
-	if rn.UDP == 0 || rn.TCP == 0 {
+	if rn.UDP == 0 {
 		return nil, errors.New("UDPPort==0 or TCPPort==0")
 	}
 	if err := netutil.CheckRelayIP(sender.IP, rn.IP); err != nil {
@@ -652,9 +652,15 @@ func (req *ping) handle(t *udp, from *net.UDPAddr, fromID common.NodeID, mac []b
 	n := wrapNode(&common.Node{IP: from.IP, UDP_Port: uint16(from.Port), TCP_Port: req.From.TCP, ID: fromID})
 	if time.Since(t.db.LastPongReceived(n.ID, from.IP)) > bondExpiration {
 		t.sendPing(fromID, from, func() {
+			if !netutil.IsLAN(req.From.IP) {
+				n.havePublicAddr = true
+			}
 			t.tab.addVerifiedNode(n)
 		})
 	} else {
+		if !netutil.IsLAN(req.From.IP) {
+			n.havePublicAddr = true
+		}
 		t.tab.addVerifiedNode(n)
 	}
 

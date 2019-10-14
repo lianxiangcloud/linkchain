@@ -87,9 +87,6 @@ func (n *Node) ValidateComplete() error {
 	if n.Incomplete() {
 		return errors.New("missing IP address or ID")
 	}
-	if n.TCP_Port == 0 {
-		return errors.New("missing TCP port")
-	}
 	ip := n.IP
 	if ip.IsMulticast() || ip.IsUnspecified() {
 		return errors.New("invalid IP (multicast/unspecified)")
@@ -108,10 +105,10 @@ type UDPConn interface {
 type DiscoverTable interface {
 	Start()
 	Stop()
-	GetMaxDialOutNum() int       //Maximum number of connections to be actively connected outward
-	GetMaxConNumFromCache() int  //Get the maximum number of nodes from cache
-	LookupRandom() []*Node       //Get some nodes in real time from the network
-	ReadRandomNodes([]*Node) int //Get some random nodes from local memory
+	GetMaxDialOutNum() int                        //Maximum number of connections to be actively connected outward
+	GetMaxConNumFromCache() int                   //Get the maximum number of nodes from cache
+	LookupRandom() []*Node                        //Get some nodes in real time from the network
+	ReadRandomNodes([]*Node, map[string]bool) int //Get some random nodes from local memory
 	IsDhtTable() bool
 }
 

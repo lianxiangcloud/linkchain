@@ -250,7 +250,10 @@ func (c *MConnection) Send(chID byte, msgBytes []byte) bool {
 	if !c.IsRunning() {
 		return false
 	}
-
+	if len(msgBytes) == 0 {
+		c.Logger.Info("len(msgBytes) == 0")
+		return false
+	}
 	// Send message to channel.
 	channel, ok := c.channelsIdx[chID]
 	if !ok {
@@ -278,7 +281,10 @@ func (c *MConnection) TrySend(chID byte, msgBytes []byte) bool {
 	if !c.IsRunning() {
 		return false
 	}
-
+	if len(msgBytes) == 0 {
+		c.Logger.Info("len(msgBytes) == 0")
+		return false
+	}
 	// c.Logger.Debug("TrySend", "channel", chID, "conn", c, "msgBytes", fmt.Sprintf("%X", msgBytes))
 	c.Logger.Debug("TrySend", "channel", chID, "conn", c, "len(msgBytes)", len(msgBytes))
 
