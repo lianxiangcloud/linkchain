@@ -36,13 +36,14 @@ func savevalSeedsToFile(privKeys []crypto.PrivKey, valSeeds []*common.Node, valS
 	if err != nil {
 		t.Fatalf("creating test file failed: %s", err)
 	}
-	var jsonData bootnode.GeetSeedsResp
+	var jsonData bootnode.GetSeedsResp
 	jsonData.Seeds = make([]bootnode.Rnode, len(valSeeds))
 	for i := 0; i < len(jsonData.Seeds); i++ {
 		jsonData.Seeds[i].ID = common.TransPubKeyToNodeID(privKeys[i].PubKey())
-		jsonData.Seeds[i].Endpoint.IP = []string{valSeeds[i].IP.String()} //{addr{Network:"tcp",Addr:valSeeds[i].IP}}
-		jsonData.Seeds[i].Endpoint.Port = make(map[string]int)
-		jsonData.Seeds[i].Endpoint.Port["tcp"] = int(valSeeds[i].TCP_Port)
+		tmpEnd := &bootnode.Endpoint{IP: []string{valSeeds[i].IP.String()}}
+		tmpEnd.Port = make(map[string]int)
+		tmpEnd.Port["tcp"] = int(valSeeds[i].TCP_Port)
+		jsonData.Seeds[i].Endpoint = tmpEnd
 	}
 	encodeData, err := json.Marshal(&jsonData)
 	if err != nil {
@@ -69,7 +70,7 @@ func generateVals(valsNum int) ([]crypto.PrivKey, []*common.Node) {
 
 func testValidator(t *testing.T, valSeedsFiles string, valsNum int, privKey crypto.PrivKey, validators []*common.Node) {
 	cfg := common.Config{PrivateKey: privKey, SeedNodes: validators}
-	table, err := NewHTTPTable(cfg, valSeedsFiles, types.NodeValidator, logger)
+	table, err := NewHTTPTable(cfg, valSeedsFiles, logger)
 	if err != nil {
 		t.Fatalf("NewHTTPTable failed: %s", err)
 		return
@@ -83,7 +84,7 @@ func testValidator(t *testing.T, valSeedsFiles string, valsNum int, privKey cryp
 	nodes := table.LookupRandom()
 	assert.Equal(t, valsNum-1, len(nodes))
 	tmpNodes := make([]*common.Node, 2)
-	n = table.ReadRandomNodes(tmpNodes)
+	n = table.ReadRandomNodes(tmpNodes, nil)
 	if len(tmpNodes) < valsNum {
 		assert.Equal(t, len(tmpNodes), n)
 	} else {
@@ -94,7 +95,7 @@ func testValidator(t *testing.T, valSeedsFiles string, valsNum int, privKey cryp
 
 func testCommon(nodeType types.NodeType, t *testing.T, valSeedsFiles string, valsNum int, privKey crypto.PrivKey, validators []*common.Node) {
 	cfg := common.Config{PrivateKey: privKey, SeedNodes: validators}
-	table, err := NewHTTPTable(cfg, valSeedsFiles, types.NodeValidator, logger)
+	table, err := NewHTTPTable(cfg, valSeedsFiles, logger)
 	if err != nil {
 		t.Fatalf("NewHTTPTable failed: %s", err)
 		return
@@ -106,7 +107,7 @@ func testCommon(nodeType types.NodeType, t *testing.T, valSeedsFiles string, val
 	n = table.GetMaxConNumFromCache()
 	assert.Equal(t, valsNum, n)
 	tmpNodes := make([]*common.Node, 2)
-	n = table.ReadRandomNodes(tmpNodes)
+	n = table.ReadRandomNodes(tmpNodes, nil)
 	if len(tmpNodes) < valsNum {
 		assert.Equal(t, len(tmpNodes), n)
 	} else {
@@ -135,4 +136,35 @@ func TestHttpTable(t *testing.T) {
 	//validator
 	savevalSeedsToFile(privKeys, validators, valSeedsFiles, t)
 	testValidator(t, valSeedsFiles, valsNum, privKeys[0], validators)
+}
+
+func TestHTTPReadRandomNodes(t *testing.T) {
+	var cfg common.Config
+	cfg.PrivateKey = crypto.GenPrivKeyEd25519()
+	cfg.SeedNodes = seeds
+	self := generateSelfInfo(cfg.PrivateKey)
+	if self == nil {
+		t.Fatalf("generateSelfInfo self==nil")
+		return
+	}
+	ntab, err := NewHTTPTable(cfg, "", logger)
+	if err != nil {
+		t.Fatalf("NewHTTPTable failed: %s", err)
+		return
+	}
+	cacheSize := 3
+	randomNodesFromCache := make([]*common.Node, cacheSize)
+	num := ntab.ReadRandomNodes(randomNodesFromCache, nil)
+	assert.Equal(t, cacheSize, num)
+	//
+	cacheSize = 7
+	randomNodesFromCache = make([]*common.Node, cacheSize)
+	num = ntab.ReadRandomNodes(randomNodesFromCache, nil)
+	assert.Equal(t, len(seeds), num)
+	//
+	alreadyConnect := make(map[string]bool)
+	alreadyConnect[common.TransNodeIDToString(common.NodeID{1, 2, 4})] = true
+	alreadyConnect[common.TransNodeIDToString(common.NodeID{1, 2, 5})] = true
+	num = ntab.ReadRandomNodes(randomNodesFromCache, alreadyConnect)
+	assert.Equal(t, len(seeds)-2, num)
 }

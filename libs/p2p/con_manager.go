@@ -12,7 +12,8 @@ import (
 )
 
 const (
-	dialOutInterval = (20 * time.Second)
+	dialOutInterval   = (20 * time.Second)
+	dhtLookUpInterval = (1 * time.Minute)
 )
 
 //ConManager is the con manager of P2P
@@ -73,6 +74,7 @@ func (conma *ConManager) dialOutLoop() {
 	)
 	d := time.Duration(dialOutInterval)
 	timer := time.NewTimer(0)
+	var needLookUp = false
 	defer timer.Stop()
 	for {
 		maxDialOutNums = conma.sw.ntab.GetMaxDialOutNum() //The total number of maximum outward active connections
@@ -88,7 +90,15 @@ func (conma *ConManager) dialOutLoop() {
 			}
 			conma.logger.Debug("after dialRandNodesFromCache", "needDynDials", needDynDials)
 			if needDynDials > 0 {
-				conma.dialRandNodesFromNet(needDynDials)
+				if bootnode.GetLocalNodeType() == types.NodePeer && !needLookUp {
+					needLookUp = true
+					//for peer node,call dialRandNodesFromNet will send udp packet,so we should ensure that intervals are not too frequent
+					timer.Reset(time.Duration(dhtLookUpInterval))
+					continue
+				} else {
+					needLookUp = false
+					conma.dialRandNodesFromNet(needDynDials)
+				}
 			}
 			timer.Reset(d)
 		}
@@ -96,10 +106,20 @@ func (conma *ConManager) dialOutLoop() {
 }
 
 func (conma *ConManager) dialRandNodesFromCache(needDynDials int) int {
-	n := conma.sw.ntab.ReadRandomNodes(conma.randomNodesFromCache)
+	peers := conma.sw.Peers().List()
+	alreadyConnect := make(map[string]bool)
+	for i := 0; i < len(peers); i++ {
+		if peers[i] != nil {
+			alreadyConnect[peers[i].ID()] = true
+		}
+	}
+	n := conma.sw.ntab.ReadRandomNodes(conma.randomNodesFromCache, alreadyConnect)
 	isDialingMap := make(map[string]bool)
 	var nodeid string
 	for i := 0; i < n && i < len(conma.randomNodesFromCache) && needDynDials > 0; i++ {
+		if conma.randomNodesFromCache[i] == nil {
+			continue
+		}
 		nodeid = conma.randomNodesFromCache[i].ID.String()
 		conma.logger.Debug("dialRandNodesFromCache", "i", i, "nodeid", nodeid, "IP",
 			conma.randomNodesFromCache[i].IP.String(), "tcpPort", conma.randomNodesFromCache[i].TCP_Port)

@@ -22,7 +22,6 @@ var testIPSuffix uint32
 // peerConn contains the raw connection and its config.
 type peerConn struct {
 	outbound     bool
-	persistent   bool
 	config       *config.P2PConfig
 	conn         net.Conn    // source connection
 	originalAddr *NetAddress // nil for inbound connections
@@ -79,7 +78,6 @@ func newPeer(
 func newOutboundPeerConn(
 	addr *NetAddress,
 	config *config.P2PConfig,
-	persistent bool,
 	ourNodePrivKey crypto.PrivKey,
 ) (peerConn, error) {
 	conn, err := dial(addr, config)
@@ -87,7 +85,7 @@ func newOutboundPeerConn(
 		return peerConn{}, cmn.ErrorWrap(err, "Error creating peer")
 	}
 
-	pc, err := newPeerConn(conn, config, true, persistent, ourNodePrivKey, addr)
+	pc, err := newPeerConn(conn, config, true, ourNodePrivKey, addr)
 	if err != nil {
 		if cerr := conn.Close(); cerr != nil {
 			return peerConn{}, cmn.ErrorWrap(err, cerr.Error())
@@ -106,13 +104,13 @@ func newInboundPeerConn(
 
 	// TODO: issue PoW challenge
 
-	return newPeerConn(conn, config, false, false, ourNodePrivKey, nil)
+	return newPeerConn(conn, config, false, ourNodePrivKey, nil)
 }
 
 func newPeerConn(
 	rawConn net.Conn,
 	cfg *config.P2PConfig,
-	outbound, persistent bool,
+	outbound bool,
 	ourNodePrivKey crypto.PrivKey,
 	originalAddr *NetAddress,
 ) (pc peerConn, err error) {
@@ -136,7 +134,6 @@ func newPeerConn(
 	return peerConn{
 		config:       cfg,
 		outbound:     outbound,
-		persistent:   persistent,
 		conn:         conn,
 		originalAddr: originalAddr,
 	}, nil
@@ -177,11 +174,6 @@ func (p *peer) ID() string {
 // IsOutbound returns true if the connection is outbound, false otherwise.
 func (p *peer) IsOutbound() bool {
 	return p.peerConn.outbound
-}
-
-// IsPersistent returns true if the peer is persitent, false otherwise.
-func (p *peer) IsPersistent() bool {
-	return p.peerConn.persistent
 }
 
 // NodeInfo returns a copy of the peer's NodeInfo.

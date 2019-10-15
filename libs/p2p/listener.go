@@ -99,7 +99,19 @@ func DefaultBindListener(nodeType types.NodeType, fullListenAddrString string, e
 		if err != nil {
 			panic(fmt.Sprintf("Error in ExternalAddress: %v", err))
 		}
-	} 
+	} else { //do not have externalAddr
+		if isDHTNet { //try upnp tcp and udp port
+			var tmpExtAddr *NetAddress
+			tcpListener, tmpExtAddr = StartUpnpLoop(tcpListener, logger)
+			if tcpListener == nil {
+				return nil, nil, nil, false
+			}
+			if tmpExtAddr != nil {
+				isUpnpSuccess = true
+			}
+			extAddr = tmpExtAddr
+		}
+	}
 	// Actual listener local IP & port
 	listenerIP, listenerPort := SplitHostPort(tcpListener.Addr().String())
 	logger.Info("tcpListener", "ip", listenerIP, "port", listenerPort)
@@ -116,7 +128,7 @@ func DefaultBindListener(nodeType types.NodeType, fullListenAddrString string, e
 	}
 	if isDHTNet {
 		var bindUdpAddr string
-		if isUpnpSuccess {
+		if externalAddrString != "" || isUpnpSuccess {
 			bindUdpAddr = extAddr.String()
 		} else {
 			bindUdpAddr = fmt.Sprintf(":%d", listenerPort)

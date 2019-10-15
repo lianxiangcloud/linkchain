@@ -8,7 +8,6 @@ import (
 	"github.com/lianxiangcloud/linkchain/bootnode"
 	"github.com/lianxiangcloud/linkchain/libs/crypto"
 	"github.com/lianxiangcloud/linkchain/libs/p2p/common"
-	"github.com/lianxiangcloud/linkchain/types"
 
 	"encoding/binary"
 
@@ -19,22 +18,20 @@ import (
 type HTTPTable struct {
 	priv     crypto.PrivKey
 	logger   log.Logger
-	bootSvr  string         //addr of bootnode server
-	nodeType types.NodeType //NodeValidator
-	seeds    []*node        // bootstrap nodes
+	bootSvr  string  //addr of bootnode server
+	seeds    []*node // bootstrap nodes
 	seedsNum int
 	rand     *mrand.Rand // source of randomness, periodically reseeded
 }
 
 // NewHTTPTable starts get seeds from bootnode server.
-func NewHTTPTable(cfg common.Config, bootSvr string, nodeType types.NodeType, log log.Logger) (*HTTPTable, error) {
-	log.Info("NewHttpTable", "bootSvr", bootSvr, "nodeType", nodeType)
+func NewHTTPTable(cfg common.Config, bootSvr string, log log.Logger) (*HTTPTable, error) {
+	log.Info("NewHttpTable", "bootSvr", bootSvr)
 	table := &HTTPTable{
-		priv:     cfg.PrivateKey,
-		logger:   log,
-		bootSvr:  bootSvr,
-		nodeType: nodeType,
-		rand:     mrand.New(mrand.NewSource(0)),
+		priv:    cfg.PrivateKey,
+		logger:  log,
+		bootSvr: bootSvr,
+		rand:    mrand.New(mrand.NewSource(0)),
 	}
 	if err := table.setFallbackNodes(cfg.SeedNodes); err != nil {
 		return nil, err
@@ -111,13 +108,24 @@ func (tab *HTTPTable) LookupRandom() []*common.Node {
 }
 
 //ReadRandomNodes get rand seeds from local cache
-func (tab *HTTPTable) ReadRandomNodes(buf []*common.Node) (nodeNum int) {
-	var i = 0
+func (tab *HTTPTable) ReadRandomNodes(buf []*common.Node, alreadyConnect map[string]bool) (nodeNum int) {
 	tab.logger.Trace("ReadRandomNodes", "tab.seeds", tab.seeds)
-	for ; i < len(buf) && i < len(tab.seeds); i++ {
-		buf[i] = unwrapNode(tab.seeds[i])
+	var index int
+	var bufLen = len(buf)
+	var id string
+	//get node from bootstrap nodes
+	for i := 0; i < len(tab.seeds) && index < bufLen; i++ {
+		id = common.TransNodeIDToString(tab.seeds[i].ID)
+		if alreadyConnect != nil {
+			_, ok := alreadyConnect[id]
+			if ok {
+				continue
+			}
+		}
+		buf[index] = unwrapNode(tab.seeds[i])
+		index++
 	}
-	nodeNum = i
+	nodeNum = index
 	// Shuffle the buckets.
 	for i := nodeNum - 1; i > 0; i-- {
 		j := tab.rand.Intn(nodeNum)

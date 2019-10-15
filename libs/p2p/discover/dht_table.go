@@ -32,10 +32,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lianxiangcloud/linkchain/bootnode"
 	"github.com/lianxiangcloud/linkchain/libs/p2p/common"
 	"github.com/lianxiangcloud/linkchain/libs/p2p/netutil"
-	"github.com/lianxiangcloud/linkchain/types"
 
 	"github.com/lianxiangcloud/linkchain/libs/crypto"
 	"github.com/lianxiangcloud/linkchain/libs/log"
@@ -56,12 +54,26 @@ const (
 	bucketIPLimit, bucketSubnet = 2, 24 // at most 2 addresses from the same /24
 	tableIPLimit, tableSubnet   = 10, 24
 
-	refreshInterval    = 30 * time.Minute
-	revalidateInterval = 10 * time.Second
-	copyNodesInterval  = 45 * time.Minute
-	seedMinTableTime   = 5 * time.Minute
-	seedCount          = 30
-	seedMaxAge         = 5 * 24 * time.Hour
+	refreshInterval   = 30 * time.Minute
+	copyNodesInterval = 45 * time.Minute
+	seedMinTableTime  = 5 * time.Minute
+	seedCount         = 30
+	seedMaxAge        = 5 * 24 * time.Hour
+)
+
+const (
+	nodeNum1               = 10
+	num1RevalidateInterval = 2 * time.Minute
+	nodeNum2               = 30
+	num2RevalidateInterval = 1 * time.Minute
+	nodeNum3               = 60
+	num3RevalidateInterval = 30 * time.Second
+	num4RevalidateInterval = 10 * time.Second
+)
+
+var (
+	//MaxBucketSize is max nodes's num  for one bucket
+	MaxBucketSize = hashBits
 )
 
 // DhtTable is the 'node table', a Kademlia-like index of neighbor nodes. The table keeps
@@ -69,8 +81,6 @@ const (
 // records when announcements of a new record version are received.
 type DhtTable struct {
 	maxDhtDialOutNums int
-	bootSvr           string            //addr of bootnode server
-	nodeType          types.NodeType    //NodePeer
 	mutex             sync.Mutex        // protects buckets, bucket content, seeds, rand
 	buckets           [nBuckets]*bucket // index of known nodes by distance
 	seeds             []*node           // bootstrap nodes
@@ -78,17 +88,18 @@ type DhtTable struct {
 	rand              *mrand.Rand // source of randomness, periodically reseeded
 	ips               netutil.DistinctNetSet
 
-	log           log.Logger
-	db            common.P2pDBManager // database of known nodes
-	refreshReq    chan chan struct{}
-	initDone      chan struct{}
-	closeReq      chan struct{}
-	closed        chan struct{}
-	closeOnce     sync.Once
-	priv          crypto.PrivKey
-	localNode     *common.Node
-	udpCon        *udp
-	nodeAddedHook func(*node) // for testing
+	log                log.Logger
+	db                 common.P2pDBManager // database of known nodes
+	refreshReq         chan chan struct{}
+	initDone           chan struct{}
+	closeReq           chan struct{}
+	closed             chan struct{}
+	closeOnce          sync.Once
+	priv               crypto.PrivKey
+	localNode          *common.Node
+	udpCon             *udp
+	ignoreFindFailFlag bool
+	nodeAddedHook      func(*node) // for testing
 }
 
 // bucket contains nodes, ordered by their last activity. the entry
@@ -101,19 +112,18 @@ type bucket struct {
 
 //SlefInfo is myself node info
 type SlefInfo struct {
-	NodeType  types.NodeType
 	Self      *common.Node
 	ListenCon common.UDPConn
 }
 
 // NewDhtTable starts listening for discovery packets on the given UDP socket.
-func NewDhtTable(maxDhtDialOutNums int, bootSvr string, self *SlefInfo, db common.P2pDBManager, cfg common.Config, log log.Logger) (*DhtTable, error) {
+func NewDhtTable(maxDhtDialOutNums int, self *SlefInfo, db common.P2pDBManager, cfg common.Config, log log.Logger) (*DhtTable, error) {
 	log.Info("NewDhtTable")
 	err := dhtPrecheck(maxDhtDialOutNums, self, db)
 	if err != nil {
 		return nil, err
 	}
-	tab, err := newDhtTable(maxDhtDialOutNums, bootSvr, self, db, cfg, log)
+	tab, err := newDhtTable(maxDhtDialOutNums, self, db, cfg, log)
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +144,7 @@ func dhtPrecheck(maxDhtDialOutNums int, self *SlefInfo, db common.P2pDBManager) 
 	return nil
 }
 
-func newDhtTable(maxDialOutNums int, bootSvr string, self *SlefInfo, db common.P2pDBManager, cfg common.Config, log log.Logger) (*DhtTable, error) {
+func newDhtTable(maxDialOutNums int, self *SlefInfo, db common.P2pDBManager, cfg common.Config, log log.Logger) (*DhtTable, error) {
 	log.Info("newDhtTable")
 	if self.ListenCon == nil {
 		log.Info("self.ListenCon == nil")
@@ -142,8 +152,6 @@ func newDhtTable(maxDialOutNums int, bootSvr string, self *SlefInfo, db common.P
 	}
 	tab := &DhtTable{
 		maxDhtDialOutNums: maxDialOutNums,
-		bootSvr:           bootSvr,
-		nodeType:          self.NodeType,
 		db:                db,
 		refreshReq:        make(chan chan struct{}),
 		initDone:          make(chan struct{}),
@@ -178,6 +186,16 @@ func (tab *DhtTable) Start() {
 	tab.udpCon.start()
 }
 
+//StartWithOutPing start dht service
+func (tab *DhtTable) StartWithOutPing() {
+	tab.log.Info("DhtTable StartWithOutPing")
+	if tab == nil {
+		return
+	}
+	go tab.miniLoop()
+	tab.udpCon.start()
+}
+
 // Stop shuts down the socket and aborts any running queries.
 func (tab *DhtTable) Stop() {
 	tab.log.Info("DhtTable Stop")
@@ -189,24 +207,16 @@ func (tab *DhtTable) Stop() {
 
 //GetMaxDialOutNum return the max dialout num
 func (tab *DhtTable) GetMaxDialOutNum() int {
-	if tab.nodeType == types.NodePeer {
-		return tab.maxDhtDialOutNums
-	}
-	if tab.seedsNum > 0 {
-		return tab.seedsNum
-	}
-	return defaultSeeds
+	return tab.maxDhtDialOutNums
 }
 
 //GetMaxConNumFromCache return the max node's num from local cache
 func (tab *DhtTable) GetMaxConNumFromCache() int {
-	if tab.nodeType == types.NodePeer {
-		return tab.maxDhtDialOutNums / 2
-	}
-	return len(tab.seeds)
+	return tab.maxDhtDialOutNums / 2
 }
 
-func (tab *DhtTable) self() *common.Node {
+//Self return myself dht net info
+func (tab *DhtTable) Self() *common.Node {
 	return tab.localNode
 }
 
@@ -219,80 +229,65 @@ func (tab *DhtTable) seedRand() {
 	tab.mutex.Unlock()
 }
 
+//GetBestNodes return nodes who are upnp success or in public network when needHavePubAddrFlag is true,the size of return nodes should not bigger than maxSize
+func (tab *DhtTable) GetBestNodes(maxSize int, needHavePubAddrFlag bool) (nodes []*common.Node) {
+	tab.mutex.Lock()
+	defer tab.mutex.Unlock()
+Loop:
+	for _, b := range &tab.buckets {
+		for _, node := range b.entries {
+			if needHavePubAddrFlag {
+				if node.havePublicAddr {
+					if len(nodes) >= maxSize {
+						break Loop
+					}
+					nodes = append(nodes, &node.Node)
+				}
+			} else {
+				if len(nodes) >= maxSize {
+					break Loop
+				}
+				nodes = append(nodes, &node.Node)
+			}
+		}
+	}
+	// Shuffle the return nodes.
+	nodeNum := len(nodes)
+	for i := nodeNum - 1; i > 0; i-- {
+		j := tab.rand.Intn(nodeNum)
+		nodes[i], nodes[j] = nodes[j], nodes[i]
+	}
+	return
+}
+
 // LookupRandom finds random nodes in the network.
 func (tab *DhtTable) LookupRandom() []*common.Node {
-	if tab.nodeType == types.NodePeer {
-		if tab.len() == 0 {
-			// All nodes were dropped, refresh. The very first query will hit this
-			// case and run the bootstrapping logic.
-			<-tab.Refresh()
-		}
-		return tab.lookupRandom()
-	} else {
-		return tab.getRandSeedsFromBootSvr()
+	if tab.len() == 0 {
+		// All nodes were dropped, refresh. The very first query will hit this
+		// case and run the bootstrapping logic.
+		<-tab.Refresh()
 	}
+	return tab.lookupRandom()
 }
 
-func (tab *DhtTable) getRandSeedsFromBootSvr() []*common.Node {
-	var splitedNodes []*common.Node
-	seedNodes, _, _ := bootnode.GetSeeds(tab.bootSvr, tab.priv, tab.log)
-	if len(seedNodes) > 0 {
-		seedsNum := 0
-		seedsMap := make(map[string]bool)
-		myID := common.TransPubKeyToNodeID(tab.priv.PubKey())
-		for i := 0; i < len(seedNodes); i++ {
-			if seedNodes[i].ID == myID { //it is my self,skip
-				continue
-			}
-			splitedNodes = append(splitedNodes, seedNodes[i])
-			_, ok := seedsMap[seedNodes[i].ID.String()]
-			if ok {
-				continue
-			} else {
-				seedsMap[seedNodes[i].ID.String()] = true
-				seedsNum++
-			}
-		}
-		tab.seedsNum = seedsNum
-		tab.seeds = wrapNodes(splitedNodes)
-	}
-	// Shuffle the buckets.
-	for i := len(tab.seeds) - 1; i > 0; i-- {
-		j := tab.rand.Intn(len(tab.seeds))
-		tab.seeds[i], tab.seeds[j] = tab.seeds[j], tab.seeds[i]
-	}
-	return splitedNodes
-}
-
+//IsDhtTable return whether current table is DhtTable or not
 func (tab *DhtTable) IsDhtTable() bool {
 	return true
 }
 
+// SetIgnoreFindFailFlag set ignoreFindFailFlag.
+func (tab *DhtTable) SetIgnoreFindFailFlag(flag bool) {
+	tab.ignoreFindFailFlag = flag
+}
+
 // ReadRandomNodes fills the given slice with random nodes from the table. The results
 // are guaranteed to be unique for a single invocation, no node will appear twice.
-func (tab *DhtTable) ReadRandomNodes(buf []*common.Node) (nodeNum int) {
-	if !tab.isInitDone() {
-		tab.log.Info("isInitDone not done")
-		return 0
-	}
-	if tab.nodeType == types.NodePeer {
-		nodeNum = tab.readNodesFromBucket(buf)
-	} else {
-		var i = 0
-		for ; i < len(buf) && i < len(tab.seeds); i++ {
-			buf[i] = unwrapNode(tab.seeds[i])
-		}
-		nodeNum = i
-		// Shuffle the buf.
-		for i := nodeNum - 1; i > 0; i-- {
-			j := tab.rand.Intn(nodeNum)
-			tab.seeds[i], tab.seeds[j] = tab.seeds[j], tab.seeds[i]
-		}
-	}
-
+func (tab *DhtTable) ReadRandomNodes(buf []*common.Node, alreadyConnect map[string]bool) (nodeNum int) {
+	nodeNum = tab.readNodesFromBucketAndSeeds(buf, alreadyConnect)
 	return
 }
 
+//ReadNodesFromKbucket return nodes' net info from kbucket
 func (tab *DhtTable) ReadNodesFromKbucket(buf []*common.Node) (nodeNum int) {
 	if !tab.isInitDone() {
 		tab.log.Info("isInitDone not done")
@@ -302,10 +297,76 @@ func (tab *DhtTable) ReadNodesFromKbucket(buf []*common.Node) (nodeNum int) {
 	return
 }
 
-func (tab *DhtTable) readNodesFromBucket(buf []*common.Node) (n int) {
+//ReadAllNodesFromKbucket return all nodes's net info from kbucket
+func (tab *DhtTable) ReadAllNodesFromKbucket() (buckets [][]*node) {
+	if !tab.isInitDone() {
+		tab.log.Info("isInitDone not done")
+		return nil
+	}
+	buckets = tab.readAllNodesFromBucket()
+	return
+}
+
+func (tab *DhtTable) readAllNodesFromBucket() (buckets [][]*node) {
 	tab.mutex.Lock()
 	defer tab.mutex.Unlock()
 
+	// Find all non-empty buckets and get a fresh slice of their entries.
+	for _, b := range &tab.buckets {
+		if len(b.entries) > 0 {
+			buckets = append(buckets, b.entries)
+		}
+	}
+	if len(buckets) == 0 {
+		tab.log.Info("readAllNodesFromBucket DhtTable len(buckets) = 0")
+		return nil
+	}
+	return buckets
+}
+
+func (tab *DhtTable) GetNodesNumFromKbucket() (nodesNum int) {
+	tab.mutex.Lock()
+	defer tab.mutex.Unlock()
+	for _, b := range &tab.buckets {
+		nodesNum += len(b.entries)
+	}
+	return
+}
+
+func (tab *DhtTable) readNodesFromBucket(buf []*common.Node) (n int) {
+	tab.mutex.Lock()
+	defer tab.mutex.Unlock()
+	return tab.getNodesFromKbucket(buf, 0)
+}
+
+func (tab *DhtTable) readNodesFromBucketAndSeeds(buf []*common.Node, alreadyConnect map[string]bool) (n int) {
+	tab.log.Trace("readNodesFromBucketAndSeeds")
+	tab.mutex.Lock()
+	defer tab.mutex.Unlock()
+	var id string
+	var index int
+	var bufLen = len(buf)
+	//first get node from bootstrap nodes
+	for i := 0; i < len(tab.seeds) && index < bufLen; i++ {
+		id = common.TransNodeIDToString(tab.seeds[i].ID)
+		if alreadyConnect != nil {
+			_, ok := alreadyConnect[id]
+			if ok {
+				continue
+			}
+		}
+		buf[index] = unwrapNode(tab.seeds[i])
+		index++
+	}
+	if index == bufLen {
+		return index
+	}
+	//get node from kbucket
+	tab.log.Trace("readNodesFromBucketAndSeeds", "index", index, "bufLen", bufLen)
+	return tab.getNodesFromKbucket(buf, index)
+}
+
+func (tab *DhtTable) getNodesFromKbucket(buf []*common.Node, startIndex int) int {
 	// Find all non-empty buckets and get a fresh slice of their entries.
 	var buckets [][]*node
 	for _, b := range &tab.buckets {
@@ -314,8 +375,8 @@ func (tab *DhtTable) readNodesFromBucket(buf []*common.Node) (n int) {
 		}
 	}
 	if len(buckets) == 0 {
-		tab.log.Info("DhtTable len(buckets) = 0")
-		return 0
+		tab.log.Info("getNodesFromKbucket DhtTable len(buckets) = 0")
+		return startIndex
 	}
 	// Shuffle the buckets.
 	for i := len(buckets) - 1; i > 0; i-- {
@@ -324,6 +385,7 @@ func (tab *DhtTable) readNodesFromBucket(buf []*common.Node) (n int) {
 	}
 	// Move head of each bucket into buf, removing buckets that become empty.
 	var i, j int
+	i = startIndex
 	for ; i < len(buf); i, j = i+1, (j+1)%len(buckets) {
 		b := buckets[j]
 		buf[i] = unwrapNode(b[0])
@@ -412,6 +474,7 @@ func (tab *DhtTable) Refresh() <-chan struct{} {
 	return done
 }
 
+//PrinttAllnodes printf all nodes's netinfo in kbucket
 func (tab *DhtTable) PrinttAllnodes() {
 	for i, b := range tab.buckets {
 		tab.log.Debug("PrinttAllnodes", "i", i, "len(b.entries)", len(b.entries))
@@ -483,6 +546,60 @@ loop:
 	close(tab.closed)
 }
 
+// loop schedules runs of doRefresh, doRevalidate and copyLiveNodes.
+func (tab *DhtTable) miniLoop() {
+	tab.log.Debug("DhtTable loop2")
+	var (
+		revalidate     = time.NewTimer(tab.nextRevalidateTime())
+		refresh        = time.NewTicker(refreshInterval)
+		copyNodes      = time.NewTicker(copyNodesInterval)
+		refreshDone    = make(chan struct{})           // where doRefresh reports completion
+		revalidateDone chan struct{}                   // where doRevalidate reports completion
+		waiting        = []chan struct{}{tab.initDone} // holds waiting callers while doRefresh runs
+	)
+	defer refresh.Stop()
+	defer revalidate.Stop()
+	defer copyNodes.Stop()
+
+	// Start initial refresh.
+	go tab.doRefresh(refreshDone)
+loop:
+	for {
+		select {
+		case <-refresh.C:
+			tab.seedRand()
+			if refreshDone == nil {
+				refreshDone = make(chan struct{})
+				go tab.doRefresh(refreshDone)
+			}
+		case req := <-tab.refreshReq:
+			waiting = append(waiting, req)
+			if refreshDone == nil {
+				refreshDone = make(chan struct{})
+				go tab.doRefresh(refreshDone)
+			}
+		case <-refreshDone:
+			for _, ch := range waiting {
+				close(ch)
+			}
+			waiting, refreshDone = nil, nil
+		case <-tab.closeReq:
+			break loop
+		}
+	}
+
+	if refreshDone != nil {
+		<-refreshDone
+	}
+	for _, ch := range waiting {
+		close(ch)
+	}
+	if revalidateDone != nil {
+		<-revalidateDone
+	}
+	close(tab.closed)
+}
+
 // lookup performs a network search for nodes close to the given target. It approaches the
 // target by querying nodes that are closer to it on each iteration. The given target does
 // not need to be an actual node identifier.
@@ -496,7 +613,7 @@ func (tab *DhtTable) lookup(target common.NodeID) []*node {
 	)
 	// Don't query further if we hit ourself.
 	// Unlikely to happen often in practice.
-	asked[tab.self().ID] = true
+	asked[tab.Self().ID] = true
 
 	// Generate the initial result set.
 	tab.mutex.Lock()
@@ -524,7 +641,7 @@ func (tab *DhtTable) lookup(target common.NodeID) []*node {
 		select {
 		case nodes := <-reply:
 			for _, n := range nodes {
-				if n != nil && !seen[n.ID] && (tab.self().ID != n.ID) {
+				if n != nil && !seen[n.ID] && (tab.Self().ID != n.ID) {
 					seen[n.ID] = true
 					result.push(n, bucketSize)
 				}
@@ -549,7 +666,7 @@ func (tab *DhtTable) lookupWorker(n *node, targetKey common.NodeID, reply chan<-
 		tab.db.UpdateFindFails(n.ID, n.IP, fails)
 		tab.log.Debug("Findnode failed", "id", n.ID, "ip", n.IP.String(),
 			"TCP_Port", n.TCP_Port, "UDP_Port", n.UDP_Port, "failcount", fails, "err", err)
-		if fails >= maxFindnodeFailures {
+		if fails >= maxFindnodeFailures && !tab.ignoreFindFailFlag {
 			tab.log.Info("Too many findnode failures, dropping", "id", n.ID, "ip", n.IP.String(),
 				"TCP_Port", n.TCP_Port, "UDP_Port", n.UDP_Port, "failcount", fails)
 			tab.delete(n) //Delete records in the cache
@@ -604,9 +721,7 @@ func (tab *DhtTable) doRefresh(done chan struct{}) {
 
 func (tab *DhtTable) loadSeedNodes() {
 	seeds := wrapNodes(tab.db.QuerySeeds(seedCount, seedMaxAge))
-	if tab.nodeType == types.NodePeer {
-		seeds = append(seeds, tab.seeds...)
-	}
+	seeds = append(seeds, tab.seeds...)
 	for i := range seeds { //There may be multiple ip of the same ID in seeds
 		seed := seeds[i]
 		age := log.Lazy{Fn: func() interface{} { return time.Since(tab.db.LastPongReceived(seed.ID, seed.IP)) }}
@@ -614,9 +729,9 @@ func (tab *DhtTable) loadSeedNodes() {
 		if tab.isInbucket(seed) {
 			continue
 		}
-		err, _ := tab.ping(&seed.Node)
+		_, err := tab.ping(&seed.Node)
 		if err != nil {
-			tab.log.Debug("ping failed", "err", err, "id", seed.ID, "addr", seed.addr(), "tcpPort", seed.TCP_Port, "udpPort", seed.UDP_Port)
+			tab.log.Info("ping failed", "err", err, "id", seed.ID, "addr", seed.addr(), "tcpPort", seed.TCP_Port, "udpPort", seed.UDP_Port)
 			continue
 		}
 		tab.log.Trace("ping success", "id", seed.ID, "addr", seed.addr(), "tcpPort", seed.TCP_Port, "udpPort", seed.UDP_Port)
@@ -624,9 +739,9 @@ func (tab *DhtTable) loadSeedNodes() {
 	}
 }
 
-func (tab *DhtTable) ping(n *common.Node) (error, *pong) {
-	err, pong := tab.udpCon.ping(n)
-	return err, pong
+func (tab *DhtTable) ping(n *common.Node) (*pong, error) {
+	err, reply := tab.udpCon.ping(n)
+	return reply, err
 }
 
 // doRevalidate checks that the last node in a random bucket is still live and replaces or
@@ -641,7 +756,7 @@ func (tab *DhtTable) doRevalidate(done chan<- struct{}) {
 	}
 
 	// Ping the selected node and wait for a pong.
-	err, pong := tab.ping(unwrapNode(last))
+	pong, err := tab.ping(unwrapNode(last))
 	tab.mutex.Lock()
 	defer tab.mutex.Unlock()
 	b := tab.buckets[bi]
@@ -683,10 +798,20 @@ func (tab *DhtTable) nodeToRevalidate() (n *node, bi int) {
 }
 
 func (tab *DhtTable) nextRevalidateTime() time.Duration {
+	num := tab.GetNodesNumFromKbucket()
+	var interval time.Duration
+	if num < nodeNum1 {
+		interval = num1RevalidateInterval //when we know less nodes' info ,we should ping one node with more time
+	} else if num >= nodeNum1 && num < nodeNum2 {
+		interval = num2RevalidateInterval
+	} else if num >= nodeNum2 && num < nodeNum3 {
+		interval = num3RevalidateInterval
+	} else {
+		interval = num4RevalidateInterval
+	}
 	tab.mutex.Lock()
 	defer tab.mutex.Unlock()
-
-	return time.Duration(tab.rand.Int63n(int64(revalidateInterval)))
+	return time.Duration(tab.rand.Int63n(int64(interval)))
 }
 
 // copyLiveNodes adds nodes from the table to the database if they have been in the table
@@ -713,15 +838,54 @@ func (tab *DhtTable) closest(target common.NodeID, nresults int, checklive bool)
 	// obviously correct. I believe that tree-based buckets would make
 	// this easier to implement efficiently.
 	close := &nodesByDistance{target: target}
-	for _, b := range &tab.buckets {
-		for _, n := range b.entries {
+	// bucket := tab.bucket(target)
+	bucketID := tab.bucketID(target)
+
+	for _, n := range tab.buckets[bucketID].entries {
+		if checklive && n.livenessChecks == 0 {
+			continue
+		}
+		close.push(n, nresults)
+	}
+
+	if len(close.entries) == nresults {
+		return close
+	}
+
+	for i := bucketID - 1; i >= 0; i-- {
+		for _, n := range tab.buckets[i].entries {
 			if checklive && n.livenessChecks == 0 {
 				continue
 			}
 			close.push(n, nresults)
 		}
 	}
+
+	if len(close.entries) == nresults {
+		return close
+	}
+
+	for i := bucketID + 1; i < nBuckets; i++ {
+		for _, n := range tab.buckets[i].entries {
+			if checklive && n.livenessChecks == 0 {
+				continue
+			}
+			close.push(n, nresults)
+		}
+		if len(close.entries) == nresults {
+			return close
+		}
+	}
+
 	return close
+}
+
+func (tab *DhtTable) bucketID(id common.NodeID) int {
+	d := LogDist(tab.Self().ID, id)
+	if d <= bucketMinDistance {
+		return 0
+	}
+	return d - bucketMinDistance - 1
 }
 
 // len returns the number of nodes in the table.
@@ -737,7 +901,7 @@ func (tab *DhtTable) len() (n int) {
 
 // bucket returns the bucket for the given node ID hash.
 func (tab *DhtTable) bucket(id common.NodeID) *bucket {
-	d := LogDist(tab.self().ID, id)
+	d := LogDist(tab.Self().ID, id)
 	if d <= bucketMinDistance {
 		return tab.buckets[0]
 	}
@@ -750,10 +914,7 @@ func (tab *DhtTable) bucket(id common.NodeID) *bucket {
 //
 // The caller must not hold tab.mutex.
 func (tab *DhtTable) addSeenNode(n *node) {
-	if n.ID == tab.self().ID {
-		return
-	}
-	if n.TCP_Port == 0 {
+	if n.ID == tab.Self().ID {
 		return
 	}
 	tab.mutex.Lock()
@@ -763,8 +924,8 @@ func (tab *DhtTable) addSeenNode(n *node) {
 		// Already in bucket, don't add.
 		return
 	}
-	if len(b.entries) >= bucketSize {
-		tab.log.Debug("len(b.entries) >= bucketSize", "len(b.entries)", len(b.entries))
+	if len(b.entries) >= MaxBucketSize {
+		tab.log.Debug("len(b.entries) >= MaxBucketSize", "len(b.entries)", len(b.entries))
 		// Bucket full, maybe add as replacement.
 		tab.addReplacement(b, n)
 		return
@@ -784,7 +945,7 @@ func (tab *DhtTable) addSeenNode(n *node) {
 }
 
 func (tab *DhtTable) isInbucket(n *node) bool {
-	if n.ID == tab.self().ID {
+	if n.ID == tab.Self().ID {
 		return true
 	}
 
@@ -811,14 +972,11 @@ func (tab *DhtTable) addVerifiedNode(n *node) {
 	if !tab.isInitDone() {
 		return
 	}
-	if n.ID == tab.self().ID {
+	if n.ID == tab.Self().ID {
 		return
 	}
 	ip16 := n.IP.To16()
 	if ip16 == nil {
-		return
-	}
-	if n.TCP_Port == 0 {
 		return
 	}
 	tab.mutex.Lock()
@@ -828,7 +986,7 @@ func (tab *DhtTable) addVerifiedNode(n *node) {
 		// Already in bucket, moved to front.
 		return
 	}
-	if len(b.entries) >= bucketSize {
+	if len(b.entries) >= MaxBucketSize {
 		// Bucket full, maybe add as replacement.
 		tab.addReplacement(b, n)
 		return
@@ -838,7 +996,7 @@ func (tab *DhtTable) addVerifiedNode(n *node) {
 		return
 	}
 	// Add to front of bucket.
-	b.entries, _ = pushNode(b.entries, n, bucketSize)
+	b.entries, _ = pushNode(b.entries, n, MaxBucketSize)
 	b.replacements = deleteNode(b.replacements, n)
 	n.addedAt = time.Now()
 	if tab.nodeAddedHook != nil {
@@ -909,12 +1067,12 @@ func (tab *DhtTable) replace(b *bucket, last *node) *node {
 	}
 	r := b.replacements[tab.rand.Intn(len(b.replacements))]
 	b.replacements = deleteNode(b.replacements, r)
-	b.entries[len(b.entries)-1] = r
+	b.entries[len(b.entries)-1] = r //replace last node
 	tab.removeIP(b, last.IP)
 	return r
 }
 
-// bumpInBucket moves the given node to the front of the bucket entry list
+// bumpInBucket moves the given node to the front of the bucket entry list,when replaceLive is true,we should use the old livenessChecks
 // if it is contained in that list.
 func (tab *DhtTable) bumpInBucket(b *bucket, n *node, replaceLive bool) bool {
 	for i := range b.entries {

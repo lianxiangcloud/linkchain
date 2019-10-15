@@ -55,7 +55,7 @@ func TestSwitch(t *testing.T) {
 
 	privKey := crypto.GenPrivKeyEd25519()
 
-	p2pmanager, err := NewP2pManager(logger, "", privKey, cfg, localNodeInfo, seeds, db)
+	p2pmanager, err := NewP2pManager(logger, privKey, cfg, localNodeInfo, seeds, db)
 	if err != nil {
 		t.Fatal("NewP2pManager err", err)
 	}
