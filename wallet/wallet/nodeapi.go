@@ -536,7 +536,7 @@ func (w *Wallet) GetTransactionCount(address common.Address, blockNr rpc.BlockNu
 	}
 	if jsonRes.Error.Code != 0 {
 		//return nil, fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
-		return nil, wtypes.ErrDaemonResponseCode
+		return nil, wtypes.ErrGetTransactionCount
 	}
 	var nonce hexutil.Uint64
 	if err = json.Unmarshal(jsonRes.Result, &nonce); err != nil {
@@ -666,7 +666,7 @@ func (w *Wallet) EthEstimateGas(args wtypes.CallArgs) (*hexutil.Uint64, error) {
 	}
 	if jsonRes.Error.Code != 0 {
 		//return nil, fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
-		return nil, wtypes.ErrDaemonResponseCode
+		return nil, wtypes.ErrEstimateGas
 	}
 	var gas hexutil.Uint64
 	if err = ser.UnmarshalJSON(jsonRes.Result, &gas); err != nil {
@@ -696,7 +696,7 @@ func (w *Wallet) SendRawTransaction(encodedTx hexutil.Bytes) (common.Hash, error
 	if jsonRes.Error.Code != 0 {
 		w.Logger.Error("eth_sendRawTransaction check jsonRes.Error.Code", "tx", encodedTx, "err", err, "body", string(body), "jsonRes", jsonRes)
 		//return common.EmptyHash, fmt.Errorf("CallJSONRPC check jsonRes.Error.Code,err:%v", jsonRes.Error)
-		return common.EmptyHash, wtypes.ErrDaemonResponseCode
+		return common.EmptyHash, wtypes.ErrSendRawTransaction
 	}
 	var hash common.Hash
 
@@ -730,7 +730,7 @@ func (w *Wallet) SendRawUTXOTransaction(encodedTx hexutil.Bytes) (common.Hash, e
 	if jsonRes.Error.Code != 0 {
 		w.Logger.Error("eth_sendRawUTXOTransaction check jsonRes.Error.Code", "tx", encodedTx, "err", err, "body", string(body), "jsonRes", jsonRes)
 		//return common.EmptyHash, fmt.Errorf("CallJSONRPC check jsonRes.Error.Code,err:%v", jsonRes.Error)
-		return common.EmptyHash, wtypes.ErrDaemonResponseCode
+		return common.EmptyHash, wtypes.ErrSendRawUTXOTransaction
 	}
 	var hash common.Hash
 
