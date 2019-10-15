@@ -128,7 +128,7 @@ func DefaultBindListener(nodeType types.NodeType, fullListenAddrString string, e
 	}
 	if isDHTNet {
 		var bindUdpAddr string
-		if isUpnpSuccess {
+		if externalAddrString != "" || isUpnpSuccess {
 			bindUdpAddr = extAddr.String()
 		} else {
 			bindUdpAddr = fmt.Sprintf(":%d", listenerPort)

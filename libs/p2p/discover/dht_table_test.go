@@ -53,7 +53,7 @@ func generateSelfInfo(myPrivKey crypto.PrivKey) *SlefInfo {
 
 func TestDHTReadRandomNodes(t *testing.T) {
 	var cfg common.Config
-	db, err := defaultDBProvider("dht", dbm.LevelDBBackend, "/tmp/dhtdb", 0)
+	db, err := defaultDBProvider("dht", dbm.LevelDBBackend, "/tmp/dhtdb0", 0)
 	if err != nil {
 		t.Fatalf("DefaultDBProvider failed,err:%s", err)
 		return
@@ -90,7 +90,7 @@ func TestDHTReadRandomNodes(t *testing.T) {
 
 func TestDHTPing(t *testing.T) {
 	var cfg common.Config
-	db, err := defaultDBProvider("dht", dbm.LevelDBBackend, "/tmp/dhtdb", 0)
+	db, err := defaultDBProvider("dht", dbm.LevelDBBackend, "/tmp/dhtdb2", 0)
 	if err != nil {
 		t.Fatalf("DefaultDBProvider failed,err:%s", err)
 		return

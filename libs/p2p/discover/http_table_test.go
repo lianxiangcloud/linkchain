@@ -40,9 +40,10 @@ func savevalSeedsToFile(privKeys []crypto.PrivKey, valSeeds []*common.Node, valS
 	jsonData.Seeds = make([]bootnode.Rnode, len(valSeeds))
 	for i := 0; i < len(jsonData.Seeds); i++ {
 		jsonData.Seeds[i].ID = common.TransPubKeyToNodeID(privKeys[i].PubKey())
-		jsonData.Seeds[i].Endpoint.IP = []string{valSeeds[i].IP.String()} //{addr{Network:"tcp",Addr:valSeeds[i].IP}}
-		jsonData.Seeds[i].Endpoint.Port = make(map[string]int)
-		jsonData.Seeds[i].Endpoint.Port["tcp"] = int(valSeeds[i].TCP_Port)
+		tmpEnd := &bootnode.Endpoint{IP: []string{valSeeds[i].IP.String()}}
+		tmpEnd.Port = make(map[string]int)
+		tmpEnd.Port["tcp"] = int(valSeeds[i].TCP_Port)
+		jsonData.Seeds[i].Endpoint = tmpEnd
 	}
 	encodeData, err := json.Marshal(&jsonData)
 	if err != nil {
