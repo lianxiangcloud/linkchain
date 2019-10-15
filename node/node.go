@@ -353,7 +353,7 @@ func NewNode(config *cfg.Config,
 	// Make BlockchainReactor
 	bcReactor := bc.NewBlockchainReactor(status.Copy(), blockExec, appHandle, fastSync, p2pmanager)
 	bcReactor.SetLogger(logger.With("module", "blockchain"))
-	bcReactor.KeepFastSync(isTrie)
+	// bcReactor.KeepFastSync(isTrie)
 
 	consensusLogger := logger.With("module", "consensus")
 	if status.Validators.HasAddress(privValidator.GetAddress()) {
