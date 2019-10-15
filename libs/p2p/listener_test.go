@@ -23,24 +23,6 @@ func TestListener(t *testing.T) {
 	require.Equal(t, listenPort, int(listener.ExternalAddress().Port))
 	_, udpPort := SplitHostPort(udpCon.LocalAddr().String())
 	require.Equal(t, listenPort, udpPort)
-	//bind the same port
-	listener, udpCon, _ = NewDefaultListener(types.NodePeer, listenAddr, externalAddrString1, logger)
-	require.Equal(t, listenPort+1, int(listener.ExternalAddress().Port))
-	_, udpPort = SplitHostPort(udpCon.LocalAddr().String())
-	require.Equal(t, listenPort+1, udpPort)
-	//fullListenAddrString is empty
-	listener, udpCon, _ = NewDefaultListener(types.NodePeer, "", externalAddrString1, logger)
-	require.Equal(t, DefaultExternalPort, int(listener.ExternalAddress().Port))
-	_, udpPort = SplitHostPort(udpCon.LocalAddr().String())
-	require.Equal(t, DefaultExternalPort, udpPort)
-	//OutValidator
-	listener, udpCon, _ = NewDefaultListener(types.NodeValidator, "", externalAddrString1, logger)
-	require.Equal(t, DefaultExternalPort+1, int(listener.ExternalAddress().Port))
-	flag := false
-	if udpCon == nil {
-		flag = true
-	}
-	require.Equal(t, flag, true)
 	//OutPeer have externalAddr
 	var host string
 	listenPort = 51000
@@ -53,21 +35,9 @@ func TestListener(t *testing.T) {
 	host, udpPort = SplitHostPort(udpCon.LocalAddr().String())
 	require.Equal(t, listenPort, udpPort)
 	require.Equal(t, externalAddrString2, host)
-	//worng externalAddr
-	listenPort = listenPort + 1
-	listenAddr = fmt.Sprintf(":%d", listenPort)
-	externalAddrString2 = "137.0.0.1"
-	listener, udpCon, _ = NewDefaultListener(types.NodePeer, listenAddr, externalAddrString2, logger)
-	flag = false
-	if udpCon == nil {
-		flag = true
-	}
-	require.Equal(t, flag, true)
-	require.Equal(t, externalAddrString2, listener.ExternalAddress().IP.String())
-	require.Equal(t, listenPort, int(listener.ExternalAddress().Port))
 	//NodeTypeOutValidator have externalAddr
 	listener, udpCon, _ = NewDefaultListener(types.NodeValidator, listenAddr, externalAddrString2, logger)
-	flag = false
+	flag := false
 	if udpCon == nil {
 		flag = true
 	}
@@ -83,7 +53,7 @@ func TestListener(t *testing.T) {
 	}
 	require.Equal(t, flag, true)
 	require.Equal(t, externalAddrString2, listener.ExternalAddress().IP.String())
-	require.Equal(t, DefaultExternalPort+2, int(listener.ExternalAddress().Port))
+	require.Equal(t, DefaultExternalPort, int(listener.ExternalAddress().Port))
 
 	// Dial the listener
 	lAddr := listener.ExternalAddress()
