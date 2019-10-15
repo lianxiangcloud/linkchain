@@ -12,6 +12,7 @@ import (
 
 	"fmt"
 
+	cmn "github.com/lianxiangcloud/linkchain/libs/common"
 	"github.com/lianxiangcloud/linkchain/libs/log"
 	"github.com/lianxiangcloud/linkchain/libs/ser"
 )
@@ -47,6 +48,7 @@ func createMConnectionWithCallbacks(conn net.Conn, onReceive func(chID byte, msg
 	chDescs := []*ChannelDescriptor{
 		&ChannelDescriptor{ID: 0x01, Priority: 1, SendQueueCapacity: num},
 		&ChannelDescriptor{ID: 0x02, Priority: 1, SendQueueCapacity: num},
+		{ID: 0x30, Priority: 1, SendQueueCapacity: num},
 	}
 	c := NewMConnectionWithConfig(conn, chDescs, onReceive, onError, cfg)
 	c.SetLogger(log.Test())
@@ -534,4 +536,23 @@ func TestMConnectionTrySend(t *testing.T) {
 	assert.False(t, mconn.CanSend(0x01))
 	assert.False(t, mconn.TrySend(0x01, msg))
 	assert.Equal(t, "TrySend", <-resultCh)
+}
+
+func TestErrorWrap(t *testing.T) {
+	err := cmn.ErrorWrap("panic test", "recovered panic in MConnection")
+	t.Fatalf("err:%v", err)
+}
+
+func TestSend(t *testing.T) {
+	server, client := NetPipe()
+	defer server.Close()
+	defer client.Close()
+
+	mconn := createTestMConnection(client)
+	err := mconn.Start()
+	require.Nil(t, err)
+	defer mconn.Stop()
+	var data []byte
+	_ = mconn.Send(48, data)
+	time.Sleep(time.Second * 2)
 }

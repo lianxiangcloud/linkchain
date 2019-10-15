@@ -33,6 +33,7 @@ const (
 // node represents a host on the network.
 // The fields of Node may not be modified.
 type node struct {
+	havePublicAddr bool //havePublicAddr means this node upnp success or is in public network
 	common.Node
 	addedAt        time.Time // time when the node was added to the table
 	livenessChecks uint      // how often liveness was checked
@@ -70,7 +71,7 @@ func DistCmp(target, a, b common.NodeID) int {
 }
 
 func wrapNode(n *common.Node) *node {
-	return &node{Node: *n}
+	return &node{havePublicAddr: false, Node: *n}
 }
 
 func wrapNodes(ns []*common.Node) []*node {
