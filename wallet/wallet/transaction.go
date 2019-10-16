@@ -18,6 +18,7 @@ const (
 	UTXOTRANSACTION_MAX_SIZE     = 1024 * 20
 	UTXOTRANSACTION_FEE_MAX_SIZE = 1024 * 28
 	UTXOTRANSACTION_FEE          = 1e13
+	UTXO_SIMPLE_RING_SIZE        = 1
 	UTXO_DEFAULT_RING_SIZE       = 11
 	UTXO_OUTPUT_QUERY_PAGESIZE   = 2   //2*UTXO_DEFAULT_RING_SIZE
 	ACCOUNT_TRANS_FIXED_FEE_RATE = 200 //0.005
@@ -29,6 +30,14 @@ const (
 	AccountInputMode InputMode = 0
 	UTXOInputMode    InputMode = 1
 	MixInputMode     InputMode = 2
+)
+
+type OutKind uint8
+
+const (
+	NilOut  OutKind = 0
+	AccOut  OutKind = 1
+	UtxoOut OutKind = 2
 )
 
 type subaddrBalance struct {
@@ -58,7 +67,7 @@ func (wallet *Wallet) CreateUTXOTransaction(from common.Address, nonce uint64, s
 	defer wallet.currAccount.cleanCreatingTx()
 	if from == common.EmptyAddress {
 		wallet.Logger.Debug("CreateUTXOTransaction from is EmptyAddress,use CreateUinTransaction")
-		return wallet.CreateUinTransaction(wallet.currAccount.getEthAddress(), "", subaddrs, dests, tokenID, refundAddr, extra)
+		return wallet.CreateUinTransaction1(subaddrs, dests, tokenID, extra)
 	}
 	if from != wallet.currAccount.getEthAddress() {
 		//return nil, fmt.Errorf("Wallet account is not open as %s", from)
@@ -605,7 +614,6 @@ func (wallet *Wallet) CreateUinTransaction(from common.Address, passwd string, s
 func (wallet *Wallet) createUinTransaction(w accounts.Wallet, acc accounts.Account, passwd string, preferIndice []uint64, sortableSubaddrs sortableSubaddrs, unspentIndicePerSubaddr map[uint64][]uint64,
 	dests []types.DestEntry, tokenID common.Address, refundAddr common.Address, extra []byte) ([]*types.UTXOTransaction, error) {
 	var (
-		signedTx          types.Tx
 		addingFee         = false
 		availableFee      = big.NewInt(0)
 		needFee           = big.NewInt(0)
@@ -731,7 +739,7 @@ func (wallet *Wallet) createUinTransaction(w accounts.Wallet, acc accounts.Accou
 		}
 
 		if tryTx {
-			realNeedMoney, hasContract, err := wallet.checkDest(paidDests, tokenID, UTXOInputMode)
+			realNeedMoney, _, err := wallet.checkDest(paidDests, tokenID, UTXOInputMode)
 			if err != nil {
 				return nil, err
 			}
@@ -780,22 +788,6 @@ func (wallet *Wallet) createUinTransaction(w accounts.Wallet, acc accounts.Accou
 				if err != nil {
 					wallet.Logger.Error("createUinTransaction NewUinTransaction fail", "err", err)
 					return nil, wtypes.ErrNewUinTrans
-				}
-				if hasContract {
-					if 0 == len(passwd) {
-						signedTx, err = w.SignTx(acc, utxoTrans, types.SignParam)
-						if err != nil {
-							wallet.Logger.Error("createUinTransaction SignTx fail", "err", err)
-							return nil, wtypes.ErrSignTx
-						}
-					} else {
-						signedTx, err = w.SignTxWithPassphrase(acc, passwd, utxoTrans, types.SignParam)
-						if err != nil {
-							wallet.Logger.Error("createUinTransaction SignTxWithPassphrase fail", "err", err)
-							return nil, wtypes.ErrSignTx
-						}
-					}
-					utxoTrans = signedTx.(*types.UTXOTransaction)
 				}
 				err = types.UInTransWithRctSig(utxoTrans, selectSources, utxoInEphs, paidDests, mKeys)
 				if err != nil {
@@ -847,84 +839,50 @@ func (wallet *Wallet) CreateMinTransaction(from common.Address, passwd string, n
 	return nil, nil
 }
 
-func (wallet *Wallet) checkDest(dests []types.DestEntry, tokenID common.Address, mode InputMode) (*big.Int, bool, error) {
+func (wallet *Wallet) checkDest(dests []types.DestEntry, tokenID common.Address, mode InputMode) (*big.Int, OutKind, error) {
 	if 0 == len(dests) {
-		return big.NewInt(0), false, wtypes.ErrOutputEmpty
+		return nil, NilOut, wtypes.ErrOutputEmpty
 	}
-	transferMoney := big.NewInt(0)
-	needMoney := big.NewInt(0)
-	accTransMoney := big.NewInt(0)
-	hasContract := false
+	var (
+		accTransMoney = big.NewInt(0)
+		transferMoney = big.NewInt(0)
+		needMoney     = big.NewInt(0)
+		outKind       = NilOut
+	)
 	for i := 0; i < len(dests); i++ {
-		wallet.Logger.Debug("checkDest", "amount", dests[i].GetAmount().String())
-		if dests[i].GetAmount().Sign() <= 0 {
-			return big.NewInt(0), hasContract, wtypes.ErrOutputMoneyInvalid
+		if dests[i].GetAmount().Sign() <= 0 || dests[i].GetAmount().Cmp(big.NewInt(types.UTXO_COMMITMENT_CHANGE_RATE)) < 0 ||
+			big.NewInt(0).Mod(dests[i].GetAmount(), big.NewInt(types.UTXO_COMMITMENT_CHANGE_RATE)).Sign() != 0 {
+			return nil, NilOut, wtypes.ErrOutputMoneyInvalid
 		}
-		if dests[i].GetAmount().Sign() > 0 && (dests[i].GetAmount().Cmp(big.NewInt(types.UTXO_COMMITMENT_CHANGE_RATE)) < 0 ||
-			big.NewInt(0).Mod(dests[i].GetAmount(), big.NewInt(types.UTXO_COMMITMENT_CHANGE_RATE)).Sign() != 0) {
-			return big.NewInt(0), hasContract, wtypes.ErrOutputMoneyInvalid
-		}
-		//estimateGas return fee. if addr is a contract, return value*0.02+contract fee, if addr is a normal, return value*0.02
 		if types.TypeAcDest == dests[i].Type() {
 			isContract, err := wallet.api.IsContract(dests[i].(*types.AccountDestEntry).To)
 			if err != nil {
-				return big.NewInt(0), hasContract, err
-			}
-			if !isContract && dests[i].GetAmount().Sign() == 0 {
-				return big.NewInt(0), hasContract, wtypes.ErrOutputMoneyInvalid
+				return nil, NilOut, err
 			}
 			if isContract {
-				return big.NewInt(0), hasContract, wtypes.ErrNotSupportContractTx
+				return nil, NilOut, wtypes.ErrNotSupportContractTx
 			}
-			// if isContract {
-			// 	hasContract = true
-			// 	nonce, err := EthGetTransactionCount(wallet.currAccount.getEthAddress())
-			// 	if err != nil {
-			// 		return big.NewInt(0), hasContract, err
-			// 	}
-			// 	var kind types.UTXOKind
-			// 	switch mode {
-			// 	case AccountInputMode:
-			// 		kind |= types.Ain
-			// 	case UTXOInputMode:
-			// 		kind |= types.Uin
-			// 	case MixInputMode:
-			// 		kind |= types.Ain
-			// 		kind |= types.Uin
-			// 	}
-			// 	kind |= types.Aout
-			// 	fee, err := EstimateGas(wallet.currAccount.account.EthAddress, *nonce, dests[i].(*types.AccountDestEntry), kind, tokenID)
-			// 	if err != nil {
-			// 		return big.NewInt(0), hasContract, err
-			// 	}
-			// 	// vm run cost gasfee
-			// 	if dests[i].GetAmount().Sign() > 0 {
-			// 		fee.Sub(fee, wallet.estimateTxFee(dests[i].GetAmount()))
-			// 	}
-			// 	// needMoney add only vm cost fee
-			// 	needMoney.Add(needMoney, fee)
-			// }
 			accTransMoney.Add(accTransMoney, dests[i].GetAmount())
+		} else {
+			outKind |= UtxoOut
 		}
 		transferMoney.Add(transferMoney, dests[i].GetAmount())
 	}
-
 	switch mode {
 	case AccountInputMode:
 		needMoney.Add(needMoney, transferMoney)
-		if transferMoney.Sign() > 0 {
-			needMoney.Add(needMoney, wallet.estimateTxFee(transferMoney))
-		}
+		needMoney.Add(needMoney, wallet.estimateTxFee(transferMoney))
 	case UTXOInputMode:
 		needMoney.Add(needMoney, transferMoney)
-		needMoney.Add(needMoney, wallet.estimateUtxoTxFee())
 		needMoney.Add(needMoney, wallet.estimateTxFee(accTransMoney))
+		if (outKind & UtxoOut) != NilOut { //if only one account item, not add estimateUtxoTxFee
+			needMoney.Add(needMoney, wallet.estimateUtxoTxFee())
+		}
 	case MixInputMode:
 		//not support now
-		return big.NewInt(0), hasContract, wtypes.ErrMixInputNotSupport
+		return nil, NilOut, wtypes.ErrMixInputNotSupport
 	}
-	wallet.Logger.Debug("checkDest", "needMoney", needMoney.String())
-	return needMoney, hasContract, nil
+	return needMoney, outKind, nil
 }
 
 //limit account fee > 1e11 and tx fee mod 1e11 == 0
