@@ -314,10 +314,6 @@ func (app *LinkApplication) verifySpecTxSign(block *types.Block) error {
 	for _, tx := range block.Txs {
 		var err error
 		switch data := tx.(type) {
-		case *types.ContractCreateTx:
-			if app.mempool.GetTxFromCache(data.Hash()) == nil {
-				err = data.VerifySign(app.crossState.GetMultiSignersInfo(types.TxContractCreateType))
-			}
 		case *types.ContractUpgradeTx:
 			if app.mempool.GetTxFromCache(data.Hash()) == nil {
 				err = data.VerifySign(app.crossState.GetMultiSignersInfo(types.TxContractCreateType))
@@ -421,8 +417,14 @@ func (app *LinkApplication) verifyTxsOnProcess(block *types.Block) error {
 							return
 						}
 					}
-				case *types.ContractCreateTx, *types.ContractUpgradeTx:
-					err := checkBlacklistAddress(tx)
+				case *types.ContractUpgradeTx:
+					err := app.CheckTx(tx, true)    // CheckBasic (only inner contract can be upgraded)
+					if err != nil {
+						errRets[coIndex] = &err
+						return
+					}
+
+					err = checkBlacklistAddress(tx)
 					if err != nil {
 						errRets[coIndex] = &err
 						return

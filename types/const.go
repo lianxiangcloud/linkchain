@@ -12,7 +12,6 @@ const (
 	TxToken  = "txt"
 
 	TxMultiSignAccount = "mst"
-	TxContractCreate   = "cct"
 	TxContractUpgrade  = "cut"
 	TxUTXO             = "utx"
 

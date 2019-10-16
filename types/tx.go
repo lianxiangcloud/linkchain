@@ -52,7 +52,6 @@ func RegisterTxData() {
 	ser.RegisterInterface((*RegularTx)(nil), nil)
 	ser.RegisterConcrete(&Transaction{}, TxNormal, nil)
 	ser.RegisterConcrete(&TokenTransaction{}, TxToken, nil)
-	ser.RegisterConcrete(&ContractCreateTx{}, TxContractCreate, nil)
 	ser.RegisterConcrete(&MultiSignAccountTx{}, TxMultiSignAccount, nil)
 	ser.RegisterConcrete(&ContractUpgradeTx{}, TxContractUpgrade, nil)
 	RegisterUTXOTxData()
