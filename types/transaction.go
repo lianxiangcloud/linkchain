@@ -462,9 +462,6 @@ func (tx *Transaction) CheckBasicWithState(censor TxCensor, state State) error {
 		return ErrTxEmpty
 	}
 
-	if tx.To() == nil && !IsTestMode {
-		return ErrInvalidReceiver
-	}
 	if tx.data.Amount == nil || tx.data.Price == nil {
 		log.Warn("tx.Amount or tx.Price is nil")
 		return ErrParams

@@ -169,32 +169,6 @@ func GenerateTransaction(txi types.Tx, state *state.StateDB, vmenv *vm.VmFactory
 	txo.Inputs = make([]txInput, 0)
 	txo.Outputs = make([]txOutput, 0)
 	switch tx := txi.(type) {
-	case *types.ContractCreateTx: //DEPRECATED
-		from, err := tx.From()
-		if err != nil {
-			return nil, err
-		}
-		in := txInput{
-			From:  from,
-			Value: tx.Value(),
-			Nonce: tx.Nonce(),
-			Type:  Ain,
-		}
-		txo.Inputs = append(txo.Inputs, in)
-		out := txOutput{
-			To:     common.EmptyAddress,
-			Amount: tx.Value(),
-			Data:   tx.Data(),
-			Type:   Createout,
-		}
-		txo.Outputs = append(txo.Outputs, out)
-		txo.Kind = types.AinAout
-		txo.TokenAddress = tx.TokenAddress()
-		// Gas (Not bought yet!)
-		txo.Gas = tx.Gas()
-		txo.GasPrice = tx.GasPrice()
-		txo.InitialGas = tx.Gas()
-		txo.RefundAddr = from
 	case *types.ContractUpgradeTx:
 		from, err := tx.From()
 		if err != nil {
@@ -494,7 +468,6 @@ func ApplyMessage(vmenv vm.VmInterface, msg types.Message, tokenAddr common.Addr
 			out.Type = Cout
 		}
 		prot.Kind = types.AinAout
-
 		prot.Outputs = append(prot.Outputs, out)
 	}
 

@@ -245,8 +245,6 @@ func (ps *PubsubApi) BroadcastTxSync(txBytes []byte, txType string) (bool, error
 		tx = new(types.Transaction)
 	case types.TxToken:
 		tx = new(types.TokenTransaction)
-	case types.TxContractCreate:
-		tx = new(types.ContractCreateTx)
 	case types.TxContractUpgrade:
 		tx = new(types.ContractUpgradeTx)
 	case types.TxMultiSignAccount:

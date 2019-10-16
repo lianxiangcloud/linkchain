@@ -16,9 +16,6 @@ type specTxArgs interface {
 	toTransaction() types.Tx
 }
 
-var (
-	_ specTxArgs = &sendContractCreateTxArgs{}
-)
 
 type SendSpecTxArgs struct {
 	Args    json.RawMessage  `json:"args"`
@@ -29,8 +26,6 @@ type SendSpecTxArgs struct {
 func (args SendSpecTxArgs) ToTransaction() (types.Tx, error) {
 	var raw interface{}
 	switch args.TxType {
-	case types.TxContractCreate:
-		raw = &sendContractCreateTxArgs{}
 	case types.TxContractUpgrade:
 		raw = &sendContractUpgradeTxArgs{}
 	default:
@@ -57,31 +52,6 @@ func (args SendSpecTxArgs) ToTransaction() (types.Tx, error) {
 type strVals struct {
 	Pubkey string `json:"pubkey"`
 	Power  int64  `json:"power"`
-}
-
-type sendContractCreateTxArgs struct {
-	FromAddr     common.Address  `json:"from"`
-	AccountNonce *hexutil.Uint64 `json:"nonce"`
-	Amount       *hexutil.Big    `json:"value" `
-	Payload      *hexutil.Bytes  `json:"data"`
-	GasLimit     *hexutil.Uint64 `json:"gas"`
-	Price        *hexutil.Big    `json:"gasPrice"`
-}
-
-func (args sendContractCreateTxArgs) toTransaction() types.Tx {
-	if args.Payload == nil || args.AccountNonce == nil {
-		return nil
-	}
-	var input []byte
-	input = *args.Payload
-	return &types.ContractCreateTx{
-		ContractCreateMainInfo: types.ContractCreateMainInfo{
-			FromAddr:     args.FromAddr,
-			AccountNonce: uint64(*args.AccountNonce),
-			Amount:       (*big.Int)(args.Amount),
-			Payload:      input,
-		},
-	}
 }
 
 type sendContractUpgradeTxArgs struct {

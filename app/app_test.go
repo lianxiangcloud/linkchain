@@ -257,11 +257,10 @@ func TestApp(t *testing.T) {
 		fmt.Println("txEntry:", tx.Hash().Hex(), string(js))
 	}
 
-	//return
 	nonce := app.checkTxState.GetNonce(accounts[1].Address)
 	gasLimit := uint64(0)
-	ctx := genContractCreateTx(accounts[1].Address, gasLimit, nonce, "../test/token/sol/SimpleToken.bin")
-	ctx.Amount = new(big.Int).SetUint64(1)
+	ctx := newContractTx(accounts[1].Address, gasLimit, nonce, "../test/token/sol/SimpleToken.bin")
+	ctx.Sign(types.GlobalSTDSigner, accounts[1].PrivateKey)
 	if err := app.CheckTx(ctx, false); err != nil {
 		t.Fatalf("CheckTx err:%v", err)
 	}
@@ -454,8 +453,8 @@ func genTxForCreateContract(from *keystore.Key, gas uint64, nonce uint64, contra
 	return tx
 }
 
-func genContractCreateTx(fromaddr common.Address, gasLimit uint64, nonce uint64, contractFile string) *types.ContractCreateTx {
-	//gasPrice := big.NewInt(1e11)
+func newContractTx(fromaddr common.Address, gasLimit uint64, nonce uint64, contractFile string) *types.Transaction {
+	gasPrice := big.NewInt(1e11)
 	var ccode []byte
 	if len(contractFile) < 100 {
 		bin, err := ioutil.ReadFile(contractFile)
@@ -466,21 +465,13 @@ func genContractCreateTx(fromaddr common.Address, gasLimit uint64, nonce uint64,
 	} else {
 		ccode = common.Hex2Bytes(contractFile)
 	}
+	tx := types.NewContractCreation(nonce, big.NewInt(0), gasLimit, gasPrice, ccode)
 
-	ccMainInfo := &types.ContractCreateMainInfo{
-		FromAddr:     fromaddr,
-		AccountNonce: nonce,
-		Amount:       big.NewInt(0),
-		Payload:      ccode,
-		//GasLimit:     gasLimit,
-		//Price:        gasPrice,
-	}
-	tx := types.CreateContractTx(ccMainInfo, nil)
 	return tx
 }
 
-func genContractCreateTx2(fromaddr common.Address, gasLimit uint64, nonce uint64, contractFile string, amount *big.Int) *types.ContractCreateTx {
-	//gasPrice := big.NewInt(1e11)
+func newContractTx2(fromaddr common.Address, gasLimit uint64, nonce uint64, contractFile string, amount *big.Int) *types.Transaction {
+	gasPrice := big.NewInt(1e11)
 	var ccode []byte
 	if len(contractFile) < 100 {
 		bin, err := ioutil.ReadFile(contractFile)
@@ -491,16 +482,8 @@ func genContractCreateTx2(fromaddr common.Address, gasLimit uint64, nonce uint64
 	} else {
 		ccode = common.Hex2Bytes(contractFile)
 	}
+	tx := types.NewContractCreation(nonce, amount, gasLimit, gasPrice, ccode)
 
-	ccMainInfo := &types.ContractCreateMainInfo{
-		FromAddr:     fromaddr,
-		AccountNonce: nonce,
-		Amount:       amount,
-		Payload:      ccode,
-		//GasLimit:     gasLimit,
-		//Price:        gasPrice,
-	}
-	tx := types.CreateContractTx(ccMainInfo, nil)
 	return tx
 }
 

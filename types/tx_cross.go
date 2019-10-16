@@ -13,12 +13,10 @@ import (
 var (
 	_ Tx       = &Transaction{}
 	_ Tx       = &TokenTransaction{}
-	_ Tx       = &ContractCreateTx{}
 	_ Tx       = &ContractUpgradeTx{}
 	_ Tx       = &MultiSignAccountTx{}
 	_ IMessage = &Transaction{}
 	_ IMessage = &TokenTransaction{}
-	_ IMessage = &ContractCreateTx{}
 	_ IMessage = &ContractUpgradeTx{}
 )
 

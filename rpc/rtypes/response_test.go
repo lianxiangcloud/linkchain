@@ -118,7 +118,6 @@ func getTestTxs() []types.Tx {
 	return []types.Tx{
 		normalTx,
 		tokenTx,
-		getContractCreateTx(),
 		getContractUpgradeTx(),
 		//getMultiSignAccountTx(types.TxUpdateAddrRouteType),
 	}
@@ -159,16 +158,6 @@ func getTokenTx() *types.TokenTransaction {
 	return tx
 }
 
-func getContractCreateTx() *types.ContractCreateTx {
-	return &types.ContractCreateTx{
-		ContractCreateMainInfo: types.ContractCreateMainInfo{
-			FromAddr:     common.HexToAddress("0x1"),
-			AccountNonce: 2,
-			Amount:       big.NewInt(3),
-			Payload:      []byte{5},
-		},
-	}
-}
 
 func getContractUpgradeTx() *types.ContractUpgradeTx {
 	return &types.ContractUpgradeTx{

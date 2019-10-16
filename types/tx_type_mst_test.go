@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"fmt"
-	"math/big"
 
 	"github.com/lianxiangcloud/linkchain/libs/common"
 	"github.com/lianxiangcloud/linkchain/libs/crypto"
@@ -184,109 +183,6 @@ func TestMultiSignVerify(t *testing.T) {
 	fmt.Printf("%v\n", mtx7)
 }
 
-func TestContractCreateTxVerify(t *testing.T) {
-	fromPriveKey, err := crypto.GenerateKey()
-	if err != nil {
-		t.Fatalf("could not generate key: %v", err)
-	}
-	mainInfo := &ContractCreateMainInfo{
-		FromAddr:     crypto.PubkeyToAddress(fromPriveKey.PublicKey),
-		AccountNonce: 1,
-		Amount:       big.NewInt(100),
-		Payload:      []byte{126},
-	}
-	var numsigners int32 = 5
-	signatures := make([][]byte, 0)
-	signersInfo := &SignersInfo{MinSignerPower: numsigners - 1}
-	signersInfo.Signers = make([]*SignerEntry, numsigners)
-	for i := 0; i < len(signersInfo.Signers); i++ {
-		priveKey, err := crypto.GenerateKey()
-		if err != nil {
-			t.Fatalf("could not generate key: %v", err)
-		}
-
-		sigData, err := SignContractCreateTx(priveKey, mainInfo)
-		if err != nil {
-			t.Fatalf("SignContractCreateTx failed:%v", err)
-		}
-		signatures = append(signatures, sigData)
-		pubAddr := crypto.PubkeyToAddress(priveKey.PublicKey)
-		signersInfo.Signers[i] = &SignerEntry{Power: 1, Addr: pubAddr}
-	}
-	//from addr's signature is not include in signatures
-	var ok = false
-	tx := CreateContractTx(mainInfo, signatures)
-	expectFlag := true
-	if tx == nil {
-		expectFlag = false
-	}
-	assert.Equal(t, true, expectFlag, "CreateContractTx failed")
-	err = tx.VerifySign(signersInfo)
-	if err != nil {
-		ok = true
-	} else {
-		ok = false
-	}
-	assert.Equal(t, true, ok, "verify err:%v", err)
-	//normal test
-	sigData, err := SignContractCreateTx(fromPriveKey, mainInfo)
-	if err != nil {
-		t.Fatalf("SignContractCreateTx failed:%v", err)
-	}
-	signatures = append(signatures, sigData)
-	tx = CreateContractTx(mainInfo, signatures)
-	expectFlag = true
-	if tx == nil {
-		expectFlag = false
-	}
-	assert.Equal(t, true, expectFlag, "CreateContractTx failed")
-	err = tx.VerifySign(signersInfo)
-	assert.Equal(t, nil, err, "verify err:%v", err)
-	//test len(signatures) > len(savedSignersInfo.Signers)
-	signatures2 := append(signatures, signatures[1])
-	tx = CreateContractTx(mainInfo, signatures2)
-	expectFlag = true
-	if tx == nil {
-		expectFlag = false
-	}
-	assert.Equal(t, true, expectFlag, "CreateContractTx failed")
-	err = tx.VerifySign(signersInfo)
-	if err != nil {
-		ok = true
-	} else {
-		ok = false
-	}
-	assert.Equal(t, ok, ok, "verify err:%v", err)
-	//invalid  signatures
-	signatures3 := append(signatures, []byte{12})
-	tx = CreateContractTx(mainInfo, signatures3)
-	expectFlag = true
-	if tx != nil {
-		expectFlag = false
-	}
-	assert.Equal(t, true, expectFlag, "CreateContractTx failed")
-	//invalid mainInfo
-	changedMainInfo := mainInfo
-	changedMainInfo.Amount = big.NewInt(1000000)
-	tx = CreateContractTx(changedMainInfo, signatures)
-	err = tx.VerifySign(signersInfo)
-	if err != nil {
-		ok = true
-	} else {
-		ok = false
-	}
-	assert.Equal(t, true, ok, "verify err:%v", err)
-	// insufficient voting power
-	tx = CreateContractTx(changedMainInfo, signatures[:signersInfo.MinSignerPower-2])
-	err = tx.VerifySign(signersInfo)
-	if err != nil {
-		ok = true
-	} else {
-		ok = false
-	}
-	assert.Equal(t, true, ok, "verify err:%v", err)
-	fmt.Printf("%v\n", tx)
-}
 
 func getTestMultiSignMainInfo(txType SupportType) (*MultiSignMainInfo, []PrivValidator, *ValidatorSet) {
 	validators := make([]*Validator, 0, 10)

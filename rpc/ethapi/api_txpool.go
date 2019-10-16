@@ -298,8 +298,6 @@ func (s *PublicTransactionPoolAPI) SendRawTx(ctx context.Context, encodedTx hexu
 		tx = new(types.Transaction)
 	case types.TxToken:
 		tx = new(types.TokenTransaction)
-	case types.TxContractCreate:
-		tx = new(types.ContractCreateTx)
 	case types.TxContractUpgrade:
 		tx = new(types.ContractUpgradeTx)
 	case types.TxMultiSignAccount:

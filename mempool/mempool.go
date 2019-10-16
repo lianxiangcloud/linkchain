@@ -56,7 +56,6 @@ var (
 var canPromoteTxType = map[string]struct{}{
 	types.TxNormal:          struct{}{},
 	types.TxToken:           struct{}{},
-	types.TxContractCreate:  struct{}{},
 	types.TxContractUpgrade: struct{}{},
 	types.TxUTXO:            struct{}{},
 }
@@ -65,7 +64,6 @@ var canAddTxType = map[string]struct{}{
 	types.TxNormal:           struct{}{},
 	types.TxToken:            struct{}{},
 	types.TxMultiSignAccount: struct{}{},
-	types.TxContractCreate:   struct{}{},
 	types.TxContractUpgrade:  struct{}{},
 	types.TxUTXO:             struct{}{},
 }
@@ -73,7 +71,6 @@ var canAddTxType = map[string]struct{}{
 var canAddFutureTxType = map[string]struct{}{
 	types.TxNormal:          struct{}{},
 	types.TxToken:           struct{}{},
-	types.TxContractCreate:  struct{}{},
 	types.TxContractUpgrade: struct{}{},
 	types.TxUTXO:            struct{}{},
 }
@@ -463,7 +460,7 @@ func (mem *Mempool) AddTx(peerID string, tx types.Tx) (err error) {
 			}
 		}
 		err = mem.addUTXOTx(tx)
-	case *types.Transaction, *types.TokenTransaction, *types.ContractCreateTx, *types.ContractUpgradeTx:
+	case *types.Transaction, *types.TokenTransaction, *types.ContractUpgradeTx:
 		// blacklist check
 		var fromAddr, toAddr common.Address
 		fromAddr, _ = tx.From()

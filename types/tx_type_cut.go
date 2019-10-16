@@ -8,6 +8,7 @@ import (
 
 	"github.com/lianxiangcloud/linkchain/libs/common"
 	"github.com/lianxiangcloud/linkchain/libs/log"
+	"github.com/lianxiangcloud/linkchain/config"
 )
 
 type ContractUpgradeMainInfo struct {
@@ -152,6 +153,10 @@ func (tx *ContractUpgradeTx) CheckBasic(censor TxCensor) error {
 
 	if !censor.IsWasmContract(tx.Payload) {
 		return fmt.Errorf("UpgardeCOntractTx: Payload not wasm")
+	}
+	
+	if _, ok := config.InnerContracts[tx.Recipient]; !ok {
+		return fmt.Errorf("Only inner contract can be upgraded")
 	}
 
 	return tx.VerifySign(censor.TxMgr().GetMultiSignersInfo(tx.txType()))

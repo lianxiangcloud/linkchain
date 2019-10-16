@@ -164,7 +164,7 @@ func (tx *processTransaction) checkNonce() (err error) {
 }
 
 func (tx *processTransaction) buyGas() (err error) { // default use Input[0] to buy gas
-	if tx.Type == types.TxContractCreate || tx.Type == types.TxContractUpgrade { // cct & cut bypass
+	if tx.Type == types.TxContractUpgrade { // cut bypass
 		return
 	}
 	if tx.Type == types.TxUTXO && common.IsLKC(tx.TokenAddress) { // lkc utxo bypass
@@ -369,8 +369,8 @@ func (tx *processTransaction) refundGas(transferGas uint64, snapshot int, vmerr 
 		// calculate refund gas (VM gas is refunded in processOutputs)
 		tx.Gas += transferGas
 	}
-	// cct/cut do not buy gas or refund gas
-	if tx.Type == types.TxContractCreate || tx.Type == types.TxContractUpgrade {
+	// cut do not buy gas or refund gas
+	if tx.Type == types.TxContractUpgrade {
 		tx.Gas = tx.InitialGas
 		return
 	}
@@ -413,10 +413,6 @@ func (tx *processTransaction) genTransitTxRecord(res *TransitionResult, vmerr er
 				frontotxs = append(frontotxs, otx)
 			}
 
-		case types.TxContractCreate:
-			out := tx.Outputs[0]
-			otx := types.GenBalanceRecord(tx.RefundAddr, res.Addrs[0], types.AccountAddress, types.AccountAddress, types.TxCreateContract, common.EmptyAddress, out.Amount)
-			frontotxs = append(frontotxs, otx)
 		}
 	}
 	if len(frontotxs) > 0 {

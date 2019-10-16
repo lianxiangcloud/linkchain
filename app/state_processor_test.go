@@ -354,11 +354,12 @@ func TestAccount2Contract(t *testing.T) {
 	sAdd := Bank[0].Address
 
 	amount1 := big.NewInt(0)
-	fee1 := uint64(0)
+	fee1 := uint64(1494617)
 	nonce := uint64(0)
-	tx1 := genContractCreateTx(sAdd, 1000000, nonce, "../test/token/sol/SimpleToken.bin")
+	tx1 := newContractTx(sAdd, fee1, nonce, "../test/token/sol/SimpleToken.bin")
 	tx1.Sign(types.GlobalSTDSigner, sender)
-	tkAdd := crypto.CreateAddress(tx1.FromAddr, tx1.Nonce(), tx1.Data())
+	fromAddress, _ := tx1.From()
+	tkAdd := crypto.CreateAddress(fromAddress, tx1.Nonce(), tx1.Data())
 	nonce++
 
 	bin, err := ioutil.ReadFile("../test/token/sol/SimpleToken.abi")
@@ -385,22 +386,9 @@ func TestAccount2Contract(t *testing.T) {
 	bfBalanceIn := []*big.Int{statedb.GetBalance(sAdd)}
 	bfBalanceOut := []*big.Int{big.NewInt(0)}
 	log.Debug("SAVER", "balance", statedb.GetBalance(sAdd))
-	block := genBlock(types.Txs{tx1})
-	receipts, _, blockGas, _, utxoOutputs, keyImages, err := SP.Process(block, statedb, VC)
-	if err != nil {
-		panic(err)
-	}
-	stateHash := statedb.IntermediateRoot(false)
-	for _, re := range receipts {
-		log.Debug("SAVER", "receipts", re)
-	}
-	statedb.Commit(false, 1)
-	//ADD := receipts[0].ContractAddress
-	stateHash = statedb.IntermediateRoot(false)
-	log.Debug("SAVER", "DP", statedb.JSONDumpKV(), "stateHash", stateHash)
 
-	block = genBlock(types.Txs{tx2})
-	receipts, _, blockGas, _, utxoOutputs, keyImages, err = SP.Process(block, statedb, VC)
+	block := genBlock(types.Txs{tx1, tx2})
+	receipts, _, blockGas, _, utxoOutputs, keyImages, err := SP.Process(block, statedb, VC)
 	if err != nil {
 		panic(err)
 	}
@@ -415,14 +403,14 @@ func TestAccount2Contract(t *testing.T) {
 	actualNonce := []uint64{statedb.GetNonce(sAdd)}
 
 	balancesChecker(t, bfBalanceIn, afBalanceIn, bfBalanceOut, afBalanceOut, expectAmount, expectFee, actualFee)
-	resultChecker(t, receipts, utxoOutputs, keyImages, 1, 0, 0)
+	resultChecker(t, receipts, utxoOutputs, keyImages, 2, 0, 0)
 	othersChecker(t, expectNonce, actualNonce)
 
 	receiptHash := receipts.Hash()
-	stateHash = statedb.IntermediateRoot(false)
+	stateHash := statedb.IntermediateRoot(false)
 	balanceRecordHash := types.RlpHash(types.BlockBalanceRecordsInstance.Json())
 	log.Debug("SAVER", "rh", receiptHash.Hex(), "sh", stateHash.Hex(), "brh", balanceRecordHash.Hex())
-	hashChecker(t, receiptHash, stateHash, balanceRecordHash, "0xbbd33af86251a5ee74f812b2b84c8a5bce3bcbf80537ab74c94acd467bbc0ee9", "0x04742ae40a6cf8c75e614c5ecb3d189e6220049fa2e0033d0aa726a0f9ae56fd", "0x8dcdf5c769987bb4ea14d4aa38f73e903806bd2dc24fea38cf6160beaacaacf2")
+	hashChecker(t, receiptHash, stateHash, balanceRecordHash, "0x3fc4b8ef05b48115243598e0e033cdd4015236e171e586538002ae49e1fcd39d", "0x9acc0b0594de9a1d9cba3923e77ba511d7b44bc563c33937ec7a09579657d562", "0xb92e44ca35a317daadcc36dc6f02e0e44f812f4b9361dee5dee7a794c47a9be1")
 }
 
 //txc2(to Contract & Value transfer)
@@ -435,11 +423,12 @@ func TestAccount2Contract2(t *testing.T) {
 	sAdd := Bank[0].Address
 
 	amount1 := big.NewInt(0)
-	fee1 := uint64(0)
+	fee1 := uint64(107369)
 	nonce := uint64(0)
-	tx1 := genContractCreateTx(sAdd, 1000000, nonce, "../test/token/sol/t.bin")
+	tx1 := newContractTx(sAdd, fee1, nonce, "../test/token/sol/t.bin")
 	tx1.Sign(types.GlobalSTDSigner, sender)
-	tkAdd := crypto.CreateAddress(tx1.FromAddr, tx1.Nonce(), tx1.Data())
+	fromAddress, _ := tx1.From()
+	tkAdd := crypto.CreateAddress(fromAddress, tx1.Nonce(), tx1.Data())
 	nonce++
 
 	bin, err := ioutil.ReadFile("../test/token/sol/t.abi")
@@ -487,7 +476,7 @@ func TestAccount2Contract2(t *testing.T) {
 	stateHash := statedb.IntermediateRoot(false)
 	balanceRecordHash := types.RlpHash(types.BlockBalanceRecordsInstance.Json())
 	log.Debug("SAVER", "rh", receiptHash.Hex(), "sh", stateHash.Hex(), "brh", balanceRecordHash.Hex())
-	hashChecker(t, receiptHash, stateHash, balanceRecordHash, "0x97981d7553106178d0555f4117f2a9d26627629212de3fd7ea755de66c0391c7", "0x552781b7a8250a0d7c7555e6b9bd8fcd0c91cec63c90e56dddcbbda2954673af", "0x276aac6012a392499a40d81f66959f9bd009ff607b56b16501ca73295c9968c6")
+	hashChecker(t, receiptHash, stateHash, balanceRecordHash, "0x864e11778563efdfc0be449b1b05fec1c65ca693e8798cbb1f0e9d5c3cb78052", "0x3ece9a6f16f1b26405ff10573cf89d4c2e11b49c4f3fb68362fe572b04ea2e9e", "0xbdac490b5fb39d6d64cf4faddec6319267edf112b1f74917d07e796bd6edfcbd")
 }
 
 //txc3(to Contract & Value transfer but fail)
@@ -500,11 +489,12 @@ func TestAccount2ContractVmerr(t *testing.T) {
 	sAdd := Bank[0].Address
 
 	amount1 := big.NewInt(0)
-	fee1 := uint64(0)
+	fee1 := uint64(107369)
 	nonce := uint64(0)
-	tx1 := genContractCreateTx(sAdd, 1000000, nonce, "../test/token/sol/t.bin")
+	tx1 := newContractTx(sAdd, fee1, nonce, "../test/token/sol/t.bin")
 	tx1.Sign(types.GlobalSTDSigner, sender)
-	tkAdd := crypto.CreateAddress(tx1.FromAddr, tx1.Nonce(), tx1.Data())
+	fromAddress, _ := tx1.From()
+	tkAdd := crypto.CreateAddress(fromAddress, tx1.Nonce(), tx1.Data())
 	nonce++
 
 	bin, err := ioutil.ReadFile("../test/token/sol/t.abi")
@@ -553,7 +543,7 @@ func TestAccount2ContractVmerr(t *testing.T) {
 	stateHash := statedb.IntermediateRoot(false)
 	balanceRecordHash := types.RlpHash(types.BlockBalanceRecordsInstance.Json())
 	log.Debug("SAVER", "rh", receiptHash.Hex(), "sh", stateHash.Hex(), "brh", balanceRecordHash.Hex())
-	hashChecker(t, receiptHash, stateHash, balanceRecordHash, "0x2728f90aafc6c17d468a31ad23b234f593af353e29240a3ebd562d44524b046f", "0xa899adb78faef9cff229cb33891e67792c1e16ad293d91f66ef0da40eff3ccb7", "0x920d153684014a1b61af6c6a29fcb29a28739e53c7589ce20411b96141e9e0ee")
+	hashChecker(t, receiptHash, stateHash, balanceRecordHash, "0xb3af327405f4da8478cce782e22876366c73b15808d7de6fcfed2a0a0b0e626f", "0x22e4d86a7a179a3e36666c39883e77ac7d65af94d6373c6c03372c795c447197", "0x135c73fc9bdc58b9f72829982914537df45f76b54c2fa747ae45e9d3d7db35bc")
 }
 
 //txc4(to Contract & Value transfer but fail due to transfer gas err)
@@ -566,11 +556,12 @@ func TestAccount2ContractVmerr2(t *testing.T) {
 	sAdd := Bank[0].Address
 
 	amount1 := big.NewInt(0)
-	fee1 := uint64(0)
+	fee1 := uint64(107369)
 	nonce := uint64(0)
-	tx1 := genContractCreateTx(sAdd, 1000000, nonce, "../test/token/sol/t.bin")
+	tx1 := newContractTx(sAdd, fee1, nonce, "../test/token/sol/t.bin")
 	tx1.Sign(types.GlobalSTDSigner, sender)
-	tkAdd := crypto.CreateAddress(tx1.FromAddr, tx1.Nonce(), tx1.Data())
+	fromAddress, _ := tx1.From()
+	tkAdd := crypto.CreateAddress(fromAddress, tx1.Nonce(), tx1.Data())
 	nonce++
 
 	bin, err := ioutil.ReadFile("../test/token/sol/t.abi")
@@ -619,7 +610,7 @@ func TestAccount2ContractVmerr2(t *testing.T) {
 	stateHash := statedb.IntermediateRoot(false)
 	balanceRecordHash := types.RlpHash(types.BlockBalanceRecordsInstance.Json())
 	log.Debug("SAVER", "rh", receiptHash.Hex(), "sh", stateHash.Hex(), "brh", balanceRecordHash.Hex())
-	hashChecker(t, receiptHash, stateHash, balanceRecordHash, "0x3d7956c3354f06b39ee1c91027824b5db219f9fc45e233c258ab310f8ad5d887", "0x52bdca424ac9c0a945d79560636d8bb760654cbc8644c60a4d5c4c993f574f7e", "0xebc737c041b4ed04524648ec3f87815925f7cc426138bf69896b1a2494e007bf")
+	hashChecker(t, receiptHash, stateHash, balanceRecordHash, "0xb5ca9210543551de790b7620ab33f58c98d779793fc531361c4044dbbf64728f", "0xf46776e7e232805fae4534d650e11cbcecf48c3df7a7b5cf663c9c66e272e213", "0x2e04cbf22bae78de96f82727b6df45c947743742a3e5f75df6903962b3653d88")
 }
 
 //txt
@@ -633,12 +624,13 @@ func TestAccount2AccountToken(t *testing.T) {
 	rAdd := Accs[0].Address
 
 	amount1 := big.NewInt(0)
-	fee1 := uint64(0)
+	fee1 := uint64(1494617)
 	nonce := uint64(0)
-	tx1 := genContractCreateTx(sAdd, 1000000, nonce, "../test/token/sol/SimpleToken.bin")
+	tx1 := newContractTx(sAdd, fee1, nonce, "../test/token/sol/SimpleToken.bin")
 	tx1.Sign(types.GlobalSTDSigner, sender)
 	nonce++
-	tkAdd := crypto.CreateAddress(tx1.FromAddr, tx1.Nonce(), tx1.Data())
+	fromAddress, _ := tx1.From()
+	tkAdd := crypto.CreateAddress(fromAddress, tx1.Nonce(), tx1.Data())
 
 	amount2 := big.NewInt(0)
 	fee2 := types.CalNewAmountGas(amount2, types.EverLiankeFee)
@@ -677,7 +669,7 @@ func TestAccount2AccountToken(t *testing.T) {
 	stateHash := statedb.IntermediateRoot(false)
 	balanceRecordHash := types.RlpHash(types.BlockBalanceRecordsInstance.Json())
 	log.Debug("SAVER", "rh", receiptHash.Hex(), "sh", stateHash.Hex(), "brh", balanceRecordHash.Hex())
-	hashChecker(t, receiptHash, stateHash, balanceRecordHash, "0xdb1e7456de2767029930cf70815f4aedd593cf7dbb5ee1d9e9d5eb7207605551", "0x7c1a2d3ea451efac45f3a819a2a1360fa647c7bea04ab6f11cb8fc302e04a28a", "0xfcea8b6bbec0175da26f99c825e3f833532fb54f64e3053dc4bda5c68e279a3a")
+	hashChecker(t, receiptHash, stateHash, balanceRecordHash, "0x9835cf7e62ae08fb00d725b3b07b427140c8664d6066eac36e3d01aa53ba0693", "0x8f471a6cad341c53425ec81e267b070a237388428e61f9355864cb8e8b67c238", "0xd6e243526bd1c7d6f726f5ee7098b39caf475b90b7e7caed3a315dbdf6437fe8")
 }
 
 //cct
@@ -690,8 +682,8 @@ func TestContractCreation(t *testing.T) {
 	sAdd := Bank[0].Address
 	nonce := uint64(0)
 	amount1 := big.NewInt(0)
-	fee1 := uint64(0)
-	tx := genContractCreateTx(accounts[0].Address, 1000000, nonce, "../test/token/sol/SimpleToken.bin")
+	fee1 := uint64(1494617)
+	tx := newContractTx(accounts[0].Address, fee1, nonce, "../test/token/sol/SimpleToken.bin")
 	tx.Sign(types.GlobalSTDSigner, sender)
 	nonce++
 
@@ -719,7 +711,7 @@ func TestContractCreation(t *testing.T) {
 	stateHash := statedb.IntermediateRoot(false)
 	balanceRecordHash := types.RlpHash(types.BlockBalanceRecordsInstance.Json())
 	log.Debug("SAVER", "rh", receiptHash.Hex(), "sh", stateHash.Hex(), "brh", balanceRecordHash.Hex())
-	hashChecker(t, receiptHash, stateHash, balanceRecordHash, "0x22f093fd155fd4b933f06ab869b982373b1baa080c0ef5305f690ea0b5c75deb", "0xf0ca9616cfee23a0f1382dbb6601dd55e24a7ff56b66205ac9b6da6960396c42", "0x119a145bf3a570a87f08dfae193f8bd6bee8b036d1aea1bd6e1154b6aba24a8d")
+	hashChecker(t, receiptHash, stateHash, balanceRecordHash, "0xf024b92d0f56ea2570b9e9aea10f84056d4fd2f2fda8fd32982cc7fe959c83dd", "0x7938c0befd59f2279354c97cd553e43bf78419b1e4514816139d250e3777d202", "0x3cb350f960cb54c88aac6c8b9d2cda0ff4989c47d9eafca6f30bc584d331f0c2")
 }
 
 //cct2
@@ -732,11 +724,12 @@ func TestContractCreation2(t *testing.T) {
 	sAdd := Bank[0].Address
 	nonce := uint64(0)
 	amount1 := big.NewInt(0).Mul(big.NewInt(100), big.NewInt(1e16))
-	fee1 := uint64(0)
-	tx1 := genContractCreateTx2(accounts[0].Address, 100000, nonce, "../test/token/sol/a.bin", amount1)
+	fee1 := uint64(799135)
+	tx1 := newContractTx2(accounts[0].Address, fee1, nonce, "../test/token/sol/a.bin", amount1)
 	tx1.Sign(types.GlobalSTDSigner, sender)
 	nonce++
-	tkAdd := crypto.CreateAddress(tx1.FromAddr, tx1.Nonce(), tx1.Data())
+	fromAddress, _ := tx1.From()
+	tkAdd := crypto.CreateAddress(fromAddress, tx1.Nonce(), tx1.Data())
 	//log.Debug("tx", "tx", tx1)
 
 	bfBalanceIn := []*big.Int{statedb.GetBalance(sAdd)}
@@ -764,7 +757,7 @@ func TestContractCreation2(t *testing.T) {
 	stateHash := statedb.IntermediateRoot(false)
 	balanceRecordHash := types.RlpHash(types.BlockBalanceRecordsInstance.Json())
 	log.Debug("SAVER", "rh", receiptHash.Hex(), "sh", stateHash.Hex(), "brh", balanceRecordHash.Hex())
-	hashChecker(t, receiptHash, stateHash, balanceRecordHash, "0x33f317261865283696181f0b763639881016eba587c35f8695e2e7e2024a5fcf", "0xbafa367d66eac72567f80b618416cdc0059786633b093897774c02f1f0761239", "0x4789c1287a39f8327e4d710fdff672807a3cc0c48a80da530dfab338267fc27c")
+	hashChecker(t, receiptHash, stateHash, balanceRecordHash, "0xeabae586564b1d338523ddbb528403a781dc9096313b8acff72dad66d2f1addb", "0xf6ba8eb94a3c46556ef80f30d853d0b9e52985bffd39ec887855e58f268831e2", "0xfecf95ac258291a191335ba2ac3eb8a5bf1ca235ab7e82386ff1bce1e4fb12c4")
 }
 
 /* Not Support
@@ -824,16 +817,17 @@ func TestContractUpdate(t *testing.T) {
 	sAdd := Bank[0].Address
 
 	amount1 := big.NewInt(0)
-	fee1 := uint64(0)
+	fee1 := uint64(1995447)
 	nonce := uint64(0)
-	tx1 := genContractCreateTx(accounts[0].Address, 1000000, nonce, "../test/token/tcvm/TestToken.bin")
+	tx1 := newContractTx(accounts[0].Address, fee1, nonce, "../test/token/tcvm/TestToken.bin")
 	tx1.Sign(types.GlobalSTDSigner, sender)
-	contractAddr := crypto.CreateAddress(tx1.FromAddr, tx1.Nonce(), tx1.Data())
+	fromAddress, _ := tx1.From()
+	contractAddr := crypto.CreateAddress(fromAddress, tx1.Nonce(), tx1.Data())
 	nonce++
 
 	amount2 := big.NewInt(0)
 	fee2 := uint64(0)
-	tx2 := genContractUpgradeTx(tx1.FromAddr, contractAddr, nonce, "../test/token/tcvm/TestToken.bin")
+	tx2 := genContractUpgradeTx(fromAddress, contractAddr, nonce, "../test/token/tcvm/TestToken.bin")
 	tx2.Sign(types.GlobalSTDSigner, sender)
 	nonce++
 
@@ -861,7 +855,7 @@ func TestContractUpdate(t *testing.T) {
 	stateHash := statedb.IntermediateRoot(false)
 	balanceRecordHash := types.RlpHash(types.BlockBalanceRecordsInstance.Json())
 	log.Debug("SAVER", "rh", receiptHash.Hex(), "sh", stateHash.Hex(), "brh", balanceRecordHash.Hex())
-	hashChecker(t, receiptHash, stateHash, balanceRecordHash, "0xe4c1699aa0c9bf8cc3aa1fe91eb8221789b24787168738ded0d2e432bbea9ec2", "0x6af48509bac4c4f0cfa1ebc6f029d2dac250168485436ef947b30d5c3a3e881a", "0x7773c71c5273f9e63153f88e46e5573a0cc57aac879a9078c7faa913901f4297")
+	hashChecker(t, receiptHash, stateHash, balanceRecordHash, "0xba3b228862af7d9e1efaedfc16169f7b116d13b9f1c0b6095bf239bfd0349dc4", "0x6154d4374568c16e723f87ec0856a3706e9f5986e2ce42ef7a9cfabe1bd2a24d", "0xcd1f574e804d049399b17a069ea3f59d509df1363381944db53b012a4f10af9b")
 }
 
 //*********** UTXO Based Transactions Test **********
@@ -947,7 +941,7 @@ func TestSingleAccount2Contract(t *testing.T) {
 	amount1 := big.NewInt(0)
 	fee1 := uint64(0)
 	nonce := uint64(0)
-	tx1 := genContractCreateTx(sAdd, 1000000, nonce, "../test/token/sol/SimpleToken.bin")
+	tx1 := newContractTx(sAdd, 1000000, nonce, "../test/token/sol/SimpleToken.bin")
 	tx1.Sign(types.GlobalSTDSigner, sender)
 	tkAdd := crypto.CreateAddress(tx1.FromAddr, tx1.Nonce(), tx1.Data())
 	nonce++
@@ -1102,7 +1096,7 @@ func TestSingleAccount2MulitipleUTXOToken(t *testing.T) {
 	amount1 := big.NewInt(0)
 	fee1 := uint64(0)
 	nonce := uint64(0)
-	tx1 := genContractCreateTx(sAdd, 100000, nonce, "../test/token/sol/SimpleToken.bin")
+	tx1 := newContractTx(sAdd, 100000, nonce, "../test/token/sol/SimpleToken.bin")
 	tx1.Sign(types.GlobalSTDSigner, sender)
 	tkAdd := crypto.CreateAddress(tx1.FromAddr, tx1.Nonce(), tx1.Data())
 	nonce++
@@ -1388,7 +1382,7 @@ func TestSingleUTXO2MixToken2(t *testing.T) {
 	amount1 := big.NewInt(0)
 	fee1 := uint64(0)
 	nonce := uint64(0)
-	tx1 := genContractCreateTx(sAdd, 100000, nonce, "../test/token/sol/SimpleToken.bin")
+	tx1 := newContractTx(sAdd, 100000, nonce, "../test/token/sol/SimpleToken.bin")
 	tx1.Sign(types.GlobalSTDSigner, sender)
 	tkAdd := crypto.CreateAddress(tx1.FromAddr, tx1.Nonce(), tx1.Data())
 	nonce++
@@ -1499,7 +1493,7 @@ func TestSingleUTXO2Contract(t *testing.T) {
 	bfBalanceIn := []*big.Int{statedb.GetBalance(sAdd)}
 	bfBalanceOut := []*big.Int{big.NewInt(0)}
 
-	tx1 := genContractCreateTx(sAdd, 1000000, 0, "../test/token/sol/SimpleToken.bin")
+	tx1 := newContractTx(sAdd, 1000000, 0, "../test/token/sol/SimpleToken.bin")
 	tx1.Sign(types.GlobalSTDSigner, sender)
 	tkAdd := crypto.CreateAddress(tx1.FromAddr, tx1.Nonce(), tx1.Data())
 	expectFee1 := big.NewInt(0)
@@ -1648,7 +1642,7 @@ func TestSingleUTXO2Contract2(t *testing.T) {
 	bfBalanceIn := []*big.Int{statedb.GetBalance(sAdd), big.NewInt(0)}
 	bfBalanceOut := []*big.Int{big.NewInt(0), big.NewInt(0)}
 
-	tx1 := genContractCreateTx(sAdd, 1000000, 0, "../test/token/sol/t.bin")
+	tx1 := newContractTx(sAdd, 1000000, 0, "../test/token/sol/t.bin")
 	tx1.Sign(types.GlobalSTDSigner, sender)
 	tkAdd := crypto.CreateAddress(tx1.FromAddr, tx1.Nonce(), tx1.Data())
 	expectFee1 := big.NewInt(0)
@@ -1797,7 +1791,7 @@ func TestSingleUTXO2Contract3(t *testing.T) {
 	bfBalanceIn := []*big.Int{statedb.GetBalance(sAdd), big.NewInt(0)}
 	bfBalanceOut := []*big.Int{big.NewInt(0), big.NewInt(0)}
 
-	tx1 := genContractCreateTx(sAdd, 1000000, 0, "../test/token/sol/t.bin")
+	tx1 := newContractTx(sAdd, 1000000, 0, "../test/token/sol/t.bin")
 	tx1.Sign(types.GlobalSTDSigner, sender)
 	tkAdd := crypto.CreateAddress(tx1.FromAddr, tx1.Nonce(), tx1.Data())
 	expectFee1 := big.NewInt(0)
