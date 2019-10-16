@@ -98,6 +98,10 @@ func NewLinkAccount(walletDB dbm.DB, logger log.Logger, keystoreFile string, pas
 		return nil, err
 	}
 
+	if remoteHeight, err := RefreshMaxBlock(); err == nil {
+		la.remoteHeight.Set(remoteHeight)
+	}
+
 	err = la.loadGOutIndex()
 	if err != nil {
 		return nil, err
@@ -783,7 +787,9 @@ func (la *LinkAccount) RescanBlockchain() error {
 	}
 
 	la.localHeight.SetUint64(defaultInitBlockHeight)
-	la.remoteHeight.SetUint64(defaultInitBlockHeight)
+	if remoteHeight, err := RefreshMaxBlock(); err == nil {
+		la.remoteHeight.Set(remoteHeight)
+	}
 	la.utxoTotalBalance = make(map[common.Address]*big.Int)
 	la.gOutIndex = make(map[common.Address]uint64)
 	la.keyImages = make(map[lkctypes.Key]uint64)
