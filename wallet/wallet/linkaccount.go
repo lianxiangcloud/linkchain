@@ -357,7 +357,6 @@ func (la *LinkAccount) RefreshQuick() {
 				// 	return
 				// }
 				la.localHeight.Set(nextHeight)
-				la.remoteHeight.Set(remoteHeight)
 				la.lock.Unlock()
 				continue
 			}
@@ -388,7 +387,6 @@ func (la *LinkAccount) RefreshQuick() {
 			// }
 
 			la.localHeight.Set(nextHeight)
-			la.remoteHeight.Set(remoteHeight)
 
 			la.lock.Unlock()
 		} else {
