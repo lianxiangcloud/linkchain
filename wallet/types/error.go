@@ -62,6 +62,8 @@ var (
 	ErrNotSupportContractTx = NewWErr(-602014, "not support contract tx")
 	ErrMixInputNotSupport   = NewWErr(-602015, "mix input not support")
 	ErrTransInvalid         = NewWErr(-602016, "transaction output amount invalid")
+	ErrExactMatchFail       = NewWErr(-602017, "DFS exact mathch fail")
+	ErrDestsMergeFail       = NewWErr(-602018, "dests merge fail")
 
 	ErrNoConnectionToDaemon   = NewWErr(-603001, "no_connection_to_daemon")
 	ErrDaemonResponseBody     = NewWErr(-603002, "dameon response body err")
