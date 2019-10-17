@@ -62,6 +62,7 @@ type LinkAccount struct {
 	walletDB             dbm.DB
 	refreshBlockInterval time.Duration
 	syncQuick            bool
+	creatingTx           bool
 }
 
 // NewLinkAccount return a LinkAccount
@@ -937,4 +938,16 @@ func (la *LinkAccount) GetUTXOAddInfo(hash common.Hash) (*types.UTXOAddInfo, err
 
 func (la *LinkAccount) DelUTXOAddInfo(hash common.Hash) error {
 	return la.delAddInfo(hash)
+}
+
+func (la *LinkAccount) setCreatingTx() {
+	la.creatingTx = true
+}
+
+func (la *LinkAccount) cleanCreatingTx() {
+	la.creatingTx = false
+}
+
+func (la *LinkAccount) isCreatingTx() bool {
+	return la.creatingTx == true
 }

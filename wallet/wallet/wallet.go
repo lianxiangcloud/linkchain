@@ -251,7 +251,9 @@ func (w *Wallet) LockAccount(addr common.Address) error {
 	if !ok {
 		return nil
 	}
-
+	for account.isCreatingTx() {
+		time.Sleep(100 * time.Millisecond)
+	}
 	// stop account refresh and reset secKey
 	account.OnStop()
 

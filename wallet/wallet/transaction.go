@@ -54,6 +54,8 @@ func (wallet *Wallet) CreateUTXOTransaction(from common.Address, nonce uint64, s
 	if wallet.IsWalletClosed() {
 		return nil, wtypes.ErrWalletNotOpen
 	}
+	wallet.currAccount.setCreatingTx()
+	defer wallet.currAccount.cleanCreatingTx()
 	if from == common.EmptyAddress {
 		wallet.Logger.Debug("CreateUTXOTransaction from is EmptyAddress,use CreateUinTransaction")
 		return wallet.CreateUinTransaction(wallet.currAccount.getEthAddress(), "", subaddrs, dests, tokenID, refundAddr, extra)
