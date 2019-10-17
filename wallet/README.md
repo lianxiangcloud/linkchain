@@ -1055,6 +1055,7 @@ addr 字符串，十六进制 指定要操作的钱包账户，默认为最后�
             - otaddr 字符串，一次性交易地址  
             - global_index 字符串，十六进制 UTXO的全局索引  
 - height 字符串，十六进制，区块高度  
+- next_height 字符串，十六进制，下一个包含UTXO交易的区块高度  
 - timestamp 字符串，十六进制，区块时间戳  
 示例：  
 
@@ -1085,7 +1086,8 @@ curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"l
          }
       ],
       "timestamp" : "0x5d7f2686",
-      "height" : "0x12b54a"
+      "height" : "0x12b54a",
+      "next_height" : "0x12b54b"
    },
    "id" : "0",
    "jsonrpc" : "2.0"

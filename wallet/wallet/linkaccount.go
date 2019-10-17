@@ -304,10 +304,12 @@ func (la *LinkAccount) Refresh() {
 				return
 			}
 
+			nextHeight := new(big.Int).Add(la.localHeight, big.NewInt(1))
 			localBlock := &types.UTXOBlock{
-				Height: (*hexutil.Big)(new(big.Int).Set(block.Height.ToInt())),
-				Time:   (*hexutil.Big)(new(big.Int).Set(block.Time.ToInt())),
-				Txs:    myTxs,
+				Height:     (*hexutil.Big)(new(big.Int).Set(block.Height.ToInt())),
+				NextHeight: (*hexutil.Big)(new(big.Int).Set(nextHeight)),
+				Time:       (*hexutil.Big)(new(big.Int).Set(block.Time.ToInt())),
+				Txs:        myTxs,
 			}
 
 			err = la.save(ids, *block.Hash, localBlock)
@@ -374,9 +376,10 @@ func (la *LinkAccount) RefreshQuick() {
 			}
 
 			localBlock := &types.UTXOBlock{
-				Height: (*hexutil.Big)(new(big.Int).Set(quickBlock.Block.Height.ToInt())),
-				Time:   (*hexutil.Big)(new(big.Int).Set(quickBlock.Block.Time.ToInt())),
-				Txs:    myTxs,
+				Height:     (*hexutil.Big)(new(big.Int).Set(quickBlock.Block.Height.ToInt())),
+				NextHeight: (*hexutil.Big)(new(big.Int).Set(quickBlock.NextHeight.ToInt())),
+				Time:       (*hexutil.Big)(new(big.Int).Set(quickBlock.Block.Time.ToInt())),
+				Txs:        myTxs,
 			}
 
 			err = la.save(ids, *quickBlock.Block.Hash, localBlock)

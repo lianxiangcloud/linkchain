@@ -245,9 +245,10 @@ type CallArgs struct {
 }
 
 type UTXOBlock struct {
-	Height *hexutil.Big      `json:"height"`
-	Time   *hexutil.Big      `json:"timestamp"`
-	Txs    []UTXOTransaction `json:"txs"`
+	Height     *hexutil.Big      `json:"height"`
+	NextHeight *hexutil.Big      `json:"next_height"`
+	Time       *hexutil.Big      `json:"timestamp"`
+	Txs        []UTXOTransaction `json:"txs"`
 }
 
 type RPCInput interface {
