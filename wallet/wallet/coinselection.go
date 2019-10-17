@@ -222,9 +222,9 @@ func getChangeSubaddr(subaddrs []uint64, unspentBalancePerSubaddr map[uint64]*bi
 //do not care about account output and ser encode now
 func estimateTxSize(inCnt int, outCnt int, ringSize int) uint64 {
 	size := 0
-	//input
+	//input: KeyOffset, KeyImage
 	size += inCnt * (ringSize*8 + 32)
-	//output
+	//output: OTAddr, Remark
 	size += outCnt * (32 + 32)
 	//token_id, rkey, addkey
 	size += 32 + 32 + outCnt*32
@@ -561,13 +561,13 @@ func (wallet *Wallet) constructUTXOPool(subaddrs []uint64, unspentIndicePerSubad
 	return utxoPool
 }
 
-func (wallet *Wallet) constructRingMembers(packets []*inOutPacket) error {
+func (wallet *Wallet) constructRingMembers(from common.Address, packets []*inOutPacket) error {
 	for _, packet := range packets {
 		selectedIdx := make([]uint64, 0)
 		for _, item := range packet.Inputs {
 			selectedIdx = append(selectedIdx, item.localIdx)
 		}
-		sources, err := wallet.constructSourceEntry(selectedIdx)
+		sources, err := wallet.constructSourceEntry(from, selectedIdx)
 		if err != nil {
 			return err
 		}
@@ -609,7 +609,11 @@ func (wallet *Wallet) changeAndMerge(selectedUtxos []*UTXOItem, dests []types.De
 	return dests, nil
 }
 
-func (wallet *Wallet) saveAddInfo(hash common.Hash, packet *inOutPacket, changeSubaddr uint64) error {
+func (wallet *Wallet) saveAddInfo(from common.Address, hash common.Hash, packet *inOutPacket, changeSubaddr uint64) error {
+	currAccount, err := wallet.getCurrAccount(from)
+	if err != nil {
+		return err
+	}
 	addrmap := make(map[uint64]bool, 0)
 	for _, utxo := range packet.Inputs {
 		addrmap[utxo.subaddr] = true
@@ -628,7 +632,7 @@ func (wallet *Wallet) saveAddInfo(hash common.Hash, packet *inOutPacket, changeS
 		}
 		outAmount.Add(outAmount, dest.GetAmount())
 	}
-	if err := wallet.currAccount.saveAddInfo(hash, &wtypes.UTXOAddInfo{
+	if err = currAccount.saveAddInfo(hash, &wtypes.UTXOAddInfo{
 		Subaddrs:  subAddrs,
 		OutAmount: outAmount,
 		ChangeIdx: int(changeSubaddr),
@@ -638,33 +642,63 @@ func (wallet *Wallet) saveAddInfo(hash common.Hash, packet *inOutPacket, changeS
 	return nil
 }
 
+func (wallet *Wallet) currAccAndKeys(from common.Address) (*LinkAccount, *lkctypes.AccountKey, error) {
+	currAccount, err := wallet.getCurrAccount(from)
+	if err != nil {
+		return nil, nil, err
+	}
+	keys := currAccount.account.GetKeys()
+	if keys == nil {
+		return nil, nil, wtypes.ErrAccountNeedUnlock
+	}
+	keysCopy := &lkctypes.AccountKey{
+		SpendSKey: keys.SpendSKey,
+		ViewSKey:  keys.ViewSKey,
+	}
+	emptySecret := lkctypes.SecretKey{}
+	if keysCopy.SpendSKey == emptySecret || keysCopy.ViewSKey == emptySecret {
+		return nil, nil, wtypes.ErrAccountNeedUnlock
+	}
+	return currAccount, keysCopy, nil
+}
+
 //CreateUinTransaction return a UTXOTransaction for utxo input only
-func (wallet *Wallet) CreateUinTransaction1(subaddrs []uint64, dests []types.DestEntry, tokenID common.Address,
-	extra []byte) ([]*types.UTXOTransaction, error) {
+func (wallet *Wallet) CreateUinTransaction(from common.Address, subaddrs []uint64, dests []types.DestEntry,
+	tokenID common.Address, extra []byte) ([]*types.UTXOTransaction, error) {
 	needMoney, _, err := wallet.checkDest(dests, tokenID, UTXOInputMode)
 	if err != nil {
 		return nil, err
 	}
-	unspentBalancePerSubaddr := wallet.unspentBalancePerSubaddr(tokenID)
+	unspentBalancePerSubaddr, err := wallet.unspentBalancePerSubaddr(from, tokenID)
+	if err != nil {
+		return nil, err
+	}
 	subaddrs, availableMoney := updateSubaddrs(subaddrs, unspentBalancePerSubaddr)
 	wallet.Logger.Debug("CreateUinTransaction", "availableMoney", availableMoney, "needMoney", needMoney)
 	if availableMoney.Cmp(needMoney) < 0 {
 		return nil, wtypes.ErrBalanceNotEnough
 	}
 	changeSubaddr := getChangeSubaddr(subaddrs, unspentBalancePerSubaddr)
-	unspentIndicePerSubaddr := wallet.unspentIndicePerSubaddr(tokenID)
+	unspentIndicePerSubaddr, err := wallet.unspentIndicePerSubaddr(from, tokenID)
+	if err != nil {
+		return nil, err
+	}
 	utxoPool := wallet.constructUTXOPool(subaddrs, unspentIndicePerSubaddr)
 	inOutPackets, err := wallet.selectionProcess(utxoPool, dests, changeSubaddr, tokenID)
 	if err != nil {
 		return nil, err
 	}
-	if err = wallet.constructRingMembers(inOutPackets); err != nil {
+	if err = wallet.constructRingMembers(from, inOutPackets); err != nil {
+		return nil, err
+	}
+	currAccount, keys, err := wallet.currAccAndKeys(from)
+	if err != nil {
 		return nil, err
 	}
 	txs := make([]*types.UTXOTransaction, 0)
 	for _, packet := range inOutPackets {
-		utxoTx, utxoInEphs, mKeys, txKey, err := types.NewUinTransaction(wallet.currAccount.account.GetKeys(),
-			wallet.currAccount.account.KeyIndex, packet.Sources, packet.Outputs, tokenID, common.EmptyAddress, extra)
+		utxoTx, utxoInEphs, mKeys, txKey, err := types.NewUinTransaction(keys, currAccount.account.KeyIndex,
+			packet.Sources, packet.Outputs, tokenID, common.EmptyAddress, extra)
 		if err != nil {
 			return nil, wtypes.ErrNewUinTrans
 		}
@@ -675,11 +709,11 @@ func (wallet *Wallet) CreateUinTransaction1(subaddrs []uint64, dests []types.Des
 			return nil, wtypes.ErrTxTooBig
 		}
 		// save txkey
-		if err = wallet.currAccount.saveTxKeys(utxoTx.Hash(), txKey); err != nil {
+		if err = currAccount.saveTxKeys(utxoTx.Hash(), txKey); err != nil {
 			return nil, err
 		}
 		//save trans additional info. such as paid subaddress, outamount
-		if err = wallet.saveAddInfo(utxoTx.Hash(), packet, changeSubaddr); err != nil {
+		if err = wallet.saveAddInfo(from, utxoTx.Hash(), packet, changeSubaddr); err != nil {
 			return nil, err
 		}
 		txs = append(txs, utxoTx)

@@ -255,9 +255,7 @@ func (w *Wallet) LockAccount(addr common.Address) error {
 	if !ok {
 		return nil
 	}
-	for account.isCreatingTx() {
-		time.Sleep(100 * time.Millisecond)
-	}
+
 	// stop account refresh and reset secKey
 	account.OnStop()
 
@@ -424,6 +422,20 @@ func (w *Wallet) DelUTXOAddInfo(hash common.Hash) error {
 	}
 
 	return types.ErrWalletNotOpen
+}
+
+func (w *Wallet) getCurrAccount(addr common.Address) (*LinkAccount, error) {
+	currAccount := w.currAccount
+	if currAccount == nil {
+		return nil, types.ErrAccountNeedUnlock
+	}
+	if addr == common.EmptyAddress {
+		return currAccount, nil
+	}
+	if currAccount.getEthAddress() != addr {
+		return nil, types.ErrAccountNeedUnlock
+	}
+	return currAccount, nil
 }
 
 func (w *Wallet) Transfer(txs []string) []wtypes.SendTxRet {
