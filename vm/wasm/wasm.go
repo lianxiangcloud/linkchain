@@ -253,9 +253,6 @@ func (wasm *WASM) UTXOCall(c types.ContractRef, addr, token common.Address, inpu
 	}
 	wasm.UnsafeTransfer(wasm.StateDB, to.Address(), token, value)
 
-	br := types.GenBalanceRecord(common.EmptyAddress, to.Address(), types.PrivateAddress, types.AccountAddress, types.TxTransfer, token, value)
-	wasm.otxs = append(wasm.otxs, br)
-
 	// Initialise a new contract and set the code that is to be used by the WASM.
 	// The contract is a scoped environment for this execution context only.
 	caller := c.(ContractRef)
@@ -456,10 +453,6 @@ func (wasm *WASM) StaticCall(c types.ContractRef, addr common.Address, input []b
 func (wasm *WASM) Create(c types.ContractRef, data []byte, gas uint64, value *big.Int) (ret []byte, contractAddr common.Address, leftOverGas uint64, err error) {
 	caller := c.(ContractRef)
 
-	if !wasm.CanTransfer(wasm.StateDB, caller.Address(), common.EmptyAddress, value) {
-		return nil, common.EmptyAddress, gas, vm.ErrInsufficientBalance
-	}
-
 	// parse Constructor's arguments && bytecode
 	input, code, err := vm.ParseInitArgsAndCode(data)
 	if err != nil {
@@ -483,9 +476,7 @@ func (wasm *WASM) Create(c types.ContractRef, data []byte, gas uint64, value *bi
 	encodeinput := hex.EncodeToString(input)
 	strInput, _ := hex.DecodeString(encodeinput)
 
-	wasm.Transfer(wasm.StateDB, caller.Address(), contractAddr, common.EmptyAddress, value)
-	br := types.GenBalanceRecord(caller.Address(), contractAddr, types.AccountAddress, types.AccountAddress, types.TxCreateContract, common.EmptyAddress, value)
-	wasm.otxs = append(wasm.otxs, br)
+	wasm.UnsafeTransfer(wasm.StateDB, contractAddr, common.EmptyAddress, value)
 
 	// initialise a new contract and set the code that is to be used by the
 	// WASM. The contract is a scoped environment for this execution context

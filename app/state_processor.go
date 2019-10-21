@@ -17,20 +17,13 @@
 package app
 
 import (
-	"bytes"
-	"fmt"
-	"strings"
-
 	"math/big"
 
-	"github.com/lianxiangcloud/linkchain/accounts/abi"
 	"github.com/lianxiangcloud/linkchain/blockchain"
 	"github.com/lianxiangcloud/linkchain/config"
 	"github.com/lianxiangcloud/linkchain/libs/common"
-	"github.com/lianxiangcloud/linkchain/libs/crypto"
 	lctypes "github.com/lianxiangcloud/linkchain/libs/cryptonote/types"
 	"github.com/lianxiangcloud/linkchain/libs/log"
-	"github.com/lianxiangcloud/linkchain/libs/ser"
 	"github.com/lianxiangcloud/linkchain/state"
 	"github.com/lianxiangcloud/linkchain/types"
 	"github.com/lianxiangcloud/linkchain/vm"
@@ -42,11 +35,6 @@ const (
 	//function signature: 0x08c379a0
 	jsondata = `[{ "type" : "function", "name" : "Error", "constant" : true,  "inputs":[{ "name" : "message", "type" : "string" } ], "outputs":[{ "name" : "", "type" : "string" } ] }]`
 	cerrName = "Error"
-)
-
-var (
-	cabi, _ = abi.JSON(strings.NewReader(jsondata))
-	cerrID  = cabi.Methods[cerrName].Id()
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning
@@ -66,334 +54,450 @@ func NewStateProcessor(bc *blockchain.BlockStore, app *LinkApplication) *StatePr
 	}
 }
 
-// Process processes the state changes according to the Ethereum rules by running
-// the transaction messages using the statedb and applying any rewards to both
-// the processor (coinbase) and any included uncles.
-//
-// Process returns the receipts and logs accumulated during the process and
-// returns the amount of gas that was used in the process. If any of the
-// transactions failed to execute due to insufficient gas it will return an error.
-func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg evm.Config) (types.Receipts, []*types.Log, uint64, []types.Tx, []*types.UTXOOutputData, []*lctypes.Key, error) {
-	var (
-		length       = len(block.Data.Txs)
-		receipts     = make(types.Receipts, 0)
-		usedGas      = new(uint64)
-		header       = types.CopyHeader(block.Header)
-		allLogs      = make([]*types.Log, 0, length)
-		specialTxs   = []types.Tx{}
-		utxoOutputs  = make([]*types.UTXOOutputData, 0)
-		keyImages    = make([]*lctypes.Key, 0)
-		keyImagesMap = make(map[lctypes.Key]bool)
-	)
+type processState struct {
+	//outputs
+	Receipts    types.Receipts
+	AllLogs     []*types.Log
+	UsedGas     uint64
+	SpecialTxs  []types.Tx
+	UtxoOutputs []*types.UTXOOutputData
+	KeyImages   []*lctypes.Key
+	//states
+	Block        *types.Block
+	Statedb      *state.StateDB
+	Vmenv        vm.VmFactory
+	KeyImagesMap map[lctypes.Key]bool
+}
 
-	vmenv := vm.NewVM()
+func initProcessState(block *types.Block, statedb *state.StateDB, cfg evm.Config, bc *blockchain.BlockStore) (s *processState) {
+	length := len(block.Data.Txs)
+	s = &processState{
+		Receipts:    make(types.Receipts, 0),
+		AllLogs:     make([]*types.Log, 0, length),
+		UsedGas:     0,
+		SpecialTxs:  []types.Tx{},
+		UtxoOutputs: make([]*types.UTXOOutputData, 0),
+		KeyImages:   make([]*lctypes.Key, 0),
+		// states
+		Block:        block,
+		Statedb:      statedb,
+		Vmenv:        vm.NewVM(),
+		KeyImagesMap: make(map[lctypes.Key]bool),
+	}
+	header := types.CopyHeader(block.Header)
 	evmGasRate := config.EvmGasRate
-	contextEvm := evm.NewEVMContext(header, p.bc, nil, evmGasRate)
-	vmenv.AddVm(&contextEvm, statedb, cfg)
+	contextEvm := evm.NewEVMContext(header, bc, nil, evmGasRate)
+	s.Vmenv.AddVm(&contextEvm, statedb, cfg)
 	wasmGasRate := config.WasmGasRate
-	contextWasm := wasm.NewWASMContext(header, p.bc, nil, wasmGasRate)
-	vmenv.AddVm(&contextWasm, statedb, cfg)
+	contextWasm := wasm.NewWASMContext(header, bc, nil, wasmGasRate)
+	s.Vmenv.AddVm(&contextWasm, statedb, cfg)
 
+	return
+}
+
+func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg evm.Config) (types.Receipts, []*types.Log, uint64, []types.Tx, []*types.UTXOOutputData, []*lctypes.Key, error) {
+
+	// init
+	s := initProcessState(block, statedb, cfg, p.bc)
 	// Iterate over and process the individual transactions
 	for idx, txRaw := range block.Data.Txs {
-		switch tx := txRaw.(type) {
-		case *types.Transaction, *types.TokenTransaction, *types.ContractCreateTx, *types.ContractUpgradeTx:
-			if tx.TypeName() == types.TxNormal {
-				err := tx.(*types.Transaction).CheckBasicWithState(nil, statedb)
-				if err != nil {
-					return nil, nil, 0, nil, nil, nil, err
-				}
-			}
-			if tx.TypeName() == types.TxToken {
-				err := tx.(*types.TokenTransaction).CheckBasicWithState(nil, statedb)
-				if err != nil {
-					return nil, nil, 0, nil, nil, nil, err
-				}
-			}
-			tbr := types.NewTxBalanceRecords()
-			//case types.RegularTx:
-			statedb.Prepare(txRaw.Hash(), block.Hash(), idx)
-			receipt, otxs, err := p.applyTransaction(statedb, tx.(types.RegularTx), usedGas, &vmenv)
-			for _, br := range otxs {
-				tbr.AddBalanceRecord(br)
-			}
-
-			if err != nil {
-				log.Error("applytransaction", "height", block.Height, "idx", idx, "tx", txRaw.Hash().String(), "receipt", receipt.Hash().String(), "err", err)
-				return nil, nil, 0, nil, nil, nil, err
-			}
-			payloads := make([]types.Payload, 0)
-			if tx.(types.RegularTx).Data() != nil {
-				payloads = append(payloads, tx.(types.RegularTx).Data())
-			}
-			nonce := tx.(types.RegularTx).Nonce()
-			gasLimit := tx.(types.RegularTx).Gas()
-			gasPrice := tx.(types.RegularTx).GasPrice()
-			tokenId := tx.(types.RegularTx).TokenAddress()
-			from, err := tx.From()
-			if err != nil {
-				from = common.EmptyAddress
-			}
-			var to common.Address
-			toPtr := tx.To()
-			if toPtr == nil {
-				to = common.EmptyAddress
-			} else {
-				to = *toPtr
-			}
-			tbr.SetOptions(tx.Hash(), tx.TypeName(), payloads, nonce, gasLimit, gasPrice, from, to, tokenId)
-			types.BlockBalanceRecordsInstance.AddTxBalanceRecord(tbr)
-			receipts = append(receipts, receipt)
-			allLogs = append(allLogs, receipt.Logs...)
-		case *types.MultiSignAccountTx:
-			log.Debug("Process", "MultiSignAccountTx", tx)
-			specialTxs = append(specialTxs, tx)
-			from, _ := tx.From()
-			statedb.SetNonce(from, statedb.GetNonce(from)+1)
-			receipts = append(receipts, &types.Receipt{})
-		case *types.UTXOTransaction:
-			if err := tx.CheckStoreState(p.app, statedb); err != nil {
-				return nil, nil, 0, nil, nil, nil, err
-			}
-
-			kms := tx.GetInputKeyImages()
-			for _, km := range kms {
-				if keyImagesMap[*km] {
-					return nil, nil, 0, nil, nil, nil, types.ErrUtxoTxDoubleSpend
-				}
-				keyImagesMap[*km] = true
-			}
-
-			//any account mode enter state process
-			tbr := types.NewTxBalanceRecords()
-			tbr.Type = tx.TypeName()
-			tbr.Hash = tx.Hash()
-
-			var receipt *types.Receipt
-			var err error
-			var otxs []types.BalanceRecord
-			log.Debug("Process", "UTXOTransaction", tx, "UTXOKind", tx.UTXOKind())
-			if (tx.UTXOKind()&types.Ain) == types.Ain || (tx.UTXOKind()&types.Aout) == types.Aout {
-				statedb.Prepare(txRaw.Hash(), block.Hash(), idx)
-				receipt, otxs, err = p.applyUTXOTransaction(statedb, tx, usedGas, &vmenv)
-				if err != nil {
-					log.Error("applytransaction", "height", block.Height, "idx", idx, "tx", txRaw.Hash().String(), "receipt", receipt.Hash().String(), "err", err)
-					return nil, nil, 0, nil, nil, nil, err
-				}
-				for _, br := range otxs {
-					tbr.AddBalanceRecord(br)
-				}
-				allLogs = append(allLogs, receipt.Logs...)
-				// balance records
-				payloads := make([]types.Payload, 0)
-				var from, to common.Address
-				if (tx.UTXOKind() & types.Aout) == types.Aout {
-					for _, out := range tx.Outputs {
-						switch aOutput := out.(type) {
-						case *types.AccountOutput:
-							if aOutput.Data != nil {
-								if aOutput.Data != nil {
-									payloads = append(payloads, aOutput.Data)
-								}
-							}
-							to = aOutput.To
-						}
-					}
-				}
-				var nonce uint64
-				if (tx.UTXOKind() & types.Ain) == types.Ain {
-					for _, in := range tx.Inputs {
-						switch aInput := in.(type) {
-						case *types.AccountInput:
-							nonce = aInput.Nonce
-						}
-					}
-					from, err = tx.From()
-					if err != nil {
-						from = common.EmptyAddress
-					}
-				}
-				gasPrice := tx.GasPrice()
-				gasLimit := tx.Gas()
-				tbr.SetOptions(tx.Hash(), tx.TypeName(), payloads, nonce, gasLimit, gasPrice, from, to, tx.TokenID)
-			} else {
-				from, err := tx.From()
-				log.Debug("Process UTXO->UTXO", "from", from.String(), "err", err)
-				gas := tx.Gas()
-				*usedGas += gas
-				receipt = &types.Receipt{
-					CumulativeGasUsed: *usedGas,
-					TxHash:            tx.Hash(),
-					GasUsed:           gas,
-					Status:            types.ReceiptStatusSuccessful,
-				}
-				fee := new(big.Int).Mul(big.NewInt(0).SetUint64(gas), big.NewInt(types.GasPrice))
-				br := types.GenBalanceRecord(common.EmptyAddress, config.ContractFoundationAddr, types.PrivateAddress,
-					types.AccountAddress, types.TxFee, common.EmptyAddress, fee)
-				tbr.AddBalanceRecord(br)
-				payloads := make([]types.Payload, 0)
-				gasPrice := tx.GasPrice()
-				gasLimit := tx.Gas()
-				tbr.SetOptions(tx.Hash(), tx.TypeName(), payloads, 0, gasLimit, gasPrice, common.EmptyAddress,
-					common.EmptyAddress, common.EmptyAddress)
-			}
-			types.BlockBalanceRecordsInstance.AddTxBalanceRecord(tbr)
-			receipts = append(receipts, receipt)
-			utxoOutputs = append(utxoOutputs, tx.GetOutputData(block.Height)...)
-			keyImages = append(keyImages, kms...)
-		default:
-			err := fmt.Errorf("unknow tx type")
+		if err := s.checkValid(txRaw, p.app); err != nil {
+			log.Error("Process checkValid Error", "hash", txRaw.Hash(), "err", err)
 			return nil, nil, 0, nil, nil, nil, err
 		}
+		if err := s.resetEnv(txRaw, idx); err != nil {
+			log.Error("Process resetEnv Error", "hash", txRaw.Hash(), "err", err)
+			return nil, nil, 0, nil, nil, nil, err
+		}
+		if err := s.txRawProcess(txRaw); err != nil {
+			log.Error("Process txRawProcess Error", "hash", txRaw.Hash(), "err", err)
+			return nil, nil, 0, nil, nil, nil, err
+		}
+		//TODO: replace AsMessage in /types
+		tx, err := GenerateTransaction(txRaw, statedb, &s.Vmenv)
+		if err != nil {
+			log.Error("Process GenerateTransaction Error", "hash", txRaw.Hash(), "err", err)
+			return nil, nil, 0, nil, nil, nil, err
+		}
+		transRes, vmerr, err := tx.Transit()
+		if err != nil {
+			log.Error("Process Transit Error", "hash", tx.Hash, "err", err)
+			return nil, nil, 0, nil, nil, nil, err
+		}
+		s.postProcess(tx, transRes, vmerr)
 	}
-
-	return receipts, allLogs, *usedGas, specialTxs, utxoOutputs, keyImages, nil
+	log.Debug("Process", "hash", block.Hash, "receipts", s.Receipts, "allLogs", s.AllLogs, "usedGas", s.UsedGas, "specialTxs", s.SpecialTxs, "utxoOutputs", s.UtxoOutputs, "keyImages", s.KeyImages)
+	return s.Receipts, s.AllLogs, s.UsedGas, s.SpecialTxs, s.UtxoOutputs, s.KeyImages, nil
 }
 
-func (p *StateProcessor) applyUTXOTransaction(statedb *state.StateDB, tx *types.UTXOTransaction, usedGas *uint64, vmenv *vm.VmFactory) (*types.Receipt, []types.BalanceRecord, error) {
-	msg, err := tx.AsMessage()
-	if err != nil {
-		return nil, nil, err
-	}
+func (s *processState) checkValid(txi types.Tx, app *LinkApplication) (err error) {
+	switch tx := txi.(type) {
+	case *types.Transaction:
+		err = tx.CheckBasicWithState(nil, s.Statedb)
 
-	var msgcode []byte
-	if len(msg.OutputData()) > 0 {
-		msgcode = msg.OutputData()[0].Data
-		toAddr := msg.OutputData()[0].To
-		if statedb.IsContract(toAddr) {
-			msgcode = statedb.GetCode(toAddr)
+	case *types.TokenTransaction:
+		err = tx.CheckBasicWithState(nil, s.Statedb)
+
+	case *types.UTXOTransaction:
+		if err = tx.CheckStoreState(app, s.Statedb); err != nil {
+			return
 		}
-	}
-	realvm := vmenv.GetRealVm(msgcode, nil)
-	realvm.Reset(msg)
-	realvm.SetToken(msg.TokenAddress())
-
-	log.Debug("applyUTXOTransaction")
-	// Apply the transaction to the current state (included in the env)
-	ret, gas, _, fee, vmerr, err := ApplyUTXOMessage(realvm, tx, msg.TokenAddress())
-	if vmerr != nil || err != nil {
-		if vmerr != nil && bytes.HasPrefix(ret, cerrID) {
-			var reason string
-			if err := cabi.Unpack(&reason, cerrName, ret[len(cerrID):]); err == nil {
-				vmerr = fmt.Errorf("%v: %s", vmerr, reason)
+		kms := tx.GetInputKeyImages()
+		for _, km := range kms {
+			if s.KeyImagesMap[*km] {
+				return types.ErrUtxoTxDoubleSpend
 			}
-		}
-		log.Report("ApplyUTXOMessage", "logID", types.LogIdContractExecutionError, "hash", tx.Hash().Hex(), "vmerr", vmerr, "err", err)
-	}
-	if err != nil {
-		return nil, nil, err
-	}
-
-	otxs := realvm.GetOTxs()
-	if vmerr != nil {
-		otxs = make([]types.BalanceRecord, 0)
-	}
-	if fee != nil {
-		from := common.EmptyAddress
-		if (tx.UTXOKind() & types.Ain) == types.Ain {
-			from, err = tx.From()
-			if err != nil {
-				from = common.EmptyAddress
-			}
-			br := types.GenBalanceRecord(from, config.ContractFoundationAddr, types.AccountAddress, types.AccountAddress, types.TxFee, msg.TokenAddress(), fee)
-			otxs = append(otxs, br)
-		} else {
-			br := types.GenBalanceRecord(from, config.ContractFoundationAddr, types.PrivateAddress, types.AccountAddress, types.TxFee, msg.TokenAddress(), fee)
-			otxs = append(otxs, br)
+			s.KeyImagesMap[*km] = true
 		}
 	}
-
-	// Update the state with pending changes
-	//root := statedb.IntermediateRoot(false).Bytes()
-	*usedGas += gas
-	receipt := types.NewReceipt(nil, vmerr, *usedGas)
-	receipt.TxHash = tx.Hash()
-	receipt.GasUsed = gas
-	// Set the receipt logs and create a bloom for filtering
-	receipt.Logs = statedb.GetLogs(tx.Hash())
-	receipt.Bloom = types.CreateBloom(types.Receipts{receipt})
-
-	return receipt, otxs, err
+	return
 }
 
-// applyTransaction attempts to apply a transaction to the given state database
-// and uses the input parameters for its environment. It returns the receipt
-// for the transaction, gas used and an error if the transaction failed,
-// indicating the block was invalid.
-func (p *StateProcessor) applyTransaction(statedb *state.StateDB, tx types.RegularTx, usedGas *uint64, vmenv *vm.VmFactory) (*types.Receipt, []types.BalanceRecord, error) {
-	msg, err := tx.AsMessage()
-	if err != nil {
-		return nil, nil, err
-	}
+func (s *processState) resetEnv(txi types.Tx, idx int) (err error) {
+	s.Statedb.Prepare(txi.Hash(), s.Block.Hash(), idx)
+	return nil
+}
 
-	from := msg.MsgFrom()
-	toPtr := msg.To()
-	isContractCreationTx := (msg.TxType() == types.TxContractCreate || msg.TxType() == types.TxContractUpgrade)
-	log.Debug("applyTransaction", "msg.TxType", msg.TxType())
+func GenerateTransaction(txi types.Tx, state *state.StateDB, vmenv *vm.VmFactory) (txo *processTransaction, err error) {
+	txo = &processTransaction{}
+	// generic
+	txo.Type = txi.TypeName()
+	txo.State = state
+	txo.Vmenv = vmenv
+	txo.Hash = txi.Hash()
 
-	msgcode := msg.Data()
-	if msg.To() != nil && statedb.IsContract(*msg.To()) {
-		msgcode = statedb.GetCode(*(msg.To()))
-	}
-	realvm := vmenv.GetRealVm(msgcode, toPtr)
-
-	realvm.Reset(msg)
-	realvm.SetToken(msg.TokenAddress())
-
-	// Apply the transaction to the current state (included in the env)
-	ret, gas, _, fee, vmerr, err := ApplyMessage(realvm, tx, msg.TokenAddress())
-	if vmerr != nil || err != nil {
-		if vmerr != nil && bytes.HasPrefix(ret, cerrID) {
-			var reason string
-			if err := cabi.Unpack(&reason, cerrName, ret[len(cerrID):]); err == nil {
-				vmerr = fmt.Errorf("%v: %s", vmerr, reason)
-			}
-		}
-		log.Report("ApplyMessage", "logID", types.LogIdContractExecutionError, "hash", tx.Hash().Hex(), "from", from.Hex(), "nonce", tx.Nonce(), "vmerr", vmerr, "err", err)
-	}
-	if err != nil {
-		return nil, nil, err
-	}
-
-	otxs := realvm.GetOTxs()
-	if vmerr != nil {
-		otxs = make([]types.BalanceRecord, 0)
-	}
-
-	if fee != nil {
+	txo.Inputs = make([]txInput, 0)
+	txo.Outputs = make([]txOutput, 0)
+	switch tx := txi.(type) {
+	case *types.ContractCreateTx: //DEPRECATED
 		from, err := tx.From()
 		if err != nil {
-			from = common.EmptyAddress
+			return nil, err
 		}
-		br := types.GenBalanceRecord(from, config.ContractFoundationAddr, types.AccountAddress, types.AccountAddress, types.TxFee, msg.TokenAddress(), fee)
-		otxs = append(otxs, br)
-	}
-
-	// Update the state with pending changes
-	//root := statedb.IntermediateRoot(false).Bytes()
-	*usedGas += gas
-
-	// Create a new receipt for the transaction, storing the intermediate root and gas used by the tx
-	// based on the eip phase, we're passing wether the root touch-delete accounts.
-	receipt := types.NewReceipt(nil, vmerr, *usedGas)
-	receipt.TxHash = tx.Hash()
-	receipt.GasUsed = gas
-	// if the transaction created a contract, store the creation address in the receipt.
-	if (isContractCreationTx && msg.TxType() != types.TxContractUpgrade) || (msg.TxType() == types.TxNormal && toPtr == nil) {
-		if vmerr == nil {
-			receipt.ContractAddress = crypto.CreateAddress(from, msg.Nonce(), msg.Data())
-			log.Info("ContractCreate succ", "ContractAddress", receipt.ContractAddress)
+		in := txInput{
+			From:  from,
+			Value: tx.Value(),
+			Nonce: tx.Nonce(),
+			Type:  Ain,
 		}
-	}
-	// Set the receipt logs and create a bloom for filtering
-	receipt.Logs = statedb.GetLogs(tx.Hash())
-	receipt.Bloom = types.CreateBloom(types.Receipts{receipt})
+		txo.Inputs = append(txo.Inputs, in)
+		out := txOutput{
+			To:     common.EmptyAddress,
+			Amount: tx.Value(),
+			Data:   tx.Data(),
+			Type:   Createout,
+		}
+		txo.Outputs = append(txo.Outputs, out)
+		txo.Kind = types.AinAout
+		txo.TokenAddress = tx.TokenAddress()
+		// Gas (Not bought yet!)
+		txo.Gas = tx.Gas()
+		txo.GasPrice = tx.GasPrice()
+		txo.InitialGas = tx.Gas()
+		txo.RefundAddr = from
+	case *types.ContractUpgradeTx:
+		from, err := tx.From()
+		if err != nil {
+			return nil, err
+		}
+		in := txInput{
+			From:  from,
+			Value: tx.Value(),
+			Nonce: tx.Nonce(),
+			Type:  Ain,
+		}
+		txo.Inputs = append(txo.Inputs, in)
+		out := txOutput{
+			To:     *tx.To(),
+			Amount: tx.Value(),
+			Data:   tx.Data(),
+			Type:   Updateout,
+		}
+		txo.Outputs = append(txo.Outputs, out)
+		txo.Kind = types.AinAout
+		txo.TokenAddress = tx.TokenAddress()
+		// Gas (Not bought yet!)
+		txo.Gas = tx.Gas()
+		txo.GasPrice = tx.GasPrice()
+		txo.InitialGas = tx.Gas()
+		txo.RefundAddr = from
+	case *types.TokenTransaction:
+		from, err := tx.From()
+		if err != nil {
+			return nil, err
+		}
+		in := txInput{
+			From:  from,
+			Value: tx.Value(),
+			Nonce: tx.Nonce(),
+			Type:  Ain,
+		}
+		txo.Inputs = append(txo.Inputs, in)
+		out := txOutput{
+			To:     *tx.To(),
+			Amount: tx.Value(),
+			Data:   tx.Data(),
+			Type:   Aout,
+		}
+		if state.IsContract(*tx.To()) {
+			out.Type = Cout
+		}
+		txo.Outputs = append(txo.Outputs, out)
+		txo.Kind = types.AinAout
+		txo.TokenAddress = tx.TokenAddress()
+		// Gas (Not bought yet!)
+		txo.Gas = tx.Gas()
+		txo.GasPrice = tx.GasPrice()
+		txo.InitialGas = tx.Gas()
+		txo.RefundAddr = from
+	case *types.Transaction:
+		from, err := tx.From()
+		if err != nil {
+			return nil, err
+		}
+		in := txInput{
+			From:  from,
+			Value: tx.Value(),
+			Nonce: tx.Nonce(),
+			Type:  Ain,
+		}
+		txo.Inputs = append(txo.Inputs, in)
 
-	return receipt, otxs, err
+		toAddr := common.EmptyAddress
+		if tx.To() != nil {
+			toAddr = *tx.To()
+		}
+		out := txOutput{
+			To:     toAddr,
+			Amount: tx.Value(),
+			Data:   tx.Data(),
+			Type:   Aout,
+		}
+		if tx.To() == nil {
+			out.Type = Createout
+		} else if state.IsContract(*tx.To()) {
+			out.Type = Cout
+		}
+		txo.Outputs = append(txo.Outputs, out)
+		txo.Kind = types.AinAout
+		txo.TokenAddress = tx.TokenAddress()
+		// Gas (Not bought yet!)
+		txo.Gas = tx.Gas()
+		txo.GasPrice = tx.GasPrice()
+		txo.InitialGas = tx.Gas()
+		txo.RefundAddr = from
+	case *types.MultiSignAccountTx:
+		from, err := tx.From()
+		if err != nil {
+			return nil, err
+		}
+		in := txInput{
+			From:  from,
+			Value: big.NewInt(0),
+			Nonce: tx.Nonce(),
+			Type:  Ain,
+		}
+		txo.Inputs = append(txo.Inputs, in)
+		txo.Kind = types.Ain
+		txo.Gas = 0
+		txo.GasPrice = big.NewInt(0)
+		txo.InitialGas = 0
+		txo.RefundAddr = common.EmptyAddress
+	case *types.UTXOTransaction:
+		from := common.EmptyAddress
+		//utxo tx now depend on FROM not Ain
+		if (tx.UTXOKind()&types.Ain) == types.Ain || !common.IsLKC(tx.TokenAddress()) { //TODO: fix this to accept multiple inputs
+			from, err = tx.From()
+			if err != nil {
+				return nil, err
+			}
+			realValue := big.NewInt(0)
+			if (tx.UTXOKind() & types.Ain) == types.Ain {
+				for _, input := range tx.Inputs {
+					switch ip := input.(type) {
+					case *types.AccountInput:
+						realValue.Set(ip.Amount)
+					default:
+					}
+				}
+			}
+			in := txInput{
+				From:  from,
+				Value: realValue,
+				Nonce: state.GetNonce(from), //tx.Nonce is volatile
+				Type:  Ain,
+			}
+			txo.Inputs = append(txo.Inputs, in)
+		}
+
+		if (tx.UTXOKind() & types.Aout) == types.Aout {
+			msg, err := tx.AsMessage()
+			if err != nil {
+				return nil, err
+			}
+			for _, accOutputData := range msg.OutputData() {
+				out := txOutput{
+					To:     accOutputData.To,
+					Amount: accOutputData.Amount,
+					Data:   accOutputData.Data,
+					Type:   Aout,
+				}
+				if state.IsContract(accOutputData.To) {
+					out.Type = Cout
+				}
+				txo.Outputs = append(txo.Outputs, out)
+			}
+		}
+		txo.Kind = tx.UTXOKind()
+		txo.TokenAddress = tx.TokenAddress()
+		// Gas (Already bought!)
+		txo.Gas = tx.Gas()
+		txo.GasPrice = tx.GasPrice()
+		txo.InitialGas = tx.Gas()
+		txo.RefundAddr = from
+	default:
+		err = types.ErrGenerateProcessTransaction
+		return nil, err
+	}
+	log.Debug("GenerateTransaction", "hash", txi.Hash(), "txo", txo)
+	return
 }
 
-//HashForIndex cal the key for contractTx
-func HashForIndex(x interface{}) (h common.Hash) {
-	b := ser.MustEncodeToBytes(x)
-	return crypto.Keccak256Hash(b)
+func (s *processState) receiptProcess(tx *processTransaction, transRes *TransitionResult, vmerr error) {
+	if tx.Type == types.TxMultiSignAccount { // bypass this step
+		s.Receipts = append(s.Receipts, &types.Receipt{})
+		return
+	}
+	s.UsedGas += transRes.Gas
+	receipt := types.NewReceipt(nil, vmerr, s.UsedGas)
+	receipt.TxHash = tx.Hash
+	receipt.GasUsed = transRes.Gas
+	if len(transRes.Addrs) > 0 {
+		receipt.ContractAddress = transRes.Addrs[0]
+	}
+	// Set the receipt logs and create a bloom for filtering
+	receipt.Logs = tx.State.GetLogs(tx.Hash)
+	receipt.Bloom = types.CreateBloom(types.Receipts{receipt})
+	s.Receipts = append(s.Receipts, receipt)
+	if receipt.Logs != nil {
+		s.AllLogs = append(s.AllLogs, receipt.Logs...)
+	}
+	log.Debug("receiptProcess", "hash", tx.Hash, "receipt", receipt, "vmerr", vmerr)
+}
+
+func balanceRecordProcess(tx *processTransaction, transRes *TransitionResult, vmerr error) {
+	var (
+		tbr      = types.NewTxBalanceRecords()
+		hash     = tx.Hash
+		typeName = tx.Type
+		payloads = make([]types.Payload, 0)
+		nonce    = uint64(0)
+		gasPrice = tx.GasPrice
+		gasLimit = tx.InitialGas
+		from     = common.EmptyAddress
+		to       = common.EmptyAddress
+		tokenID  = tx.TokenAddress
+	)
+	if tx.Type == types.TxMultiSignAccount { // bypass this step
+		return
+	}
+
+	if len(tx.Inputs) > 0 {
+		from = tx.Inputs[0].From
+		nonce = tx.Inputs[0].Nonce
+	}
+	if len(tx.Outputs) > 0 {
+		to = tx.Outputs[0].To
+		for _, output := range tx.Outputs {
+			if output.Data != nil {
+				payloads = append(payloads, output.Data)
+			}
+		}
+	}
+	for _, br := range transRes.Otxs {
+		tbr.AddBalanceRecord(br)
+	}
+	tbr.SetOptions(hash, typeName, payloads, nonce, gasLimit, gasPrice, from, to, tokenID)
+	log.Debug("balanceRecordProcess", "hash", tx.Hash, "txtype", tx.Type, "tbr", tbr)
+	types.BlockBalanceRecordsInstance.AddTxBalanceRecord(tbr)
+}
+
+func (s *processState) postProcess(tx *processTransaction, transRes *TransitionResult, vmerr error) {
+	s.receiptProcess(tx, transRes, vmerr)
+	// 交易记录开关
+	balanceRecordProcess(tx, transRes, vmerr)
+}
+
+func (s *processState) txRawProcess(txi types.Tx) (err error) {
+	switch tx := txi.(type) {
+	case *types.MultiSignAccountTx:
+		s.SpecialTxs = append(s.SpecialTxs, txi)
+	case *types.UTXOTransaction:
+		s.UtxoOutputs = append(s.UtxoOutputs, tx.GetOutputData(s.Block.Height)...)
+		s.KeyImages = append(s.KeyImages, tx.GetInputKeyImages()...)
+	default:
+	}
+	return nil
+}
+
+// Deprecated
+func ApplyMessage(vmenv vm.VmInterface, msg types.Message, tokenAddr common.Address) (ret []byte, gas uint64, byteCodeGas uint64, fee *big.Int, vmerr error, err error) {
+	prot := processTransaction{}
+	prot.TokenAddress = msg.TokenAddress()
+	prot.Gas = msg.Gas()
+	prot.GasPrice = msg.GasPrice()
+	prot.InitialGas = msg.Gas()
+	prot.RefundAddr = msg.MsgFrom()
+	prot.State = vmenv.GetStateDB().(*state.StateDB)
+	prot.Vmenv = vm.NewVMwithInstance(vmenv)
+
+	prot.Hash = common.EmptyHash
+	prot.Type = msg.TxType()
+	prot.Inputs = make([]txInput, 0)
+	prot.Outputs = make([]txOutput, 0)
+	if prot.Type == types.TxUTXO {
+		prot.Kind = msg.UTXOKind()
+		for _, accOutputData := range msg.OutputData() {
+			out := txOutput{
+				To:     accOutputData.To,
+				Amount: accOutputData.Amount,
+				Data:   accOutputData.Data,
+				Type:   Aout,
+			}
+			if prot.State.IsContract(accOutputData.To) {
+				out.Type = Cout
+			}
+			prot.Outputs = append(prot.Outputs, out)
+		}
+	} else {
+		in := txInput{
+			From:  msg.MsgFrom(),
+			Value: msg.Value(),
+			Nonce: msg.Nonce(),
+			Type:  Ain,
+		}
+		prot.Inputs = append(prot.Inputs, in)
+
+		outAddr := common.EmptyAddress
+		if msg.To() != nil {
+			outAddr = *msg.To()
+		}
+		out := txOutput{
+			To:     outAddr,
+			Amount: msg.Value(),
+			Data:   msg.Data(),
+			Type:   Aout,
+		}
+		if msg.To() == nil {
+			out.Type = Createout
+		} else if prot.State.IsContract(*msg.To()) {
+			out.Type = Cout
+		}
+		prot.Kind = types.AinAout
+
+		prot.Outputs = append(prot.Outputs, out)
+	}
+
+	res, vmerr, err := prot.Transit()
+	return res.Rets[0], res.Gas, res.ByteCodeGas, res.Fee, vmerr, err
 }

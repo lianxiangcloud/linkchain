@@ -266,13 +266,6 @@ func (evm *EVM) UTXOCall(c types.ContractRef, addr, token common.Address, input 
 		evm.StateDB.CreateAccount(addr)
 	}
 	evm.UnsafeTransfer(evm.StateDB, to.Address(), token, value)
-	if evm.depth == 0 {
-		br := types.GenBalanceRecord(common.EmptyAddress, to.Address(), types.PrivateAddress, types.AccountAddress, types.TxTransfer, token, value)
-		evm.otxs = append(evm.otxs, br)
-	} else {
-		br := types.GenBalanceRecord(common.EmptyAddress, to.Address(), types.PrivateAddress, types.AccountAddress, types.TxContract, token, value)
-		evm.otxs = append(evm.otxs, br)
-	}
 
 	// Initialise a new contract and set the code that is to be used by the EVM.
 	// The contract is a scoped environment for this execution context only.
@@ -526,11 +519,11 @@ func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64,
 	if evm.depth > int(cfg.CallCreateDepth) {
 		return nil, common.EmptyAddress, gas, ErrDepth
 	}
-	if !evm.CanTransfer(evm.StateDB, caller.Address(), common.EmptyAddress, value) {
-		return nil, common.EmptyAddress, gas, ErrInsufficientBalance
-	}
 
 	if evm.depth != 0 {
+		if !evm.CanTransfer(evm.StateDB, caller.Address(), common.EmptyAddress, value) {
+			return nil, common.EmptyAddress, gas, ErrInsufficientBalance
+		}
 		nonce := evm.StateDB.GetNonce(caller.Address())
 		evm.StateDB.SetNonce(caller.Address(), nonce+1)
 	}
@@ -545,9 +538,13 @@ func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64,
 	evm.StateDB.CreateAccount(contractAddr)
 	evm.StateDB.SetNonce(contractAddr, 1)
 
-	evm.Transfer(evm.StateDB, caller.Address(), contractAddr, common.EmptyAddress, value)
-	br := types.GenBalanceRecord(caller.Address(), contractAddr, types.AccountAddress, types.AccountAddress, types.TxCreateContract, common.EmptyAddress, value)
-	evm.otxs = append(evm.otxs, br)
+	if evm.depth == 0 {
+		evm.UnsafeTransfer(evm.StateDB, contractAddr, common.EmptyAddress, value)
+	} else {
+		evm.Transfer(evm.StateDB, caller.Address(), contractAddr, common.EmptyAddress, value)
+		br := types.GenBalanceRecord(caller.Address(), contractAddr, types.AccountAddress, types.AccountAddress, types.TxCreateContract, common.EmptyAddress, value)
+		evm.otxs = append(evm.otxs, br)
+	}
 
 	// initialise a new contract and set the code that is to be used by the
 	// EVM. The contract is a scoped environment for this execution context

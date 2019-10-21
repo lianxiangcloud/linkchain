@@ -270,7 +270,7 @@ func (app *LinkApplication) CheckBlock(block *types.Block) bool {
 	}
 
 	if err := app.verifySpecTxSign(block); err != nil {
-		app.logger.Error("CheckBlock: verify signature failed:", err)
+		app.logger.Error("CheckBlock: verify signature failed:", "err", err)
 		return false
 	}
 

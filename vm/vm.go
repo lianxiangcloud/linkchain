@@ -42,6 +42,19 @@ func NewVM() VmFactory {
 	return VmFactory{}
 }
 
+func NewVMwithInstance(vm VmInterface) *VmFactory {
+	vmenv := VmFactory{}
+	switch realvm := vm.(type) {
+	case *evm.EVM:
+		vmenv.evm = realvm
+	case *wasm.WASM:
+		vmenv.wasm = realvm
+	default:
+		log.Error("VmFactory.NewVMwithInstance", "context", "unknown type")
+	}
+	return &vmenv
+}
+
 func (v *VmFactory) AddVm(context types.Context, statedb types.StateDB, cfg types.VmConfig) {
 	switch ctx := context.(type) {
 	case *evm.Context:
