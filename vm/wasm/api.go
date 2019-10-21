@@ -1,6 +1,7 @@
 package wasm
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
@@ -1404,6 +1405,15 @@ func (t *TCEcrecover) Gas(index int64, ops interface{}, args []uint64) (uint64, 
 	return vm.GasEcrecover(eng, index, args)
 }
 
+func isProtectedV(V *big.Int) bool {
+	if V != nil && V.BitLen() <= 8 {
+		v := V.Uint64()
+		return v != 27 && v != 28
+	}
+	// anything not 27 or 28 are considered unprotected
+	return true
+}
+
 //char *TC_Ecrecover(char* hash, char* v, char* r, char* s)
 func tcEcrecover(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 	runningFrame, _ := eng.RunningAppFrame()
@@ -1425,16 +1435,27 @@ func tcEcrecover(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 	sign := make([]byte, 65)
 	copy(sign[:32], r.Bytes())
 	copy(sign[32:64], s.Bytes())
-	chainIdMul := new(big.Int).SetInt64(types.DeriveSignParam(v).Int64() * 2)
-	sign[64] = byte(new(big.Int).Sub(v, chainIdMul).Uint64() - 35)
+
+	var realV byte
+	if isProtectedV(v) {
+		signParam := types.DeriveSignParam(v).Uint64()
+		realV = byte(v.Uint64() - 35 - 2*signParam)
+	} else {
+		realV = byte(v.Uint64() - 27)
+	}
+
 	// tighter sig s values input homestead only apply to tx sigs
-	if !crypto.ValidateSignatureValues(sign[64], r, s, false) {
+	if !crypto.ValidateSignatureValues(realV, r, s, false) {
+		eng.Logger().Debug("tcEcrecover validate false")
 		return 0, vm.ErrInvalidApiArgs
 	}
+	sign[64] = realV
 	// v needs to be at the end for libsecp256k1
 	pubKey, err := secp256k1.RecoverPubkey(hash.Bytes(), sign)
+	eng.Logger().Debug("tcEcrecover", "hash", hash.Hex(), "sign", hex.EncodeToString(sign))
 	// make sure the public key is a valid one
 	if err != nil {
+		eng.Logger().Debug("tcEcrecover", "err", err.Error())
 		return 0, vm.ErrInvalidApiArgs
 	}
 	ret := fmt.Sprintf("0x%x", crypto.Keccak256(pubKey[1:])[12:])
