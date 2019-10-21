@@ -377,7 +377,7 @@ func (la *LinkAccount) RefreshQuick() {
 
 			localBlock := &types.UTXOBlock{
 				Height:     (*hexutil.Big)(new(big.Int).Set(quickBlock.Block.Height.ToInt())),
-				NextHeight: (*hexutil.Big)(new(big.Int).Set(quickBlock.NextHeight.ToInt())),
+				NextHeight: (*hexutil.Big)(new(big.Int).Set(nextHeight)),
 				Time:       (*hexutil.Big)(new(big.Int).Set(quickBlock.Block.Time.ToInt())),
 				Txs:        myTxs,
 			}
@@ -899,6 +899,10 @@ func (la *LinkAccount) GetLocalUTXOTxsByHeight(height *big.Int) (*types.UTXOBloc
 	block, err := la.loadBlockTxs(height)
 	if err == types.ErrBlockNotFound && height.Cmp(la.localHeight) <= 0 {
 		err = nil
+		block = &types.UTXOBlock{
+			Height:     (*hexutil.Big)(height),
+			NextHeight: (*hexutil.Big)(new(big.Int).Add(height, big.NewInt(1))),
+		}
 	}
 	return block, err
 }
