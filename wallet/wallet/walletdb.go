@@ -445,17 +445,3 @@ func (la *LinkAccount) delAddInfo(hash common.Hash) error {
 	}
 	return nil
 }
-
-func (la *LinkAccount) readLocalHeight() *big.Int {
-	key := la.getLocalHeightKey()
-	localHeight := big.NewInt(0)
-	val := la.walletDB.Get(key[:])
-	if len(val) != 0 {
-		if err := ser.DecodeBytes(val, &localHeight); err != nil {
-			la.Logger.Error("readLocalHeight DecodeBytes fail", "val", string(val), "err", err)
-			return big.NewInt(0)
-		}
-	}
-	la.Logger.Debug("readLocalHeight", "localHeight", localHeight)
-	return localHeight
-}
