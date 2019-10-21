@@ -695,7 +695,7 @@ func (la *LinkAccount) GetHeight() (localHeight *big.Int, remoteHeight *big.Int)
 	if la.localHeight.Cmp(new(big.Int).SetUint64(defaultInitBlockHeight)) == 0 {
 		return la.localHeight, la.remoteHeight
 	}
-	return la.readLocalHeight(), la.remoteHeight
+	return new(big.Int).Sub(la.localHeight, big.NewInt(1)), la.remoteHeight
 }
 
 // CreateSubAccount return new sub address and sub index
