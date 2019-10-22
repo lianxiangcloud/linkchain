@@ -8,10 +8,10 @@ import (
 	"math/big"
 	"sync/atomic"
 
-	"github.com/lianxiangcloud/linkchain/libs/cryptonote/types"
 	"github.com/lianxiangcloud/linkchain/libs/common"
 	"github.com/lianxiangcloud/linkchain/libs/crypto"
 	"github.com/lianxiangcloud/linkchain/libs/crypto/merkle"
+	"github.com/lianxiangcloud/linkchain/libs/cryptonote/types"
 	"github.com/lianxiangcloud/linkchain/libs/log"
 	"github.com/lianxiangcloud/linkchain/libs/ser"
 )
@@ -26,6 +26,7 @@ type Tx interface {
 	Hash() common.Hash
 	From() (common.Address, error)
 	To() *common.Address
+	TokenAddress() common.Address
 	TypeName() string
 
 	CheckBasic(censor TxCensor) error
@@ -38,7 +39,6 @@ type IMessage interface {
 	Value() *big.Int
 	Nonce() uint64
 	Data() []byte
-	TokenAddress() common.Address
 	AsMessage() (Message, error)
 }
 

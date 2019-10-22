@@ -66,6 +66,10 @@ func (tx *MultiSignAccountTx) To() *common.Address {
 	return nil
 }
 
+func (tx *MultiSignAccountTx) TokenAddress() common.Address {
+	return common.EmptyAddress
+}
+
 func (tx *MultiSignAccountTx) Nonce() uint64 {
 	return tx.MultiSignMainInfo.AccountNonce
 }

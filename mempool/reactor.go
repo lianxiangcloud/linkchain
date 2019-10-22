@@ -436,6 +436,7 @@ func makeNopTx(hash common.Hash) *nopTx {
 func (tx *nopTx) Hash() common.Hash               { return common.Hash(*tx) }
 func (tx *nopTx) From() (common.Address, error)   { panic("nopTx Not Support") }
 func (tx *nopTx) To() *common.Address             { panic("nopTx Not Support") }
+func (tx *nopTx) TokenAddress() common.Address    { panic("nopTx Not Support") }
 func (tx *nopTx) TypeName() string                { return "nopTx" }
 func (tx *nopTx) CheckBasic(types.TxCensor) error { panic("nopTx Not Support") }
 func (tx *nopTx) CheckState(types.TxCensor) error { panic("nopTx Not Support") }
