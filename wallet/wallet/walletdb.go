@@ -31,7 +31,7 @@ const (
 func (la *LinkAccount) save(ids []uint64, blockHash common.Hash, localBlock *types.UTXOBlock) error {
 	batch := la.walletDB.NewBatch()
 
-	if la.saveLocalHeight(batch) != nil ||
+	if la.saveLocalHeight(batch, localBlock.NextHeight.ToInt()) != nil ||
 		la.saveGOutIndex(batch) != nil ||
 		la.saveAccountSubCnt(batch) != nil ||
 		(len(ids) > 0 && la.saveTransfers(batch, ids) != nil) ||
@@ -74,9 +74,15 @@ func (la *LinkAccount) loadLocalHeight() error {
 	return nil
 }
 
-func (la *LinkAccount) saveLocalHeight(b dbm.Batch) error {
+func (la *LinkAccount) saveLocalHeight(b dbm.Batch, nextHeigth *big.Int) error {
 	key := la.getLocalHeightKey()
-	val, err := ser.EncodeToBytes(la.localHeight)
+	tmpHeight := new(big.Int).Set(la.localHeight)
+	preNextHeight := new(big.Int).Sub(nextHeigth, big.NewInt(1))
+	if preNextHeight.Cmp(tmpHeight) > 0 {
+		tmpHeight = preNextHeight
+	}
+
+	val, err := ser.EncodeToBytes(tmpHeight)
 	if err != nil {
 		la.Logger.Error("saveLocalHeight EncodeToBytes fail", "err", err)
 		return types.ErrInnerServer

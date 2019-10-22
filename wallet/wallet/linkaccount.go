@@ -317,7 +317,7 @@ func (la *LinkAccount) Refresh() {
 				la.Logger.Error("Refresh la.save fail", "height", la.localHeight, "err", err)
 
 			}
-			la.localHeight.Add(la.localHeight, big.NewInt(1))
+			la.localHeight.Set(nextHeight)
 			la.lock.Unlock()
 		} else {
 			la.lock.Unlock()
