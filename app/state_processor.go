@@ -472,5 +472,8 @@ func ApplyMessage(vmenv vm.VmInterface, msg types.Message, tokenAddr common.Addr
 	}
 
 	res, vmerr, err := prot.Transit()
-	return res.Rets[0], res.Gas, res.ByteCodeGas, res.Fee, vmerr, err
+	if len(res.Rets) > 0 {
+		ret = res.Rets[0]
+	}
+	return ret, res.Gas, res.ByteCodeGas, res.Fee, vmerr, err
 }
