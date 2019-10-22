@@ -236,6 +236,10 @@ func (ps *PubsubApi) GetTransaction(hash common.Hash) *rtypes.RPCTx {
 
 // BroadcastTxSync to broadcast a tx with txType
 func (ps *PubsubApi) BroadcastTxSync(txBytes []byte, txType string) (bool, error) {
+	if txBytes == nil || len(txBytes) == 0 {
+		return false, types.ErrTxEmpty
+	}
+
 	var tx types.Tx
 	if txType == "" {
 		txType = types.TxNormal
