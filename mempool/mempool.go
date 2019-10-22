@@ -437,50 +437,38 @@ func (mem *Mempool) AddTx(peerID string, tx types.Tx) (err error) {
 		return types.ErrMempoolIsFull
 	}
 
+	var (
+		from    = common.EmptyAddress
+		addrs   = make([]common.Address, 0, 3)
+		addFunc = mem.addLocalTx
+	)
 	switch tx.(type) {
 	case *types.UTXOTransaction:
-		// blacklist check
+		addFunc = mem.addUTXOTx
 		txUtxo := tx.(*types.UTXOTransaction)
-		if (txUtxo.UTXOKind() & types.Aout) == types.Aout {
-			for _, out := range txUtxo.Outputs {
-				switch aOutput := out.(type) {
-				case *types.AccountOutput:
-					if types.BlacklistInstance.IsBlackAddress(aOutput.To, txUtxo.TokenID) {
-						mem.cache.Delete(tx.Hash())
-						return types.ErrBlacklistAddress
-					}
-				}
-			}
-		}
 		if (txUtxo.UTXOKind() & types.Ain) == types.Ain {
-			fromAddr, _ := txUtxo.From()
-			if types.BlacklistInstance.IsBlackAddress(fromAddr, txUtxo.TokenID) {
-				mem.cache.Delete(tx.Hash())
-				return types.ErrBlacklistAddress
-			}
+			from, _ = txUtxo.From()
 		}
-		err = mem.addUTXOTx(tx)
+		addrs = append(addrs, txUtxo.ToAddrs()...)
 	case *types.Transaction, *types.TokenTransaction, *types.ContractUpgradeTx:
-		// blacklist check
-		var fromAddr, toAddr common.Address
-		fromAddr, _ = tx.From()
-		if tx.To() != nil {
-			toAddr = *tx.To()
-		} else {
-			toAddr = common.EmptyAddress
-		}
-		if types.BlacklistInstance.IsBlackAddress(fromAddr, toAddr, tx.(types.RegularTx).TokenAddress()) {
-			mem.cache.Delete(tx.Hash())
-			return types.ErrBlacklistAddress
-		}
-		err = mem.addLocalTx(tx)
+		addFunc = mem.addLocalTx
+		from, _ = tx.From()
 	case *types.MultiSignAccountTx:
-		err = mem.addLocalSpecTx(tx)
+		addFunc = mem.addLocalSpecTx
+		from, _ = tx.From()
 	default:
 		mem.cache.Delete(tx.Hash())
 		return types.ErrParams
 	}
-
+	addrs = append(addrs, from, tx.TokenAddress())
+	if toAddr := tx.To(); toAddr != nil {
+		addrs = append(addrs, *toAddr)
+	}
+	if types.BlacklistInstance.IsBlackAddress(addrs...) {
+		err = types.ErrBlacklistAddress
+	} else {
+		err = addFunc(tx)
+	}
 	if err != nil {
 		mem.cache.Delete(tx.Hash())
 	} else if mem.config.Broadcast {

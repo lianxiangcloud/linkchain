@@ -347,91 +347,54 @@ func (app *LinkApplication) verifyTxsOnProcess(block *types.Block) error {
 			coIndex := index
 			for ; index < size; index += offset {
 				hash := txs[index].Hash()
+				var (
+					from  common.Address
+					err   error
+					addrs = make([]common.Address, 0, 3)
+				)
 				switch tx := txs[index].(type) {
 				case *types.Transaction:
-					cacheTx := app.mempool.GetTxFromCache(hash)
-					if cacheTx != nil {
-						from, _ := cacheTx.From()
+					if cacheTx := app.mempool.GetTxFromCache(hash); cacheTx != nil {
+						from, err = cacheTx.From()
 						tx.StoreFrom(from)
 					} else {
-						_, err := tx.From()
-						if err != nil {
-							errRets[coIndex] = &err
-							return
-						}
-					}
-					err := checkBlacklistAddress(tx)
-					if err != nil {
-						errRets[coIndex] = &err
-						return
+						from, err = tx.From()
 					}
 				case *types.TokenTransaction:
-					cacheTx := app.mempool.GetTxFromCache(hash)
-					if cacheTx != nil {
-						from, _ := cacheTx.From()
+					if cacheTx := app.mempool.GetTxFromCache(hash); cacheTx != nil {
+						from, err = cacheTx.From()
 						tx.StoreFrom(from)
 					} else {
-						_, err := tx.From()
-						if err != nil {
-							errRets[coIndex] = &err
-							return
-						}
+						from, err = tx.From()
 					}
-					err := checkBlacklistAddress(tx)
-					if err != nil {
-						errRets[coIndex] = &err
-						return
-					}
-
 				case *types.UTXOTransaction:
-					if cacheTx := app.mempool.GetTxFromCache(hash); cacheTx == nil {
-						err := app.CheckTx(tx, true) //UTXO CheckBasic
-						if err != nil {
-							errRets[coIndex] = &err
-							return
-						}
-					} else {
-						from, _ := cacheTx.From()
+					if cacheTx := app.mempool.GetTxFromCache(hash); cacheTx != nil {
+						from, err = cacheTx.From()
 						tx.StoreFrom(from)
-					}
-
-					// blacklist check
-					if (tx.UTXOKind() & types.Aout) == types.Aout {
-						for _, out := range tx.Outputs {
-							switch aOutput := out.(type) {
-							case *types.AccountOutput:
-								if types.BlacklistInstance.IsBlackAddress(aOutput.To, tx.TokenID) {
-									errRets[coIndex] = &types.ErrBlacklistAddress
-									return
-								}
-							}
+					} else if err = app.CheckTx(tx, true); err == nil { //UTXO CheckBasic
+						if (tx.UTXOKind() & types.Ain) == types.Ain {
+							from, err = tx.From()
 						}
 					}
-					if (tx.UTXOKind() & types.Ain) == types.Ain {
-						fromAddr, err := tx.From()
-						if err != nil {
-							fromAddr = common.EmptyAddress
-						}
-						if types.BlacklistInstance.IsBlackAddress(fromAddr, tx.TokenID) {
-							errRets[coIndex] = &types.ErrBlacklistAddress
-							return
-						}
-					}
+					addrs = append(addrs, tx.ToAddrs()...)
 				case *types.ContractUpgradeTx:
-					err := app.CheckTx(tx, true)    // CheckBasic (only inner contract can be upgraded)
-					if err != nil {
-						errRets[coIndex] = &err
-						return
-					}
-
-					err = checkBlacklistAddress(tx)
-					if err != nil {
-						errRets[coIndex] = &err
-						return
+					if err = app.CheckTx(tx, true); err == nil {
+						from, err = tx.From()
 					}
 				default:
 				}
-
+				if err != nil {
+					errRets[coIndex] = &err
+					return
+				}
+				addrs = append(addrs, from, txs[index].TokenAddress())
+				if toAddr := txs[index].To(); toAddr != nil {
+					addrs = append(addrs, *toAddr)
+				}
+				if types.BlacklistInstance.IsBlackAddress(addrs...) {
+					errRets[coIndex] = &types.ErrBlacklistAddress
+					return
+				}
 			}
 		}(i)
 	}
@@ -441,23 +404,6 @@ func (app *LinkApplication) verifyTxsOnProcess(block *types.Block) error {
 		if err != nil {
 			return *err
 		}
-	}
-	return nil
-}
-
-func checkBlacklistAddress(tx types.Tx) error {
-	var fromAddr, toAddr common.Address
-	fromAddr, err := tx.From()
-	if err != nil {
-		fromAddr = common.EmptyAddress
-	}
-	if tx.To() != nil {
-		toAddr = *tx.To()
-	} else {
-		toAddr = common.EmptyAddress
-	}
-	if types.BlacklistInstance.IsBlackAddress(fromAddr, toAddr, tx.(types.RegularTx).TokenAddress()) {
-		return types.ErrBlacklistAddress
 	}
 	return nil
 }
