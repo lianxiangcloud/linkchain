@@ -47,7 +47,7 @@ type FilterCriteria struct {
 }
 
 func (fc FilterCriteria) String() string {
-	return fmt.Sprintf("{from=%s, to=%s, address=%v, topics=%v}", fc.FromBlock.String(), fc.ToBlock.String(), fc.Addresses, fc.Topics)
+	return fmt.Sprintf("{from=%v, to=%v, address=%v, topics=%v}", fc.FromBlock, fc.ToBlock, fc.Addresses, fc.Topics)
 	//return fmt.Sprintf("{from=%s, to=%s}", fc.FromBlock.String(), fc.ToBlock.String())
 }
 
