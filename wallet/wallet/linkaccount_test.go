@@ -163,7 +163,7 @@ func TestCreateSubAccount(t *testing.T) {
 		{
 			input:  defaultMaxSubAccount + 1,
 			output: defaultMaxSubAccount + 1,
-			err:    types.ErrSubAccountTooLarge,
+			err:    types.ErrSubAccountOverLimit,
 		},
 	}
 

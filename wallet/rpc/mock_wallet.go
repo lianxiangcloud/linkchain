@@ -41,31 +41,31 @@ func (m *MockWallet) EXPECT() *MockWalletMockRecorder {
 }
 
 // AutoRefreshBlockchain mocks base method
-func (m *MockWallet) AutoRefreshBlockchain(arg0 bool) error {
+func (m *MockWallet) AutoRefreshBlockchain(arg0 bool, arg1 *common.Address) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AutoRefreshBlockchain", arg0)
+	ret := m.ctrl.Call(m, "AutoRefreshBlockchain", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AutoRefreshBlockchain indicates an expected call of AutoRefreshBlockchain
-func (mr *MockWalletMockRecorder) AutoRefreshBlockchain(arg0 interface{}) *gomock.Call {
+func (mr *MockWalletMockRecorder) AutoRefreshBlockchain(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AutoRefreshBlockchain", reflect.TypeOf((*MockWallet)(nil).AutoRefreshBlockchain), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AutoRefreshBlockchain", reflect.TypeOf((*MockWallet)(nil).AutoRefreshBlockchain), arg0, arg1)
 }
 
 // CreateSubAccount mocks base method
-func (m *MockWallet) CreateSubAccount(arg0 uint64) error {
+func (m *MockWallet) CreateSubAccount(arg0 uint64, arg1 *common.Address) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateSubAccount", arg0)
+	ret := m.ctrl.Call(m, "CreateSubAccount", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // CreateSubAccount indicates an expected call of CreateSubAccount
-func (mr *MockWalletMockRecorder) CreateSubAccount(arg0 interface{}) *gomock.Call {
+func (mr *MockWalletMockRecorder) CreateSubAccount(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSubAccount", reflect.TypeOf((*MockWallet)(nil).CreateSubAccount), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSubAccount", reflect.TypeOf((*MockWallet)(nil).CreateSubAccount), arg0, arg1)
 }
 
 // CreateUTXOTransaction mocks base method
@@ -81,6 +81,20 @@ func (m *MockWallet) CreateUTXOTransaction(arg0 common.Address, arg1 uint64, arg
 func (mr *MockWalletMockRecorder) CreateUTXOTransaction(arg0, arg1, arg2, arg3, arg4, arg5, arg6 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateUTXOTransaction", reflect.TypeOf((*MockWallet)(nil).CreateUTXOTransaction), arg0, arg1, arg2, arg3, arg4, arg5, arg6)
+}
+
+// DelUTXOAddInfo mocks base method
+func (m *MockWallet) DelUTXOAddInfo(arg0 common.Hash) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DelUTXOAddInfo", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DelUTXOAddInfo indicates an expected call of DelUTXOAddInfo
+func (mr *MockWalletMockRecorder) DelUTXOAddInfo(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DelUTXOAddInfo", reflect.TypeOf((*MockWallet)(nil).DelUTXOAddInfo), arg0)
 }
 
 // EthEstimateGas mocks base method
@@ -99,48 +113,48 @@ func (mr *MockWalletMockRecorder) EthEstimateGas(arg0 interface{}) *gomock.Call 
 }
 
 // GetAccountInfo mocks base method
-func (m *MockWallet) GetAccountInfo(arg0 *common.Address) (*types1.GetAccountInfoResult, error) {
+func (m *MockWallet) GetAccountInfo(arg0, arg1 *common.Address) (*types1.GetAccountInfoResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAccountInfo", arg0)
+	ret := m.ctrl.Call(m, "GetAccountInfo", arg0, arg1)
 	ret0, _ := ret[0].(*types1.GetAccountInfoResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetAccountInfo indicates an expected call of GetAccountInfo
-func (mr *MockWalletMockRecorder) GetAccountInfo(arg0 interface{}) *gomock.Call {
+func (mr *MockWalletMockRecorder) GetAccountInfo(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAccountInfo", reflect.TypeOf((*MockWallet)(nil).GetAccountInfo), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAccountInfo", reflect.TypeOf((*MockWallet)(nil).GetAccountInfo), arg0, arg1)
 }
 
 // GetAddress mocks base method
-func (m *MockWallet) GetAddress(arg0 uint64) (string, error) {
+func (m *MockWallet) GetAddress(arg0 uint64, arg1 *common.Address) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAddress", arg0)
+	ret := m.ctrl.Call(m, "GetAddress", arg0, arg1)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetAddress indicates an expected call of GetAddress
-func (mr *MockWalletMockRecorder) GetAddress(arg0 interface{}) *gomock.Call {
+func (mr *MockWalletMockRecorder) GetAddress(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAddress", reflect.TypeOf((*MockWallet)(nil).GetAddress), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAddress", reflect.TypeOf((*MockWallet)(nil).GetAddress), arg0, arg1)
 }
 
 // GetBalance mocks base method
-func (m *MockWallet) GetBalance(arg0 uint64, arg1 *common.Address) (*big.Int, error) {
+func (m *MockWallet) GetBalance(arg0 uint64, arg1, arg2 *common.Address) (*big.Int, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetBalance", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetBalance", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*big.Int)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetBalance indicates an expected call of GetBalance
-func (mr *MockWalletMockRecorder) GetBalance(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockWalletMockRecorder) GetBalance(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBalance", reflect.TypeOf((*MockWallet)(nil).GetBalance), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBalance", reflect.TypeOf((*MockWallet)(nil).GetBalance), arg0, arg1, arg2)
 }
 
 // GetBlockTransactionCountByHash mocks base method
@@ -174,22 +188,22 @@ func (mr *MockWalletMockRecorder) GetBlockTransactionCountByNumber(arg0 interfac
 }
 
 // GetHeight mocks base method
-func (m *MockWallet) GetHeight() (*big.Int, *big.Int) {
+func (m *MockWallet) GetHeight(arg0 *common.Address) (*big.Int, *big.Int) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetHeight")
+	ret := m.ctrl.Call(m, "GetHeight", arg0)
 	ret0, _ := ret[0].(*big.Int)
 	ret1, _ := ret[1].(*big.Int)
 	return ret0, ret1
 }
 
 // GetHeight indicates an expected call of GetHeight
-func (mr *MockWalletMockRecorder) GetHeight() *gomock.Call {
+func (mr *MockWalletMockRecorder) GetHeight(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHeight", reflect.TypeOf((*MockWallet)(nil).GetHeight))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHeight", reflect.TypeOf((*MockWallet)(nil).GetHeight), arg0)
 }
 
 // GetLocalOutputs mocks base method
-func (m *MockWallet) GetLocalOutputs(arg0, arg1 uint64) ([]types1.UTXOOutputDetail, error) {
+func (m *MockWallet) GetLocalOutputs(arg0 []hexutil.Uint64, arg1 *common.Address) ([]types1.UTXOOutputDetail, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetLocalOutputs", arg0, arg1)
 	ret0, _ := ret[0].([]types1.UTXOOutputDetail)
@@ -204,33 +218,33 @@ func (mr *MockWalletMockRecorder) GetLocalOutputs(arg0, arg1 interface{}) *gomoc
 }
 
 // GetLocalUTXOTxsByHeight mocks base method
-func (m *MockWallet) GetLocalUTXOTxsByHeight(arg0 *big.Int) (*types1.UTXOBlock, error) {
+func (m *MockWallet) GetLocalUTXOTxsByHeight(arg0 *big.Int, arg1 *common.Address) (*types1.UTXOBlock, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetLocalUTXOTxsByHeight", arg0)
+	ret := m.ctrl.Call(m, "GetLocalUTXOTxsByHeight", arg0, arg1)
 	ret0, _ := ret[0].(*types1.UTXOBlock)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetLocalUTXOTxsByHeight indicates an expected call of GetLocalUTXOTxsByHeight
-func (mr *MockWalletMockRecorder) GetLocalUTXOTxsByHeight(arg0 interface{}) *gomock.Call {
+func (mr *MockWalletMockRecorder) GetLocalUTXOTxsByHeight(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLocalUTXOTxsByHeight", reflect.TypeOf((*MockWallet)(nil).GetLocalUTXOTxsByHeight), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLocalUTXOTxsByHeight", reflect.TypeOf((*MockWallet)(nil).GetLocalUTXOTxsByHeight), arg0, arg1)
 }
 
 // GetMaxOutput mocks base method
-func (m *MockWallet) GetMaxOutput(arg0 common.Address) (*hexutil.Uint64, error) {
+func (m *MockWallet) GetMaxOutput(arg0 common.Address, arg1 *common.Address) (*hexutil.Uint64, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetMaxOutput", arg0)
+	ret := m.ctrl.Call(m, "GetMaxOutput", arg0, arg1)
 	ret0, _ := ret[0].(*hexutil.Uint64)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetMaxOutput indicates an expected call of GetMaxOutput
-func (mr *MockWalletMockRecorder) GetMaxOutput(arg0 interface{}) *gomock.Call {
+func (mr *MockWalletMockRecorder) GetMaxOutput(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMaxOutput", reflect.TypeOf((*MockWallet)(nil).GetMaxOutput), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMaxOutput", reflect.TypeOf((*MockWallet)(nil).GetMaxOutput), arg0, arg1)
 }
 
 // GetRawTransactionByBlockHashAndIndex mocks base method
@@ -354,33 +368,48 @@ func (mr *MockWalletMockRecorder) GetTransactionReceipt(arg0 interface{}) *gomoc
 }
 
 // GetTxKey mocks base method
-func (m *MockWallet) GetTxKey(arg0 *common.Hash) (*types.Key, error) {
+func (m *MockWallet) GetTxKey(arg0 *common.Hash, arg1 *common.Address) (*types.Key, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetTxKey", arg0)
+	ret := m.ctrl.Call(m, "GetTxKey", arg0, arg1)
 	ret0, _ := ret[0].(*types.Key)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetTxKey indicates an expected call of GetTxKey
-func (mr *MockWalletMockRecorder) GetTxKey(arg0 interface{}) *gomock.Call {
+func (mr *MockWalletMockRecorder) GetTxKey(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTxKey", reflect.TypeOf((*MockWallet)(nil).GetTxKey), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTxKey", reflect.TypeOf((*MockWallet)(nil).GetTxKey), arg0, arg1)
+}
+
+// GetUTXOAddInfo mocks base method
+func (m *MockWallet) GetUTXOAddInfo(arg0 common.Hash) (*types1.UTXOAddInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUTXOAddInfo", arg0)
+	ret0, _ := ret[0].(*types1.UTXOAddInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUTXOAddInfo indicates an expected call of GetUTXOAddInfo
+func (mr *MockWalletMockRecorder) GetUTXOAddInfo(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUTXOAddInfo", reflect.TypeOf((*MockWallet)(nil).GetUTXOAddInfo), arg0)
 }
 
 // GetUTXOTx mocks base method
-func (m *MockWallet) GetUTXOTx(arg0 common.Hash) (*types0.UTXOTransaction, error) {
+func (m *MockWallet) GetUTXOTx(arg0 common.Hash, arg1 *common.Address) (*types0.UTXOTransaction, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetUTXOTx", arg0)
+	ret := m.ctrl.Call(m, "GetUTXOTx", arg0, arg1)
 	ret0, _ := ret[0].(*types0.UTXOTransaction)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetUTXOTx indicates an expected call of GetUTXOTx
-func (mr *MockWalletMockRecorder) GetUTXOTx(arg0 interface{}) *gomock.Call {
+func (mr *MockWalletMockRecorder) GetUTXOTx(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUTXOTx", reflect.TypeOf((*MockWallet)(nil).GetUTXOTx), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUTXOTx", reflect.TypeOf((*MockWallet)(nil).GetUTXOTx), arg0, arg1)
 }
 
 // GetWalletEthAddress mocks base method
@@ -427,17 +456,17 @@ func (mr *MockWalletMockRecorder) OpenWallet(arg0, arg1 interface{}) *gomock.Cal
 }
 
 // RescanBlockchain mocks base method
-func (m *MockWallet) RescanBlockchain() error {
+func (m *MockWallet) RescanBlockchain(arg0 *common.Address) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RescanBlockchain")
+	ret := m.ctrl.Call(m, "RescanBlockchain", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // RescanBlockchain indicates an expected call of RescanBlockchain
-func (mr *MockWalletMockRecorder) RescanBlockchain() *gomock.Call {
+func (mr *MockWalletMockRecorder) RescanBlockchain(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RescanBlockchain", reflect.TypeOf((*MockWallet)(nil).RescanBlockchain))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RescanBlockchain", reflect.TypeOf((*MockWallet)(nil).RescanBlockchain), arg0)
 }
 
 // SelectAddress mocks base method
@@ -485,31 +514,31 @@ func (mr *MockWalletMockRecorder) SendRawUTXOTransaction(arg0 interface{}) *gomo
 }
 
 // SetRefreshBlockInterval mocks base method
-func (m *MockWallet) SetRefreshBlockInterval(arg0 time.Duration) error {
+func (m *MockWallet) SetRefreshBlockInterval(arg0 time.Duration, arg1 *common.Address) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetRefreshBlockInterval", arg0)
+	ret := m.ctrl.Call(m, "SetRefreshBlockInterval", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetRefreshBlockInterval indicates an expected call of SetRefreshBlockInterval
-func (mr *MockWalletMockRecorder) SetRefreshBlockInterval(arg0 interface{}) *gomock.Call {
+func (mr *MockWalletMockRecorder) SetRefreshBlockInterval(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRefreshBlockInterval", reflect.TypeOf((*MockWallet)(nil).SetRefreshBlockInterval), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRefreshBlockInterval", reflect.TypeOf((*MockWallet)(nil).SetRefreshBlockInterval), arg0, arg1)
 }
 
 // Status mocks base method
-func (m *MockWallet) Status() *types1.StatusResult {
+func (m *MockWallet) Status(arg0 *common.Address) *types1.StatusResult {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Status")
+	ret := m.ctrl.Call(m, "Status", arg0)
 	ret0, _ := ret[0].(*types1.StatusResult)
 	return ret0
 }
 
 // Status indicates an expected call of Status
-func (mr *MockWalletMockRecorder) Status() *gomock.Call {
+func (mr *MockWalletMockRecorder) Status(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Status", reflect.TypeOf((*MockWallet)(nil).Status))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Status", reflect.TypeOf((*MockWallet)(nil).Status), arg0)
 }
 
 // Transfer mocks base method
