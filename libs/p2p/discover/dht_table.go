@@ -348,6 +348,9 @@ func (tab *DhtTable) readNodesFromBucketAndSeeds(buf []*common.Node, alreadyConn
 	var bufLen = len(buf)
 	//first get node from bootstrap nodes
 	for i := 0; i < len(tab.seeds) && index < bufLen; i++ {
+		if tab.seeds[i].TCP_Port == 0 { //filter lite dht node
+			continue
+		}
 		id = common.TransNodeIDToString(tab.seeds[i].ID)
 		if alreadyConnect != nil {
 			_, ok := alreadyConnect[id]
