@@ -26,7 +26,6 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-
 func TestGetTransactionBy(t *testing.T) {
 	b := &MockBackend{}
 	s := NewPublicTransactionPoolAPI(b, nil)
@@ -180,7 +179,6 @@ func TestSignSpecTx(t *testing.T) {
 	}
 
 	strArgs := []string{
-		`{"type":"cct","signers":["%s","%s","%s"],"args":{ "from":"%s", "nonce":"0x3", "value":"0x4", "data":"0x48656c6c6f20576f726c6421", "gas":"0x7", "gasPrice":"0x8"} }`,
 		`{"type":"cut","signers":["%s","%s","%s"],"args":{ "from":"%s", "contract":"0x0000000000000000000000000000000000000004","nonce":"0x3", "value":"0x4", "data":"0x48656c6c6f20576f726c6421"} }`,
 	}
 	for _, str := range strArgs {
@@ -201,32 +199,6 @@ func TestSignSpecTx(t *testing.T) {
 		assert.Nil(err, "not nil")
 	}
 
-}
-
-func TestSign(t *testing.T) {
-	b := &MockBackend{}
-	s := NewPublicTransactionPoolAPI(b, nil)
-
-	assert := assert.New(t)
-
-	dir, err := ioutil.TempDir("", "eth-keystore-test")
-	if err != nil {
-		panic(err)
-	}
-	defer os.RemoveAll(dir)
-	am, addrs := testAccountManager(dir)
-	a := addrs[0]
-	b.On("AccountManager").Return(am)
-	ret, err := s.Sign(common.EmptyAddress, []byte{})
-	assert.Nil(ret, "not nil")
-	assert.Equal(err, accounts.ErrUnknownAccount)
-
-	sp := NewPrivateAccountAPI(b, new(AddrLocker))
-	seconds := uint64(3600)
-	sp.UnlockAccount(a.Address, "1234", &seconds)
-	ret, err = s.Sign(a.Address, common.EmptyHash.Bytes())
-	assert.NotNil(ret, "not nil")
-	assert.Nil(err, "not nil")
 }
 
 func TestGetTransactionCount(t *testing.T) {
