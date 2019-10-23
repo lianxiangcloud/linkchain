@@ -23,9 +23,10 @@ import (
 
 func NewEnv(cfg *Config) *evm.EVM {
 	context := evm.Context{
-		CanTransfer: evm.CanTransfer,
-		Transfer:    evm.Transfer,
-		GetHash:     func(uint64) common.Hash { return common.EmptyHash },
+		CanTransfer:    evm.CanTransfer,
+		Transfer:       evm.Transfer,
+		UnsafeTransfer: evm.UnsafeTransfer,
+		GetHash:        func(uint64) common.Hash { return common.EmptyHash },
 
 		Origin:      cfg.Origin,
 		Coinbase:    cfg.Coinbase,
