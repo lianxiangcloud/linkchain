@@ -186,22 +186,13 @@ func TestTokenTransactionCheckState(t *testing.T) {
 	data := []byte{5}
 	tx := NewTokenTransaction(to, nonce, to, amount, gasLimit, gasPrice, data)
 
-	censor.On("Block").Return(&Block{
-		Header: &Header{
-			GasLimit: 0,
-		},
-	}).Once()
-
-	err := tx.CheckState(censor)
-	assert.Equal(t, ErrGasLimit, err)
-
 	censor.On("Block", mock.Anything).Return(&Block{
 		Header: &Header{
 			GasLimit: ParGasLimit,
 		},
 	})
 
-	err = tx.CheckState(censor)
+	err := tx.CheckState(censor)
 	assert.Equal(t, ErrInvalidSender, err)
 
 	key, err := crypto.GenerateKey()
