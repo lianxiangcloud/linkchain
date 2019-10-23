@@ -191,7 +191,7 @@ func TestNoBlockResponse(t *testing.T) {
 	config.ListenAddress = fmt.Sprintf(":%d", seeds[0].TCP_Port)
 	localNodeInfo := makeNodeInfo("chainID", types.NodeValidator, "validator", "")
 
-	p2pmanager, err := p2p.NewP2pManager(logger, "", privKeys[0], config, localNodeInfo, seeds, db)
+	p2pmanager, err := p2p.NewP2pManager(logger, privKeys[0], config, localNodeInfo, seeds, db)
 	if err != nil {
 		panic(fmt.Sprintf("NewP2pManager err %v", err))
 	}
