@@ -72,7 +72,7 @@ func makeAndConnectEvidenceReactors(stateDBs []dbm.DB, statess []cs.NewStatus, s
 
 		localNodeInfo := makeNodeInfo("chainID", types.NodeValidator, fmt.Sprintf("validator%d", i), "")
 
-		p2pmanager, err := p2p.NewP2pManager(logger, "", privKeys[i], config, localNodeInfo, seeds, stateDBs[i])
+		p2pmanager, err := p2p.NewP2pManager(logger, privKeys[i], config, localNodeInfo, seeds, stateDBs[i])
 		if err != nil {
 			panic(fmt.Sprintf("NewP2pManager err %v", err))
 		}

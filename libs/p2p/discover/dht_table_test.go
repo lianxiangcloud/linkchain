@@ -14,7 +14,7 @@ import (
 )
 
 var seeds = []*common.Node{
-	&common.Node{IP: net.ParseIP("127.0.0.1"), UDP_Port: 2500, ID: common.NodeID{1, 2, 3}},
+	&common.Node{IP: net.ParseIP("127.0.0.1"), UDP_Port: 2500, TCP_Port: 2500, ID: common.NodeID{1, 2, 3}},
 	&common.Node{IP: net.ParseIP("127.0.0.1"), UDP_Port: 2501, TCP_Port: 2501, ID: common.NodeID{1, 2, 4}},
 	&common.Node{IP: net.ParseIP("127.0.0.1"), UDP_Port: 2502, TCP_Port: 2502, ID: common.NodeID{1, 2, 5}},
 	&common.Node{IP: net.ParseIP("127.0.0.1"), UDP_Port: 2503, TCP_Port: 2503, ID: common.NodeID{1, 2, 6}},
