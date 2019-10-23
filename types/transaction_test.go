@@ -293,7 +293,7 @@ func TestTransactionCheckBasic(t *testing.T) {
 	tx = new(Transaction)
 	censor.On("NodeType").Return("")
 	err = tx.CheckBasic(censor)
-	assert.Equal(t, ErrInvalidReceiver, err)
+	assert.Equal(t, ErrParams, err)
 
 	tx.data.Recipient = &to
 	err = tx.CheckBasic(censor)
