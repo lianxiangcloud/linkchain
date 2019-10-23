@@ -316,7 +316,7 @@ func (mem *Mempool) SetReceiveP2pTx(on bool) {
 
 // GetTxFromCache ...
 func (mem *Mempool) GetTxFromCache(hash common.Hash) types.Tx {
-	return mem.cache.Get(hash)
+	return mem.cache.CheckAndGet(hash)
 }
 
 // UTXOTxsSize return pure utxoTxs list length.
@@ -412,7 +412,11 @@ func (mem *Mempool) addLocalSpecTx(tx types.Tx) (err error) {
 //@Note: Caller should print the error log
 func (mem *Mempool) AddTx(peerID string, tx types.Tx) (err error) {
 	// CACHE
-	if !mem.cache.Put(tx) {
+	cacheTx := &mempoolCachedTx{
+		Tx:           tx,
+		BasicChecked: false,
+	}
+	if !mem.cache.Put(cacheTx) {
 		return types.ErrTxDuplicate
 	}
 	// END CACHE
@@ -426,6 +430,7 @@ func (mem *Mempool) AddTx(peerID string, tx types.Tx) (err error) {
 		mem.cache.Delete(tx.Hash())
 		return
 	}
+	cacheTx.BasicChecked = true
 
 	mem.proxyMtx.Lock()
 	defer mem.proxyMtx.Unlock()
@@ -964,11 +969,17 @@ type mempoolTx struct {
 	addtime *time.Time
 }
 
+type mempoolCachedTx struct {
+	types.Tx
+	BasicChecked bool
+}
+
 //--------------------------------------------------------------------------------
 
 type txCache interface {
 	Put(tx types.Tx) bool
 	Get(common.Hash) types.Tx
+	CheckAndGet(common.Hash) types.Tx
 	Delete(common.Hash)
 	DelayDelete(common.Hash)
 	Exists(common.Hash) bool
@@ -983,11 +994,12 @@ func (nopTxCache) Size() int {
 	return 0
 }
 
-func (nopTxCache) Get(common.Hash) types.Tx { return nil }
-func (nopTxCache) Exists(common.Hash) bool  { return false }
-func (nopTxCache) Put(types.Tx) bool        { return true }
-func (nopTxCache) Delete(common.Hash)       {}
-func (nopTxCache) DelayDelete(common.Hash)  {}
+func (nopTxCache) Get(common.Hash) types.Tx         { return nil }
+func (nopTxCache) CheckAndGet(common.Hash) types.Tx { return nil }
+func (nopTxCache) Exists(common.Hash) bool          { return false }
+func (nopTxCache) Put(types.Tx) bool                { return true }
+func (nopTxCache) Delete(common.Hash)               {}
+func (nopTxCache) DelayDelete(common.Hash)          {}
 
 // addressByHeartbeat is an account address tagged with its last activity timestamp.
 type addressByHeartbeat struct {
@@ -1056,7 +1068,28 @@ func (h *txHeap) Get(hash common.Hash) types.Tx {
 	h.RLock()
 	tx := h.txMap[hash]
 	h.RUnlock()
-	return tx
+	txpure, ok := tx.(*mempoolCachedTx)
+	if !ok {
+		log.Warn("txcache Get type conversion error")
+		return tx
+	}
+	return txpure.Tx
+}
+
+func (h *txHeap) CheckAndGet(hash common.Hash) types.Tx {
+	h.RLock()
+	tx := h.txMap[hash]
+	h.RUnlock()
+	txpure, ok := tx.(*mempoolCachedTx)
+	if !ok {
+		log.Warn("txcache CheckAndGet type conversion error")
+		return tx
+	}
+	if !txpure.BasicChecked {
+		log.Debug("txcache CheckAndGet before checked")
+		return nil
+	}
+	return txpure.Tx
 }
 
 func (h *txHeap) DelayDelete(hash common.Hash) {
@@ -1148,6 +1181,11 @@ func (m *txHeapManager) Put(tx types.Tx) bool {
 func (m *txHeapManager) Get(hash common.Hash) types.Tx {
 	index := int(hash[0]) % len(m.h)
 	return m.h[index].Get(hash)
+}
+
+func (m *txHeapManager) CheckAndGet(hash common.Hash) types.Tx {
+	index := int(hash[0]) % len(m.h)
+	return m.h[index].CheckAndGet(hash)
 }
 
 func (m *txHeapManager) DelayDelete(hash common.Hash) {

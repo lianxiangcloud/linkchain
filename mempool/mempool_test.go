@@ -307,7 +307,7 @@ func TestReap(t *testing.T) {
 	reapsize := cfg.Size
 	txs := mem.Reap(reapsize)
 	fmt.Println(mem.Stats())
-	assert.Equal(t, 500, len(txs))
+	assert.Equal(t, 510, len(txs))
 	mem.Update(0, txs)
 	fmt.Println(mem.Stats())
 }
@@ -425,7 +425,7 @@ func TestTxHeap(t *testing.T) {
 		hash[0] = byte(i)
 		tx := cache.Get(hash)
 		if tx == nil {
-			t.Fatalf("cache.Get should not be nil")
+			t.Fatalf("cache.Get should not be nil, i=%d", i)
 		}
 		t.Logf("cache.Get %s", tx.Hash().String())
 		cache.DelayDelete(hash)
@@ -438,7 +438,68 @@ func TestTxHeap(t *testing.T) {
 		hash[0] = byte(i)
 		tx := cache.Get(hash)
 		if tx != nil {
-			t.Fatalf("cache.Get should be nil")
+			t.Fatalf("cache.Get should be nil, i=%d", i)
+		}
+	}
+	if cache.Size() != 0 {
+		t.Fatalf("cache.Size(): wanted=%d, goted=%d", 0, cache.Size())
+	}
+	t.Logf("cache.DelayDelete ok")
+}
+
+func TestTxHeapPlus(t *testing.T) {
+	cache := newTxHeapManager(4, 3)
+	nums := 32
+
+	var hash common.Hash
+	for i := 0; i < nums; i++ {
+		hash[0] = byte(i)
+		tx := &mempoolCachedTx{
+			Tx:           makeNopTx(hash),
+			BasicChecked: false,
+		}
+		cache.Put(tx)
+		t.Log(cache.Get(hash), cache.CheckAndGet(hash))
+		if i < nums/2 {
+			tx.BasicChecked = true
+		}
+		t.Log(cache.Get(hash), cache.CheckAndGet(hash))
+	}
+	if cache.Size() != nums {
+		t.Fatalf("cache.Size(): wanted=%d, goted=%d", nums, cache.Size())
+	}
+	hash = common.Hash{}
+	for i := 0; i < nums; i++ {
+		hash[0] = byte(i)
+		tx := cache.CheckAndGet(hash)
+		if tx == nil && i < nums/2 {
+			t.Fatalf("cache.Get should not be nil, i=%d", i)
+		}
+		if tx != nil && i >= nums/2 {
+			t.Fatalf("cache.Get should be nil, i=%d", i)
+		}
+	}
+	t.Logf("cache.CheckAndGet ok")
+
+	hash = common.Hash{}
+	for i := 0; i < nums; i++ {
+		hash[0] = byte(i)
+		tx := cache.Get(hash)
+		if tx == nil {
+			t.Fatalf("cache.Get should not be nil, i=%d", i)
+		}
+		t.Logf("cache.Get %s", tx.Hash().String())
+		cache.DelayDelete(hash)
+	}
+	t.Logf("cache.Get ok")
+
+	time.Sleep(time.Second * 4)
+	hash = common.Hash{}
+	for i := 0; i < nums; i++ {
+		hash[0] = byte(i)
+		tx := cache.Get(hash)
+		if tx != nil {
+			t.Fatalf("cache.Get should be nil, i=%d", i)
 		}
 	}
 	if cache.Size() != 0 {
