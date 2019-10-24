@@ -1031,6 +1031,7 @@ func (tx *UTXOTransaction) checkCommitEqual() error {
 		}
 	}
 
+	//TODO: adding intrinsic gas when calculate contract fee
 	if common.IsLKC(tx.TokenID) {
 		txFeekey, err := BigInt2Hash(big.NewInt(0).Div(tx.Fee, big.NewInt(UTXO_COMMITMENT_CHANGE_RATE)))
 		if err != nil {

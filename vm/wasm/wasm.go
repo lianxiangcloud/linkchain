@@ -16,7 +16,7 @@ import (
 var (
 	defaultDifficulty        = big.NewInt(10000000)
 	wasmIDLength             = 4
-	wasmID            uint32 = 0x6d736100
+	wasmID            uint32 = 0x6d736100 //Notice: types/transaction has a duplication of this
 )
 
 // emptyCodeHash is used by create to ensure deployment is disallowed to already
@@ -218,9 +218,9 @@ func NewWASM(c types.Context, statedb types.StateDB, vmc types.VmConfig) *WASM {
 	ctx := c.(Context)
 
 	return &WASM{
-		Context:  ctx,
-		StateDB:  statedb,
-		otxs:     make([]types.BalanceRecord, 0),
+		Context: ctx,
+		StateDB: statedb,
+		otxs:    make([]types.BalanceRecord, 0),
 	}
 }
 

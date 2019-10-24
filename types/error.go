@@ -99,4 +99,7 @@ var (
 
 	ErrBlacklistAddress           = errors.New("blacklist address")
 	ErrGenerateProcessTransaction = errors.New("generate process transaction")
+
+	ErrInsufficientBalanceForGas = errors.New("insufficient balance to pay for gas")
+	ErrIntrinsicGasOverflow      = errors.New("intrinsic gas overflow")
 )

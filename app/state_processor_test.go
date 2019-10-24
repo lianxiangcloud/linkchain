@@ -546,72 +546,72 @@ func TestAccount2ContractVmerr(t *testing.T) {
 	hashChecker(t, receiptHash, stateHash, balanceRecordHash, "0xb3af327405f4da8478cce782e22876366c73b15808d7de6fcfed2a0a0b0e626f", "0x22e4d86a7a179a3e36666c39883e77ac7d65af94d6373c6c03372c795c447197", "0x135c73fc9bdc58b9f72829982914537df45f76b54c2fa747ae45e9d3d7db35bc")
 }
 
-//txc4(to Contract & Value transfer but fail due to transfer gas err)
-func TestAccount2ContractVmerr2(t *testing.T) {
-	statedb := newTestState()
-	types.SaveBalanceRecord = true
-	types.BlockBalanceRecordsInstance = types.NewBlockBalanceRecords()
+//txc4(to Contract & Value transfer but fail due to transfer gas err) Not Support Now
+// func TestAccount2ContractVmerr2(t *testing.T) {
+// 	statedb := newTestState()
+// 	types.SaveBalanceRecord = true
+// 	types.BlockBalanceRecordsInstance = types.NewBlockBalanceRecords()
 
-	sender := Bank[0].PrivateKey
-	sAdd := Bank[0].Address
+// 	sender := Bank[0].PrivateKey
+// 	sAdd := Bank[0].Address
 
-	amount1 := big.NewInt(0)
-	fee1 := uint64(107369)
-	nonce := uint64(0)
-	tx1 := newContractTx(sAdd, fee1, nonce, "../test/token/sol/t.bin")
-	tx1.Sign(types.GlobalSTDSigner, sender)
-	fromAddress, _ := tx1.From()
-	tkAdd := crypto.CreateAddress(fromAddress, tx1.Nonce(), tx1.Data())
-	nonce++
+// 	amount1 := big.NewInt(0)
+// 	fee1 := uint64(107369)
+// 	nonce := uint64(0)
+// 	tx1 := newContractTx(sAdd, fee1, nonce, "../test/token/sol/t.bin")
+// 	tx1.Sign(types.GlobalSTDSigner, sender)
+// 	fromAddress, _ := tx1.From()
+// 	tkAdd := crypto.CreateAddress(fromAddress, tx1.Nonce(), tx1.Data())
+// 	nonce++
 
-	bin, err := ioutil.ReadFile("../test/token/sol/t.abi")
-	if err != nil {
-		panic(err)
-	}
-	cabi, err := abi.JSON(bytes.NewReader(bin))
-	if err != nil {
-		panic(err)
-	}
-	var data []byte
-	method := "set"
-	data, err = cabi.Pack(method, big.NewInt(0))
-	if err != nil {
-		panic(err)
-	}
+// 	bin, err := ioutil.ReadFile("../test/token/sol/t.abi")
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	cabi, err := abi.JSON(bytes.NewReader(bin))
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	var data []byte
+// 	method := "set"
+// 	data, err = cabi.Pack(method, big.NewInt(0))
+// 	if err != nil {
+// 		panic(err)
+// 	}
 
-	amount2 := big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(100))
-	fee2bf := types.CalNewAmountGas(amount2, types.EverContractLiankeFee) + uint64(21399)
-	fee2 := uint64(21400)
-	tx2 := types.NewTransaction(nonce, tkAdd, amount2, fee2bf, gasPrice, data)
-	tx2.Sign(types.GlobalSTDSigner, sender)
-	nonce++
+// 	amount2 := big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(100))
+// 	fee2bf := types.CalNewAmountGas(amount2, types.EverContractLiankeFee) + uint64(21399)
+// 	fee2 := uint64(21400)
+// 	tx2 := types.NewTransaction(nonce, tkAdd, amount2, fee2bf, gasPrice, data)
+// 	tx2.Sign(types.GlobalSTDSigner, sender)
+// 	nonce++
 
-	bfBalanceIn := []*big.Int{statedb.GetBalance(sAdd)}
-	bfBalanceOut := []*big.Int{big.NewInt(0)}
-	block := genBlock(types.Txs{tx1, tx2})
-	receipts, _, blockGas, _, utxoOutputs, keyImages, err := SP.Process(block, statedb, VC)
-	if err != nil {
-		panic(err)
-	}
-	afBalanceIn := []*big.Int{statedb.GetBalance(sAdd)}
-	afBalanceOut := []*big.Int{statedb.GetBalance(tkAdd)}
+// 	bfBalanceIn := []*big.Int{statedb.GetBalance(sAdd)}
+// 	bfBalanceOut := []*big.Int{big.NewInt(0)}
+// 	block := genBlock(types.Txs{tx1, tx2})
+// 	receipts, _, blockGas, _, utxoOutputs, keyImages, err := SP.Process(block, statedb, VC)
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	afBalanceIn := []*big.Int{statedb.GetBalance(sAdd)}
+// 	afBalanceOut := []*big.Int{statedb.GetBalance(tkAdd)}
 
-	expectAmount := calExpectAmount(amount1)
-	expectFee := calExpectFee(fee1, fee2)
-	actualFee := big.NewInt(0).Mul(big.NewInt(0).SetUint64(blockGas), big.NewInt(types.ParGasPrice))
-	expectNonce := []uint64{nonce}
-	actualNonce := []uint64{statedb.GetNonce(sAdd)}
+// 	expectAmount := calExpectAmount(amount1)
+// 	expectFee := calExpectFee(fee1, fee2)
+// 	actualFee := big.NewInt(0).Mul(big.NewInt(0).SetUint64(blockGas), big.NewInt(types.ParGasPrice))
+// 	expectNonce := []uint64{nonce}
+// 	actualNonce := []uint64{statedb.GetNonce(sAdd)}
 
-	balancesChecker(t, bfBalanceIn, afBalanceIn, bfBalanceOut, afBalanceOut, expectAmount, expectFee, actualFee)
-	resultChecker(t, receipts, utxoOutputs, keyImages, 2, 0, 0)
-	othersChecker(t, expectNonce, actualNonce)
+// 	balancesChecker(t, bfBalanceIn, afBalanceIn, bfBalanceOut, afBalanceOut, expectAmount, expectFee, actualFee)
+// 	resultChecker(t, receipts, utxoOutputs, keyImages, 2, 0, 0)
+// 	othersChecker(t, expectNonce, actualNonce)
 
-	receiptHash := receipts.Hash()
-	stateHash := statedb.IntermediateRoot(false)
-	balanceRecordHash := types.RlpHash(types.BlockBalanceRecordsInstance.Json())
-	log.Debug("SAVER", "rh", receiptHash.Hex(), "sh", stateHash.Hex(), "brh", balanceRecordHash.Hex())
-	hashChecker(t, receiptHash, stateHash, balanceRecordHash, "0xb5ca9210543551de790b7620ab33f58c98d779793fc531361c4044dbbf64728f", "0xf46776e7e232805fae4534d650e11cbcecf48c3df7a7b5cf663c9c66e272e213", "0x2e04cbf22bae78de96f82727b6df45c947743742a3e5f75df6903962b3653d88")
-}
+// 	receiptHash := receipts.Hash()
+// 	stateHash := statedb.IntermediateRoot(false)
+// 	balanceRecordHash := types.RlpHash(types.BlockBalanceRecordsInstance.Json())
+// 	log.Debug("SAVER", "rh", receiptHash.Hex(), "sh", stateHash.Hex(), "brh", balanceRecordHash.Hex())
+// 	hashChecker(t, receiptHash, stateHash, balanceRecordHash, "0xb5ca9210543551de790b7620ab33f58c98d779793fc531361c4044dbbf64728f", "0xf46776e7e232805fae4534d650e11cbcecf48c3df7a7b5cf663c9c66e272e213", "0x2e04cbf22bae78de96f82727b6df45c947743742a3e5f75df6903962b3653d88")
+// }
 
 //txt
 func TestAccount2AccountToken(t *testing.T) {

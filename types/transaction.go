@@ -43,7 +43,7 @@ const (
 	MaxTransactionSize            = 256 * 1024
 	MaxWasmTransactionSize        = 256 * 1024
 	MaxPureTransactionSize        = 32 * 1024
-	wasmID                 uint32 = 0x6d736100
+	wasmID                 uint32 = 0x6d736100 //Notice: wasm has a duplication of this
 	wasmIDLength                  = 4
 )
 
@@ -219,14 +219,31 @@ func IsContract(data []byte) bool {
 	return false
 }
 
+//TODO: return err instead of bool
 func (tx *Transaction) IllegalGasLimitOrGasPrice(hascode bool) bool {
 	if tx.GasPrice().Cmp(big.NewInt(ParGasPrice)) != 0 {
 		log.Info("ParGasPrice!=0", "GasPrice", tx.GasPrice())
 		return true
 	}
+
+	gasRate := cfg.EvmGasRate
+	if hascode && IsWasmContract(tx.data.Payload) {
+		gasRate = cfg.WasmGasRate
+	}
+	contractCreation := tx.data.Recipient == nil
+	intrGas, err := IntrinsicGas(tx.data.Payload, contractCreation, gasRate)
+	if err != nil {
+		log.Info("IntrinsicGas overflow")
+		return true
+	}
+	if tx.Gas() < intrGas { // tx.Gas Must > intrGas (even for transfer only tx)
+		log.Info("gas < intrinsic gas", "txgas", tx.Gas(), "intrgas", intrGas)
+		return true
+	}
+
 	var gasFee uint64
 	if hascode {
-		gasFee = CalNewAmountGas(tx.Value(), EverContractLiankeFee)
+		gasFee = CalNewAmountGas(tx.Value(), EverContractLiankeFee) + intrGas
 	} else {
 		gasFee = CalNewAmountGas(tx.Value(), EverLiankeFee)
 	}
@@ -510,14 +527,6 @@ func (tx *Transaction) CheckBasicWithState(censor TxCensor, state State) error {
 		return ErrInvalidSender
 	}
 
-	intrGas, err := intrinsicGas(tx.Data(), false, true) // homestead == true
-	if err != nil {
-		return ErrOutOfGas
-	}
-	if tx.Gas() < intrGas {
-		return ErrIntrinsicGas
-	}
-
 	return nil
 }
 
@@ -562,36 +571,46 @@ func (tx *Transaction) CheckState(censor TxCensor) error {
 }
 
 // IntrinsicGas computes the 'intrinsic gas' for a message with the given data.
-func intrinsicGas(data []byte, contractCreation, homestead bool) (gas uint64, err error) {
+func IntrinsicGas(data []byte, contractCreation bool, gasRate uint64) (uint64, error) {
 	// Set the starting gas for the raw transaction
-	if contractCreation && homestead {
+	var gas uint64
+	if contractCreation {
 		gas = cfg.TxGasContractCreation
 	} else {
 		gas = cfg.TxGas
 	}
 	// Bump the required gas by the amount of transactional data
-	if len(data) <= 0 {
-		return
+	if len(data) > 0 {
+		// Zero and non-zero bytes are priced differently
+		var nz uint64
+		for _, byt := range data {
+			if byt != 0 {
+				nz++
+			}
+		}
+		// Make sure we don't exceed uint64 for all data combinations
+		if (math.MaxUint64-gas)/cfg.TxDataNonZeroGas < nz {
+			log.Warn("IntrinsicGas", "gas", gas, "nz", nz)
+			return 0, ErrIntrinsicGasOverflow
+		}
+		gas += nz * cfg.TxDataNonZeroGas
+
+		z := uint64(len(data)) - nz
+		if (math.MaxUint64-gas)/cfg.TxDataZeroGas < z {
+			log.Warn("IntrinsicGas", "gas", gas, "z", z)
+			return 0, ErrIntrinsicGasOverflow
+		}
+		gas += z * cfg.TxDataZeroGas
 	}
-	// Zero and non-zero bytes are priced differently
-	var nz uint64
-	for _, byt := range data {
-		if byt != 0 {
-			nz++
+	if gasRate > 0 {
+		// cal wasm discount gas
+		gas = gas / gasRate
+		if gas < 1 {
+			// min gas 1
+			gas = 1
 		}
 	}
-	// Make sure we don't exceed uint64 for all data combinations
-	if (math.MaxUint64-gas)/cfg.TxDataNonZeroGas < nz {
-		return 0, ErrOutOfGas
-	}
-	gas += nz * cfg.TxDataNonZeroGas
-
-	z := uint64(len(data)) - nz
-	if (math.MaxUint64-gas)/cfg.TxDataZeroGas < z {
-		return 0, ErrOutOfGas
-	}
-	gas += z * cfg.TxDataZeroGas
-	return
+	return gas, nil
 }
 
 // Transactions is a Transaction slice type for basic sorting.
