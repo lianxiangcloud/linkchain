@@ -59,7 +59,10 @@ func NewNode(config *cfg.Config, logger log.Logger, dbProvider DBProvider) (*Nod
 		bootnode.UpdateBootNode(config.Daemon.BootNode, logger)
 	}
 	// init daemon
-	daemon.InitClient(config.Daemon, wallet.WalletVersion, logger)
+	err := daemon.InitClient(config.Daemon, wallet.WalletVersion, logger)
+	if err != nil {
+		return nil, err
+	}
 
 	// init db
 	walletDB, err := dbProvider(&DBContext{"wallet", config})

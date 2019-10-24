@@ -139,7 +139,7 @@ type RPCConfig struct {
 // DefaultDaemonConfig returns default daemon config
 func DefaultDaemonConfig() *DaemonConfig {
 	return &DaemonConfig{
-		PeerRPC:    []string{"http://127.0.0.1:11000"},
+		PeerRPC:    []string{},
 		NC:         defaultNC,
 		Origin:     defaultOrigin,
 		Appversion: defaultAppversion,

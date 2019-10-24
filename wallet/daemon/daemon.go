@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -37,7 +36,7 @@ const (
 )
 
 // InitClient init Client with config.DaemonConfig
-func InitClient(daemonConfig *config.DaemonConfig, walletVersion string, logger log.Logger) {
+func InitClient(daemonConfig *config.DaemonConfig, walletVersion string, logger log.Logger) error {
 	gDaemonClient = &client{
 		Addrs:         daemonConfig.PeerRPC,
 		AddrIdx:       0,
@@ -50,10 +49,10 @@ func InitClient(daemonConfig *config.DaemonConfig, walletVersion string, logger 
 	if len(gDaemonClient.Addrs) == 0 {
 		xroute, err := bootnode.GetXroute(logger)
 		if err != nil {
-			panic(err)
+			return err
 		}
 		if len(xroute) == 0 {
-			panic("bootnode.GetXroute len(xroute) == 0")
+			return fmt.Errorf("bootnode.GetXroute len(xroute) == 0")
 		}
 		gDaemonClient.Addrs = xroute
 	}
@@ -68,14 +67,15 @@ func InitClient(daemonConfig *config.DaemonConfig, walletVersion string, logger 
 		IdleConnTimeout:       2 * time.Minute,
 		MaxIdleConns:          4,
 		MaxIdleConnsPerHost:   2,
-		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			dialer := &net.Dialer{Timeout: defaultDialTimeout, KeepAlive: keepAliveInterval}
-			return dialer.DialContext(ctx, network, addr)
-		},
+		// DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+		// 	dialer := &net.Dialer{Timeout: defaultDialTimeout, KeepAlive: keepAliveInterval}
+		// 	return dialer.DialContext(ctx, network, addr)
+		// },
 	}
 	gDaemonClient.HTTPClient = &http.Client{
 		Transport: transport,
 	}
+	return nil
 }
 
 // setNextAddr if http do fail,choose another one
