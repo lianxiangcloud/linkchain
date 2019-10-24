@@ -19,6 +19,9 @@ before_script:
 script:
   - echo "test code"
   - export GO111MODULE=on
+  - echo `date` "begin test_cover"
+  - ./test/test_cover.sh 
+  - echo `date` "end test_cover"
   - bash ./build.sh
   - ./bin/lkchain version
 
