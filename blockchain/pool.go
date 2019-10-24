@@ -655,7 +655,9 @@ OUTER_LOOP:
 	PICK_PEER_LOOP:
 		for {
 			if !bpr.IsRunning() || pool == nil || !pool.IsRunning() {
+				bpr.mtx.Lock()
 				bpr.pool = nil
+				bpr.mtx.Unlock()
 				return
 			}
 			peer = pool.pickIncrAvailablePeer(bpr.height)
