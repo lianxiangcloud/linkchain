@@ -13,11 +13,67 @@ import (
 	"testing"
 
 	. "github.com/bouk/monkey"
+	"github.com/lianxiangcloud/linkchain/bootnode"
 	"github.com/lianxiangcloud/linkchain/libs/log"
 	cfg "github.com/lianxiangcloud/linkchain/wallet/config"
 	. "github.com/smartystreets/goconvey/convey"
 	"gopkg.in/h2non/gock.v1"
 )
+
+func TestInitClient(t *testing.T) {
+	defer gock.Off()
+	config := cfg.DefaultConfig()
+	peerRPC := []string{"http://127.0.0.1:15000"}
+	config.Daemon.PeerRPC = []string{}
+	config.Daemon.SkipVerify = true
+	version := "0.1.1"
+	testLog := log.TestingLogger()
+
+	// err := InitClient(config.Daemon, "0.1.1", log.TestingLogger())
+	// log.ParseLogLevel("*:error", log.Root(), "info")
+
+	Convey("test daemon.CallJSONRPC", t, func() {
+		Convey("bootnode.GetXroute return err", func() {
+			guard := Patch(bootnode.GetXroute, func(logger log.Logger) (xroute []string, err error) {
+				return nil, fmt.Errorf("any err")
+			})
+			defer guard.Unpatch()
+
+			err := InitClient(config.Daemon, version, testLog)
+
+			//several So assert
+			So(err, ShouldNotBeNil)
+		})
+
+		Convey("bootnode.GetXroute return empty", func() {
+			guard := Patch(bootnode.GetXroute, func(logger log.Logger) (xroute []string, err error) {
+				return []string{}, nil
+			})
+			defer guard.Unpatch()
+
+			err := InitClient(config.Daemon, version, testLog)
+
+			//several So assert
+			So(err, ShouldNotBeNil)
+		})
+
+		Convey("bootnode.GetXroute return ok", func() {
+			guard := Patch(bootnode.GetXroute, func(logger log.Logger) (xroute []string, err error) {
+				return peerRPC, nil
+			})
+			defer guard.Unpatch()
+
+			err := InitClient(config.Daemon, version, testLog)
+
+			//several So assert
+			So(err, ShouldBeNil)
+			for i := 0; i < len(gDaemonClient.Addrs); i++ {
+				So(gDaemonClient.Addrs[i], ShouldEqual, peerRPC[i])
+			}
+		})
+
+	})
+}
 
 func TestCallJSONRPC(t *testing.T) {
 	defer gock.Off()
