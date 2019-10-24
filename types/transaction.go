@@ -243,7 +243,10 @@ func (tx *Transaction) IllegalGasLimitOrGasPrice(hascode bool) bool {
 
 	var gasFee uint64
 	if hascode {
-		gasFee = CalNewAmountGas(tx.Value(), EverContractLiankeFee) + intrGas
+		gasFee = CalNewAmountGas(tx.Value(), EverContractLiankeFee)
+		if contractCreation {
+			gasFee += intrGas
+		}
 	} else {
 		gasFee = CalNewAmountGas(tx.Value(), EverLiankeFee)
 	}

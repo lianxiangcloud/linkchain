@@ -433,3 +433,41 @@ func TestMessage(t *testing.T) {
 	msg.SetTxType(TxToken)
 	assert.Equal(t, TxToken, msg.TxType())
 }
+
+func TestIllegalGasLimitOrGasPrice(t *testing.T) {
+	tx1 := Transaction{
+		data: txdata{
+			Amount:    big.NewInt(1),
+			GasLimit:  uint64(500000),
+			Recipient: &common.EmptyAddress,
+			Price:     big.NewInt(ParGasPrice),
+		},
+	}
+	assert.False(t, tx1.IllegalGasLimitOrGasPrice(false))
+	tx2 := Transaction{
+		data: txdata{
+			Amount:    big.NewInt(0),
+			GasLimit:  uint64(21000),
+			Recipient: &common.EmptyAddress,
+			Price:     big.NewInt(ParGasPrice),
+			Payload:   nil,
+		},
+	}
+	assert.False(t, tx2.IllegalGasLimitOrGasPrice(true))
+	tx3 := Transaction{
+		data: txdata{
+			Amount:   big.NewInt(0),
+			GasLimit: uint64(53000),
+			Price:    big.NewInt(ParGasPrice),
+		},
+	}
+	assert.False(t, tx3.IllegalGasLimitOrGasPrice(true))
+	tx4 := Transaction{
+		data: txdata{
+			Amount:   big.NewInt(1),
+			GasLimit: uint64(553000),
+			Price:    big.NewInt(ParGasPrice),
+		},
+	}
+	assert.False(t, tx4.IllegalGasLimitOrGasPrice(true))
+}
