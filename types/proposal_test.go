@@ -1,20 +1,23 @@
 package types
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
 	"github.com/lianxiangcloud/linkchain/libs/ser"
+	"github.com/stretchr/testify/require"
 )
 
 var testProposal *Proposal
+var proposalTimeStr string
 
 func init() {
 	var stamp, err = time.Parse(TimeFormat, "2018-02-11T07:09:22.765Z")
 	if err != nil {
 		panic(err)
 	}
+	proposalTimeStr = stamp.Local().String()
 	testProposal = &Proposal{
 		Height:           12345,
 		Round:            23456,
@@ -40,7 +43,7 @@ func TestProposalSignable(t *testing.T) {
 
 func TestProposalString(t *testing.T) {
 	str := testProposal.String()
-	expected := `Proposal{12345/23456 111:626C6F636B70 (-1,0x0000000000000000000000000000000000000000000000000000000000000000:0:000000000000) <nil> @ 2018-02-11 15:09:22.765 +0800 CST}`
+	expected := fmt.Sprintf(`Proposal{12345/23456 111:626C6F636B70 (-1,0x0000000000000000000000000000000000000000000000000000000000000000:0:000000000000) <nil> @ %s}`, proposalTimeStr)
 	if str != expected {
 		t.Errorf("Got unexpected string for Proposal. Expected:\n%v\nGot:\n%v", expected, str)
 	}

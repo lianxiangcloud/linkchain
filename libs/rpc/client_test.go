@@ -370,8 +370,8 @@ func TestClientNotificationStorm(t *testing.T) {
 		}
 	}
 
-	doTest(8000, false)
-	doTest(10000, true)
+	doTest(800, false)
+	doTest(1000, true)
 }
 
 func TestClientHTTP(t *testing.T) {
