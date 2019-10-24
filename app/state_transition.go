@@ -18,7 +18,6 @@ package app
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -34,56 +33,9 @@ import (
 )
 
 var (
-	errInsufficientBalanceForGas = errors.New("insufficient balance to pay for gas")
-	errIntrinsicGasOverflow      = errors.New("intrinsic gas overflow")
-)
-var (
 	cabi, _ = abi.JSON(strings.NewReader(jsondata))
 	cerrID  = cabi.Methods[cerrName].Id()
 )
-
-// IntrinsicGas computes the 'intrinsic gas' for a message with the given data.
-func IntrinsicGas(data []byte, contractCreation bool, gasRate uint64) (uint64, error) {
-	// Set the starting gas for the raw transaction
-	var gas uint64
-	if contractCreation {
-		gas = cfg.TxGasContractCreation
-	} else {
-		gas = cfg.TxGas
-	}
-	// Bump the required gas by the amount of transactional data
-	if len(data) > 0 {
-		// Zero and non-zero bytes are priced differently
-		var nz uint64
-		for _, byt := range data {
-			if byt != 0 {
-				nz++
-			}
-		}
-		// Make sure we don't exceed uint64 for all data combinations
-		if (math.MaxUint64-gas)/cfg.TxDataNonZeroGas < nz {
-			log.Warn("IntrinsicGas", "gas", gas, "nz", nz)
-			return 0, errIntrinsicGasOverflow
-		}
-		gas += nz * cfg.TxDataNonZeroGas
-
-		z := uint64(len(data)) - nz
-		if (math.MaxUint64-gas)/cfg.TxDataZeroGas < z {
-			log.Warn("IntrinsicGas", "gas", gas, "z", z)
-			return 0, errIntrinsicGasOverflow
-		}
-		gas += z * cfg.TxDataZeroGas
-	}
-	if gasRate > 0 {
-		// cal wasm discount gas
-		gas = gas / gasRate
-		if gas < 1 {
-			// min gas 1
-			gas = 1
-		}
-	}
-	return gas, nil
-}
 
 func (tx *processTransaction) useGas(amount uint64) error {
 	if tx.Gas < amount {
@@ -178,7 +130,7 @@ func (tx *processTransaction) buyGas() (err error) { // default use Input[0] to 
 	from := tx.RefundAddr
 	if tx.State.GetBalance(from).Cmp(mgval) < 0 {
 		log.Warn("buyGas: not enough gas", "hash", tx.Hash, "needval", mgval, "balance", tx.State.GetBalance(from))
-		return errInsufficientBalanceForGas
+		return types.ErrInsufficientBalanceForGas
 	}
 	tx.State.SubBalance(from, mgval)
 	log.Debug("buyGas", "hash", tx.Hash, "needval", mgval, "balance", tx.State.GetBalance(from))
@@ -195,11 +147,11 @@ func (tx *processTransaction) payIntrinsicGas() (err error) {
 			if wasm.IsWasmContract(data) {
 				gasRate = cfg.WasmGasRate
 			}
-			if intrinsicGas, err = IntrinsicGas(aout.Data, true, gasRate); err != nil {
+			if intrinsicGas, err = types.IntrinsicGas(aout.Data, true, gasRate); err != nil {
 				return
 			}
 			if (math.MaxUint64 - intrinsicGasSum) <= intrinsicGas {
-				return errIntrinsicGasOverflow
+				return types.ErrIntrinsicGasOverflow
 			}
 			intrinsicGasSum += intrinsicGas
 		} else if aout.Type == Cout {
@@ -208,11 +160,11 @@ func (tx *processTransaction) payIntrinsicGas() (err error) {
 			if wasm.IsWasmContract(data) {
 				gasRate = cfg.WasmGasRate
 			}
-			if intrinsicGas, err = IntrinsicGas(aout.Data, false, gasRate); err != nil {
+			if intrinsicGas, err = types.IntrinsicGas(aout.Data, false, gasRate); err != nil {
 				return
 			}
 			if (math.MaxUint64 - intrinsicGasSum) <= intrinsicGas {
-				return errIntrinsicGasOverflow
+				return types.ErrIntrinsicGasOverflow
 			}
 			intrinsicGasSum += intrinsicGas
 		}

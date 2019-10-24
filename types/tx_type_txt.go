@@ -23,6 +23,7 @@ import (
 	"math/big"
 	"sync/atomic"
 
+	cfg "github.com/lianxiangcloud/linkchain/config"
 	"github.com/lianxiangcloud/linkchain/libs/common"
 	"github.com/lianxiangcloud/linkchain/libs/crypto"
 	"github.com/lianxiangcloud/linkchain/libs/log"
@@ -420,9 +421,9 @@ func (tx *TokenTransaction) CheckBasicWithState(censor TxCensor, state State) er
 		return ErrInvalidSender
 	}
 
-	intrGas, err := intrinsicGas(tx.Data(), false, true) // homestead == true
+	intrGas, err := IntrinsicGas(tx.Data(), false, cfg.EvmGasRate) // txt cannot call contract, use EvmGasRate for default
 	if err != nil {
-		return ErrOutOfGas
+		return ErrIntrinsicGasOverflow
 	}
 	if tx.Gas() < intrGas {
 		return ErrIntrinsicGas
