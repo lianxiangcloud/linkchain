@@ -2,6 +2,7 @@ package wallet
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 
 	"github.com/lianxiangcloud/linkchain/libs/common"
@@ -28,23 +29,23 @@ type keyStroe struct {
 }
 
 // NewAccount return AccountBase ,constructed from config
-func NewAccount(config *cfg.Config) *AccountBase {
+func NewAccount(config *cfg.Config) (*AccountBase, error) {
 	if len(config.KeystoreFile) > 0 {
 		log.Info("NewAccount from config.KeystoreFile", "config.KeystoreFile", config.KeystoreFile)
 		keyjson, err := ioutil.ReadFile(config.KeystoreFile)
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 		var keyAddr keyStroe
 		if err = json.Unmarshal(keyjson, &keyAddr); err != nil {
-			panic(err)
+			return nil, err
 		}
 
 		pwd := config.Password
 		if len(config.PasswordFile) > 0 {
 			p, err := ioutil.ReadFile(config.KeystoreFile)
 			if err != nil {
-				panic(err)
+				return nil, err
 			}
 
 			pwd = string(p)
@@ -52,48 +53,46 @@ func NewAccount(config *cfg.Config) *AccountBase {
 
 		rk, err := KeyFromAccount(keyjson, pwd)
 		if err != nil {
-			log.Error("NewAccount KeyFromAccount", "err", err)
-			panic(err)
+			return nil, err
 		}
 		k, err := RecoveryKeyToAccount(rk)
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 
 		k.EthAddress = common.HexToAddress(keyAddr.Address)
 		log.Warn("NewAccount success", "UTXO Address", k.GetKeys().Address, "EthAddress", k.EthAddress)
-		return k
+		return k, nil
 	}
-	panic("not surport init account ways!!!")
+	return nil, fmt.Errorf("not surport init account ways")
 }
 
 // NewUTXOAccount return AccountBase ,constructed from config
-func NewUTXOAccount(keystoreFile string, password string) *AccountBase {
+func NewUTXOAccount(keystoreFile string, password string) (*AccountBase, error) {
 	if len(keystoreFile) > 0 {
 		log.Info("NewUTXOAccount from KeystoreFile", "keystoreFile", keystoreFile)
 		keyjson, err := ioutil.ReadFile(keystoreFile)
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 		var keyAddr keyStroe
 		if err = json.Unmarshal(keyjson, &keyAddr); err != nil {
-			panic(err)
+			return nil, err
 		}
 		rk, err := KeyFromAccount(keyjson, password)
 		if err != nil {
-			log.Error("NewUTXOAccount KeyFromAccount", "err", err)
-			panic(err)
+			return nil, err
 		}
 		k, err := RecoveryKeyToAccount(rk)
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 
 		k.EthAddress = common.HexToAddress(keyAddr.Address)
 		log.Warn("NewUTXOAccount success", "UTXO Address", k.GetKeys().Address, "EthAddress", k.EthAddress)
-		return k
+		return k, nil
 	}
-	panic("not surport init account ways!!!")
+	return nil, fmt.Errorf("not surport init account ways")
 }
 
 // GetKeys return CurrIdx key，default is main key
@@ -132,7 +131,7 @@ func (a *AccountBase) CreateSubAccountN(cnt int) error {
 	return nil
 }
 
-// zeroKey zeroes a private key in memory.
+// ZeroKey zeroes a private key in memory.
 func (a *AccountBase) ZeroKey() {
 	mainAccount := a.GetKeys()
 	if mainAccount != nil {

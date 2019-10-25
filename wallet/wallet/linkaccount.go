@@ -84,7 +84,12 @@ func NewLinkAccount(walletDB dbm.DB, logger log.Logger, keystoreFile string, pas
 		refreshBlockInterval: defaultRefreshBlockInterval,
 	}
 
-	la.account = NewUTXOAccount(keystoreFile, password)
+	newAccount, err := NewUTXOAccount(keystoreFile, password)
+	if err != nil {
+		logger.Error("NewLinkAccount NewUTXOAccount fail", "keystoreFile", keystoreFile, "err", err)
+		return nil, types.ErrNewUTXOAccount
+	}
+	la.account = newAccount
 
 	logModule := fmt.Sprintf("LinkAccount-%s", la.getEthAddress().String())
 	// la.BaseService = *cmn.NewBaseService(logger, logModule, la)
@@ -94,7 +99,7 @@ func NewLinkAccount(walletDB dbm.DB, logger log.Logger, keystoreFile string, pas
 	la.mainUTXOAddress = la.account.GetKeys().Address
 	la.setTokenBalanceBySubIndex(LinkToken, 0, big.NewInt(0))
 
-	err := la.loadLocalHeight()
+	err = la.loadLocalHeight()
 	if err != nil {
 		return nil, err
 	}

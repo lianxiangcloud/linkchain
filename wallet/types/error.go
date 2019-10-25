@@ -36,6 +36,7 @@ var (
 	ErrNoTransInTx         = NewWErr(-600009, "no trans in tx")
 	ErrWalletNotOpen       = NewWErr(-600010, "wallet not open")
 	ErrAccountNeedUnlock   = NewWErr(-600011, "account need unlock")
+	ErrNewUTXOAccount      = NewWErr(-600012, "fail new UTXO account")
 
 	ErrAccountNotFound      = NewWErr(-601001, "account not found")
 	ErrNewAccount           = NewWErr(-601002, "new account fail")
