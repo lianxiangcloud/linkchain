@@ -208,12 +208,12 @@ type CallArgs struct {
 	Outputs      []types.OutputData `json:"outputs"`
 }
 
-func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr rpc.BlockNumber, vmCfg evm.Config, timeout time.Duration) ([]byte, uint64, uint64, bool, error) {
+func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr rpc.BlockNumber, vmCfg evm.Config, timeout time.Duration) ([]byte, uint64, uint64, uint64, bool, error) {
 	defer func(start time.Time) { log.Debug("Executing VM call finished", "runtime", time.Since(start)) }(time.Now())
 
 	state, header, err := s.b.StateAndHeaderByNumber(ctx, blockNr)
 	if state == nil || err != nil {
-		return nil, 0, 0, false, err
+		return nil, 0, 0, 0, false, err
 	}
 
 	if args.To != nil && !state.IsContract(*args.To) {
@@ -223,7 +223,7 @@ func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr
 		} else {
 			gasFee = uint64(types.MinGasLimit)
 		}
-		return nil, gasFee, 0, false, nil
+		return nil, gasFee, 0, 0, false, nil
 	}
 
 	// Set sender address or use a default if none specified
@@ -278,7 +278,7 @@ func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr
 	// Get a new instance of the EVM.
 	vmenv, vmError, err := s.b.GetVM(ctx, msg, state, header, vmCfg)
 	if err != nil {
-		return nil, 0, 0, false, err
+		return nil, 0, 0, 0, false, err
 	}
 
 	// Wait for the context to be done and cancel the evm. Even if the
@@ -292,18 +292,19 @@ func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr
 		res         []byte
 		vmerr       error
 		byteCodeGas uint64
+		refundfee   uint64
 	)
 
 	vmenv.SetToken(msg.TokenAddress())
-	res, gas, byteCodeGas, _, vmerr, err = app.ApplyMessage(vmenv, msg, args.TokenAddress)
+	res, gas, byteCodeGas, _, refundfee, vmerr, err = app.ApplyMessage(vmenv, msg, args.TokenAddress)
 
 	if err := vmError(); err != nil {
-		return nil, 0, 0, false, err
+		return nil, 0, 0, 0, false, err
 	}
 	if vmerr != nil || err != nil {
 		log.Debug("PublicBlockChainAPI ApplyMessage", "from", args.From, "to", args.To, "gas", args.Gas, "value", args.Value, "err", err, "vmerr", vmerr)
 	}
-	return res, gas, byteCodeGas, vmerr != nil, err
+	return res, gas, byteCodeGas, refundfee, vmerr != nil, err
 }
 
 // Call executes the given transaction on the state for the given block number.
@@ -312,7 +313,7 @@ func (s *PublicBlockChainAPI) Call(ctx context.Context, args CallArgs, blockNr r
 	if !s.b.EVMAllowed() {
 		return nil, types.ErrMempoolIsFull
 	}
-	result, _, _, _, err := s.doCall(ctx, args, blockNr, evm.Config{}, 5*time.Second)
+	result, _, _, _, _, err := s.doCall(ctx, args, blockNr, evm.Config{}, 5*time.Second)
 	return (hexutil.Bytes)(result), err
 }
 
@@ -345,24 +346,24 @@ func (s *PublicBlockChainAPI) EstimateGas(ctx context.Context, args CallArgs) (h
 	//cap = hi
 
 	// Create a helper to check if a gas allowance results in an executable transaction
-	executable := func(gas uint64) (bool, uint64, uint64, error) {
+	executable := func(gas uint64) (bool, uint64, uint64, uint64, error) {
 		args.Gas = hexutil.Uint64(gas)
 
-		_, gasUsed, byteCodeGas, failed, err := s.doCall(ctx, args, rpc.PendingBlockNumber, evm.Config{}, 0)
+		_, gasUsed, byteCodeGas, refundFee, failed, err := s.doCall(ctx, args, rpc.PendingBlockNumber, evm.Config{}, 0)
 		if err != nil || failed {
 			log.Error("estimate gas failed", "err", err)
-			return false, gasUsed, byteCodeGas, err
+			return false, gasUsed, byteCodeGas, refundFee, err
 		}
-		return true, gasUsed, byteCodeGas, nil
+		return true, gasUsed, byteCodeGas, refundFee, nil
 	}
-	ok, gasUsed, extraByteCodeGas, err := executable(hi)
+	ok, gasUsed, extraByteCodeGas, refundFee, err := executable(hi)
 	if !ok {
 		if err != nil {
 			return 0, err
 		}
 		return 0, fmt.Errorf("gas required exceeds allowance or always failing transaction")
 	}
-	estimateGas := gasUsed
+	estimateGas := gasUsed + refundFee	
 	if extraByteCodeGas > 0 {
 		maxCallGas := 10 * cfg.CallNewAccountGas
 		if extraByteCodeGas > maxCallGas {
