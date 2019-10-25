@@ -244,10 +244,13 @@ func (tx *processTransaction) transitOutputs(res *TransitionResult) (vmerr error
 				tx.Gas += vm.RefundAllFee()
 				return
 			}
-			tx.Gas += vm.RefundFee()
 			res.Rets = append(res.Rets, ret)
 			res.Addrs = append(res.Addrs, addr)
 			res.Otxs = append(res.Otxs, vm.GetOTxs()...)
+			refundFee := vm.RefundFee()
+			res.RefundFee += refundFee
+			tx.Gas += refundFee
+
 		} else if out.Type == Updateout {
 			msgcode := tx.State.GetCode(out.To)
 			//TODO: redefine these interface
@@ -269,6 +272,7 @@ func (tx *processTransaction) transitOutputs(res *TransitionResult) (vmerr error
 			vm.Reset(types.NewMessage(tx.RefundAddr, nil, tx.TokenAddress, tx.State.GetNonce(tx.RefundAddr), nil, 0, tx.GasPrice, nil))
 			vm.SetToken(tx.TokenAddress)
 			from := evm.AccountRef(tx.RefundAddr)
+			log.Debug("transitOutputs: before contract call", "from", from, "to", out.To, "tkAdd", tx.TokenAddress, "data", out.Data, "gas", tx.Gas, "amount", out.Amount)
 			ret, tx.Gas, byteCodeGas, vmerr = vm.UTXOCall(from, out.To, tx.TokenAddress, out.Data, tx.Gas, out.Amount)
 			log.Debug("transitOutputs: contract call", "hash", tx.Hash, "gas", tx.Gas, "vmerr", vmerr)
 			if vmerr != nil {
@@ -289,7 +293,10 @@ func (tx *processTransaction) transitOutputs(res *TransitionResult) (vmerr error
 			res.Rets = append(res.Rets, ret)
 			res.Otxs = append(res.Otxs, vm.GetOTxs()...)
 			res.ByteCodeGas += byteCodeGas
-			tx.Gas += vm.RefundFee()
+			refundFee := vm.RefundFee()
+			log.Debug("vm call", "hash", tx.Hash, "refundFee", refundFee, "bytecGas", byteCodeGas)
+			res.RefundFee += refundFee
+			tx.Gas += refundFee
 		}
 	}
 	usedGas := tx.InitialGas - tx.Gas

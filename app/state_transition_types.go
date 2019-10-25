@@ -61,4 +61,5 @@ type TransitionResult struct {
 	Fee         *big.Int
 	Addrs       []common.Address
 	Otxs        []types.BalanceRecord
+	RefundFee   uint64
 }

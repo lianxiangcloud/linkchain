@@ -415,7 +415,7 @@ func (s *processState) txRawProcess(txi types.Tx) (err error) {
 }
 
 // Deprecated
-func ApplyMessage(vmenv vm.VmInterface, msg types.Message, tokenAddr common.Address) (ret []byte, gas uint64, byteCodeGas uint64, fee *big.Int, vmerr error, err error) {
+func ApplyMessage(vmenv vm.VmInterface, msg types.Message, tokenAddr common.Address) (ret []byte, gas uint64, byteCodeGas uint64, fee *big.Int, refundFee uint64, vmerr error, err error) {
 	prot := processTransaction{}
 	prot.TokenAddress = msg.TokenAddress()
 	prot.Gas = msg.Gas()
@@ -475,5 +475,5 @@ func ApplyMessage(vmenv vm.VmInterface, msg types.Message, tokenAddr common.Addr
 	if len(res.Rets) > 0 {
 		ret = res.Rets[0]
 	}
-	return ret, res.Gas, res.ByteCodeGas, res.Fee, vmerr, err
+	return ret, res.Gas, res.ByteCodeGas, res.Fee, res.RefundFee, vmerr, err
 }
