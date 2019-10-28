@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/bouk/monkey"
+	gomock "github.com/golang/mock/gomock"
 	"github.com/lianxiangcloud/linkchain/libs/common"
 	lkctypes "github.com/lianxiangcloud/linkchain/libs/cryptonote/types"
 	dbm "github.com/lianxiangcloud/linkchain/libs/db"
@@ -58,7 +58,11 @@ func newTestKeyPwd() string {
 }
 
 func newTestLinkAccount() (*LinkAccount, error) {
-	return NewLinkAccount(newTestStateDB(), newTestLogger(), newTestKeyFile(), newTestKeyPwd())
+	var t testing.T
+	ctrl := gomock.NewController(&t)
+	mockAPI := NewMockBackendAPI(ctrl)
+	mockAPI.EXPECT().RefreshMaxBlock().Return(big.NewInt(0), nil).AnyTimes()
+	return NewLinkAccount(newTestStateDB(), newTestLogger(), newTestKeyFile(), newTestKeyPwd(), mockAPI)
 }
 
 func TestGetTokenBalanceBySubIndex(t *testing.T) {
@@ -198,30 +202,30 @@ func TestGetAccountInfo(t *testing.T) {
 	}
 	resetMockAccount()
 
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockAPI := NewMockBackendAPI(ctrl)
+	mockLinkAccount.api = mockAPI
+	gomock.InOrder(
+		mockAPI.EXPECT().GetTokenBalance(mockEthAddr, LinkToken).Return(balanceExpect, nil),
+		mockAPI.EXPECT().GetTokenBalance(mockEthAddr, LinkToken).Return(nil, fmt.Errorf("GetTokenBalance fail")),
+		mockAPI.EXPECT().GetTokenBalance(mockEthAddr, LinkToken).Return(balanceExpect, nil),
+		mockAPI.EXPECT().GetTokenBalance(mockEthAddr, LinkToken).Return(nil, fmt.Errorf("GetTokenBalance fail")),
+	)
+	gomock.InOrder(
+		mockAPI.EXPECT().EthGetTransactionCount(mockEthAddr).Return(&nonceExpect, nil),
+		mockAPI.EXPECT().EthGetTransactionCount(mockEthAddr).Return(&nonceExpect, nil),
+		mockAPI.EXPECT().EthGetTransactionCount(mockEthAddr).Return(nil, fmt.Errorf("EthGetTransactionCount fail")),
+		mockAPI.EXPECT().EthGetTransactionCount(mockEthAddr).Return(nil, fmt.Errorf("EthGetTransactionCount fail")),
+	)
 	Convey("test GetAccountInfo", t, func() {
 		Convey("for succ", func() {
-			Patch(GetTokenBalance, func(addr common.Address, tokenID common.Address) (*big.Int, error) {
-				return balanceExpect, nil
-			})
-			defer UnpatchAll()
-
-			Patch(EthGetTransactionCount, func(addr common.Address) (*uint64, error) {
-				return &nonceExpect, nil
-			})
 
 			output, err := mockLinkAccount.GetAccountInfo(&LinkToken)
 			So(outputExpect.Equal(output), ShouldEqual, true)
 			So(err, ShouldBeNil)
 		})
 		Convey("for GetTokenBalance fail", func() {
-			Patch(GetTokenBalance, func(addr common.Address, tokenID common.Address) (*big.Int, error) {
-				return nil, fmt.Errorf("GetTokenBalance fail")
-			})
-			defer UnpatchAll()
-
-			Patch(EthGetTransactionCount, func(addr common.Address) (*uint64, error) {
-				return &nonceExpect, nil
-			})
 
 			stubs := Stub(&outputExpect.EthAccount.Balance, (*hexutil.Big)(balanceFailExpect))
 			defer stubs.Reset()
@@ -232,14 +236,6 @@ func TestGetAccountInfo(t *testing.T) {
 			So(err, ShouldBeNil)
 		})
 		Convey("for EthGetTransactionCount fail", func() {
-			Patch(GetTokenBalance, func(addr common.Address, tokenID common.Address) (*big.Int, error) {
-				return balanceExpect, nil
-			})
-			defer UnpatchAll()
-
-			Patch(EthGetTransactionCount, func(addr common.Address) (*uint64, error) {
-				return nil, fmt.Errorf("EthGetTransactionCount fail")
-			})
 
 			stubs := Stub(&outputExpect.EthAccount.Nonce, (hexutil.Uint64)(nonceFailExpect))
 			defer stubs.Reset()
@@ -249,14 +245,6 @@ func TestGetAccountInfo(t *testing.T) {
 			So(err, ShouldBeNil)
 		})
 		Convey("for EthGetTransactionCount and GetTokenBalance fail", func() {
-			Patch(GetTokenBalance, func(addr common.Address, tokenID common.Address) (*big.Int, error) {
-				return nil, fmt.Errorf("GetTokenBalance fail")
-			})
-			defer UnpatchAll()
-
-			Patch(EthGetTransactionCount, func(addr common.Address) (*uint64, error) {
-				return nil, fmt.Errorf("EthGetTransactionCount fail")
-			})
 
 			stubs := Stub(&outputExpect.EthAccount.Nonce, (hexutil.Uint64)(nonceFailExpect))
 			defer stubs.Reset()
@@ -537,28 +525,25 @@ func TestOnStart(t *testing.T) {
 	Convey("test OnStart", t, func() {
 		Convey("for RefreshMaxBlock succ", func() {
 			resetMockAccount()
-
-			Patch(RefreshMaxBlock, func() (*big.Int, error) {
-				return remoteHeightExpect, nil
-			})
-			defer UnpatchAll()
-
-			Patch(GetBlockUTXOsByNumber, func(height *big.Int) (*rtypes.RPCBlock, error) {
-				h := int(height.Int64())
-				if h >= len(blocks) {
-					return nil, fmt.Errorf("GetBlockUTXOsByNumber fail")
-				}
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			mockAPI := NewMockBackendAPI(ctrl)
+			mockLinkAccount.api = mockAPI
+			mockAPI.EXPECT().RefreshMaxBlock().Return(remoteHeightExpect, nil).AnyTimes()
+			var block rtypes.RPCBlock
+			if err := json.Unmarshal(blocks[0], &block); err != nil {
+				panic(err)
+			}
+			call := mockAPI.EXPECT().GetBlockUTXOsByNumber(big.NewInt(0)).Return(&block, nil)
+			for i := 1; i < len(blocks); i++ {
 				var block rtypes.RPCBlock
-				if err := json.Unmarshal(blocks[h], &block); err != nil {
-					return nil, err
+				if err := json.Unmarshal(blocks[i], &block); err != nil {
+					panic(err)
 				}
-
-				return &block, nil
-			})
-
-			Patch(GetChainVersion, func() (string, error) {
-				return chainVersionExpect, nil
-			})
+				call = mockAPI.EXPECT().GetBlockUTXOsByNumber(big.NewInt(int64(i))).Return(&block, nil).After(call)
+			}
+			mockAPI.EXPECT().GetBlockUTXOsByNumber(big.NewInt(int64(len(blocks)))).Return(nil, fmt.Errorf("GetBlockUTXOsByNumber fail")).After(call).AnyTimes()
+			mockAPI.EXPECT().GetChainVersion().Return(chainVersionExpect, nil)
 
 			err := mockLinkAccount.CreateSubAccount(2)
 			So(err, ShouldBeNil)

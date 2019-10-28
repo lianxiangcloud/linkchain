@@ -19,8 +19,40 @@ import (
 	wtypes "github.com/lianxiangcloud/linkchain/wallet/types"
 )
 
+//BackendAPI for node
+type BackendAPI interface {
+	EthGetTransactionCount(addr common.Address) (*uint64, error)
+	RefreshMaxBlock() (*big.Int, error)
+	GetOutputsFromNode(indice []uint64, tokenID common.Address) ([]*types.UTXORingEntry, error)
+	IsContract(addr common.Address) (bool, error)
+	EstimateGas(from common.Address, nonce uint64, dest *types.AccountDestEntry, kind types.UTXOKind, tokenID common.Address) (*big.Int, error)
+	GetTokenBalance(addr common.Address, tokenID common.Address) (*big.Int, error)
+	Transfer(txs []string) (ret []wtypes.SendTxRet)
+	GetChainVersion() (string, error)
+	GetBlockUTXOsByNumber(height *big.Int) (*rtypes.RPCBlock, error)
+	GetUTXOGas() (uint64, error)
+	GetBlockTransactionCountByNumber(blockNr rpc.BlockNumber) (*hexutil.Uint, error)
+	GetBlockTransactionCountByHash(blockHash common.Hash) (*hexutil.Uint, error)
+	GetTransactionByBlockNumberAndIndex(blockNr rpc.BlockNumber, index hexutil.Uint) (r interface{}, err error)
+	GetTransactionByBlockHashAndIndex(blockHash common.Hash, index hexutil.Uint) (r interface{}, err error)
+	GetRawTransactionByBlockNumberAndIndex(blockNr rpc.BlockNumber, index hexutil.Uint) (r hexutil.Bytes, err error)
+	GetRawTransactionByBlockHashAndIndex(blockHash common.Hash, index hexutil.Uint) (r hexutil.Bytes, err error)
+	GetTransactionCount(address common.Address, blockNr rpc.BlockNumber) (*hexutil.Uint64, error)
+	GetTransactionByHash(hash common.Hash) (r interface{}, err error)
+	GetRawTransactionByHash(hash common.Hash) (r hexutil.Bytes, err error)
+	GetTransactionReceipt(hash common.Hash) (r map[string]interface{}, err error)
+	EthEstimateGas(args wtypes.CallArgs) (*hexutil.Uint64, error)
+	SendRawTransaction(encodedTx hexutil.Bytes) (common.Hash, error)
+	SendRawUTXOTransaction(encodedTx hexutil.Bytes) (common.Hash, error)
+	GetBlockUTXO(height *big.Int) (*rtypes.QuickRPCBlock, error)
+	GenesisBlockNumber() (*hexutil.Uint64, error)
+}
+
+//NodeAPI implementation for API
+type NodeAPI struct{}
+
 // EthGetTransactionCount return eth account balance
-func EthGetTransactionCount(addr common.Address) (*uint64, error) {
+func (api *NodeAPI) EthGetTransactionCount(addr common.Address) (*uint64, error) {
 	p := make([]interface{}, 2)
 	p[0] = addr
 	p[1] = "latest"
@@ -49,7 +81,7 @@ func EthGetTransactionCount(addr common.Address) (*uint64, error) {
 }
 
 // RefreshMaxBlock wallet
-func RefreshMaxBlock() (*big.Int, error) {
+func (api *NodeAPI) RefreshMaxBlock() (*big.Int, error) {
 	body, err := daemon.CallJSONRPC("eth_blockNumber", nil)
 	if err != nil || body == nil || len(body) == 0 {
 		return nil, wtypes.ErrNoConnectionToDaemon
@@ -87,7 +119,7 @@ type RPCOutput struct {
 	Commit string `json:"commit"`
 }
 
-func GetOutputsFromNode(indice []uint64, tokenID common.Address) ([]*types.UTXORingEntry, error) {
+func (api *NodeAPI) GetOutputsFromNode(indice []uint64, tokenID common.Address) ([]*types.UTXORingEntry, error) {
 	if 0 == len(indice) {
 		return nil, nil
 	}
@@ -148,7 +180,7 @@ func GetOutputsFromNode(indice []uint64, tokenID common.Address) ([]*types.UTXOR
 	return ringEntries, nil
 }
 
-func (w *Wallet) isContract(addr common.Address) (bool, error) {
+func (api *NodeAPI) IsContract(addr common.Address) (bool, error) {
 	p := make([]interface{}, 2)
 	p[0] = addr.Hex()
 	p[1] = "latest"
@@ -177,7 +209,7 @@ func (w *Wallet) isContract(addr common.Address) (bool, error) {
 }
 
 //limit contract fee > 1e11 and tx fee mod 1e11 == 0
-func EstimateGas(from common.Address, nonce uint64, dest *types.AccountDestEntry, kind types.UTXOKind, tokenID common.Address) (*big.Int, error) {
+func (api *NodeAPI) EstimateGas(from common.Address, nonce uint64, dest *types.AccountDestEntry, kind types.UTXOKind, tokenID common.Address) (*big.Int, error) {
 	req := make(map[string]interface{})
 	req["from"] = from.Hex()
 	req["to"] = dest.To.Hex()
@@ -211,7 +243,7 @@ func EstimateGas(from common.Address, nonce uint64, dest *types.AccountDestEntry
 	return big.NewInt(0).Mul(big.NewInt(0).SetUint64(uint64(gas)), big.NewInt(1e11)), nil
 }
 
-func GetTokenBalance(addr common.Address, tokenID common.Address) (*big.Int, error) {
+func (api *NodeAPI) GetTokenBalance(addr common.Address, tokenID common.Address) (*big.Int, error) {
 	body, err := daemon.CallJSONRPC("eth_getTokenBalance", []interface{}{addr.Hex(), "latest", tokenID.Hex()})
 	if err != nil || body == nil || len(body) == 0 {
 		return big.NewInt(0), wtypes.ErrNoConnectionToDaemon
@@ -234,9 +266,8 @@ func GetTokenBalance(addr common.Address, tokenID common.Address) (*big.Int, err
 }
 
 // Transfer wallet
-func (w *Wallet) Transfer(txs []string) (ret []wtypes.SendTxRet) {
+func (api *NodeAPI) Transfer(txs []string) (ret []wtypes.SendTxRet) {
 	txCnt := len(txs)
-	w.Logger.Debug("Transfer", "txCnt", txCnt)
 
 	ret = make([]wtypes.SendTxRet, txCnt)
 	for i := 0; i < txCnt; i++ {
@@ -246,35 +277,30 @@ func (w *Wallet) Transfer(txs []string) (ret []wtypes.SendTxRet) {
 		body, err := daemon.CallJSONRPC("eth_sendRawUTXOTransaction", p)
 		if err != nil || body == nil || len(body) == 0 {
 			ret[i] = wtypes.SendTxRet{Raw: txs[i], Hash: common.EmptyHash, ErrCode: -1, ErrMsg: fmt.Sprintf("%v", err)}
-			w.Logger.Error("Transfer check body", "i", i, "tx", txs[i], "err", err, "body", body)
 			continue
 		}
 		var jsonRes wtypes.RPCResponse
 		if err = json.Unmarshal(body, &jsonRes); err != nil {
 			ret[i] = wtypes.SendTxRet{Raw: txs[i], Hash: common.EmptyHash, ErrCode: -1, ErrMsg: err.Error()}
-			w.Logger.Error("Transfer ser.UnmarshalJSON body", "i", i, "tx", txs[i], "err", err, "body", string(body))
 			continue
 		}
 		if jsonRes.Error.Code != 0 {
 			ret[i] = wtypes.SendTxRet{Raw: txs[i], Hash: common.EmptyHash, ErrCode: jsonRes.Error.Code, ErrMsg: jsonRes.Error.Message}
-			w.Logger.Error("Transfer check jsonRes.Error.Code", "i", i, "tx", txs[i], "err", err, "body", string(body), "jsonRes", jsonRes)
 			continue
 		}
 		var hash common.Hash
 
 		if err = json.Unmarshal(jsonRes.Result, &hash); err != nil {
 			ret[i] = wtypes.SendTxRet{Raw: txs[i], Hash: common.EmptyHash, ErrCode: -1, ErrMsg: err.Error()}
-			w.Logger.Error("Transfer ser.UnmarshalJSON jsonRes.Result", "i", i, "tx", txs[i], "err", err, "body", string(body), "jsonRes.Result", jsonRes.Result)
 			continue
 		}
-		w.Logger.Info("Transfer", "i", i, "tx", txs[i], "hash", hash)
 		ret[i] = wtypes.SendTxRet{Raw: txs[i], Hash: hash, ErrCode: 0, ErrMsg: ""}
 	}
 
 	return
 }
 
-func GetChainVersion() (string, error) {
+func (api *NodeAPI) GetChainVersion() (string, error) {
 	body, err := daemon.CallJSONRPC("eth_getChainVersion", []interface{}{})
 	if err != nil || body == nil || len(body) == 0 {
 		return "", wtypes.ErrNoConnectionToDaemon
@@ -296,7 +322,7 @@ func GetChainVersion() (string, error) {
 	return peerVersion, nil
 }
 
-func GetBlockUTXOsByNumber(height *big.Int) (*rtypes.RPCBlock, error) {
+func (api *NodeAPI) GetBlockUTXOsByNumber(height *big.Int) (*rtypes.RPCBlock, error) {
 	p := make([]interface{}, 2)
 	p[0] = hexutil.EncodeBig(height)
 	p[1] = true
@@ -324,7 +350,7 @@ func GetBlockUTXOsByNumber(height *big.Int) (*rtypes.RPCBlock, error) {
 	return &block, nil
 }
 
-func (w *Wallet) getUTXOGas() (uint64, error) {
+func (api *NodeAPI) GetUTXOGas() (uint64, error) {
 	body, err := daemon.CallJSONRPC("eth_getUTXOGas", []interface{}{})
 	if err != nil || body == nil || len(body) == 0 {
 		return 0, wtypes.ErrNoConnectionToDaemon
@@ -343,18 +369,16 @@ func (w *Wallet) getUTXOGas() (uint64, error) {
 		//return 0, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
 		return 0, wtypes.ErrDaemonResponseData
 	}
-	w.Logger.Debug("getUTXOGas", "result", string(jsonRes.Result), "utxoGas", utxoGas)
 	return uint64(utxoGas), nil
 }
 
 // GetBlockTransactionCountByNumber return block transaction count
-func (w *Wallet) GetBlockTransactionCountByNumber(blockNr rpc.BlockNumber) (*hexutil.Uint, error) {
+func (api *NodeAPI) GetBlockTransactionCountByNumber(blockNr rpc.BlockNumber) (*hexutil.Uint, error) {
 	p := make([]interface{}, 1)
 	p[0] = blockNr.String()
 
 	body, err := daemon.CallJSONRPC("eth_getBlockTransactionCountByNumber", p)
 	if err != nil || body == nil || len(body) == 0 {
-		w.Logger.Error("GetBlockTransactionCountByNumber", "err", err, "body", body)
 		return nil, wtypes.ErrNoConnectionToDaemon
 	}
 	var jsonRes wtypes.RPCResponse
@@ -371,12 +395,11 @@ func (w *Wallet) GetBlockTransactionCountByNumber(blockNr rpc.BlockNumber) (*hex
 		//return nil, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
 		return nil, wtypes.ErrDaemonResponseData
 	}
-	w.Logger.Debug("getBlockTransactionCountByNumber", "result", string(jsonRes.Result), "cnt", cnt)
 	return (*hexutil.Uint)(&cnt), nil
 }
 
 // GetBlockTransactionCountByHash return block transaction count
-func (w *Wallet) GetBlockTransactionCountByHash(blockHash common.Hash) (*hexutil.Uint, error) {
+func (api *NodeAPI) GetBlockTransactionCountByHash(blockHash common.Hash) (*hexutil.Uint, error) {
 	p := make([]interface{}, 1)
 	p[0] = blockHash
 
@@ -398,12 +421,11 @@ func (w *Wallet) GetBlockTransactionCountByHash(blockHash common.Hash) (*hexutil
 		//return nil, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
 		return nil, wtypes.ErrDaemonResponseData
 	}
-	w.Logger.Debug("GetBlockTransactionCountByHash", "result", string(jsonRes.Result), "cnt", cnt)
 	return (*hexutil.Uint)(&cnt), nil
 }
 
 // GetTransactionByBlockNumberAndIndex return rpc tx
-func (w *Wallet) GetTransactionByBlockNumberAndIndex(blockNr rpc.BlockNumber, index hexutil.Uint) (r interface{}, err error) {
+func (api *NodeAPI) GetTransactionByBlockNumberAndIndex(blockNr rpc.BlockNumber, index hexutil.Uint) (r interface{}, err error) {
 	p := make([]interface{}, 2)
 	p[0] = blockNr.String()
 	p[1] = index.String()
@@ -435,7 +457,7 @@ func (w *Wallet) GetTransactionByBlockNumberAndIndex(blockNr rpc.BlockNumber, in
 }
 
 // GetTransactionByBlockHashAndIndex return tx
-func (w *Wallet) GetTransactionByBlockHashAndIndex(blockHash common.Hash, index hexutil.Uint) (r interface{}, err error) {
+func (api *NodeAPI) GetTransactionByBlockHashAndIndex(blockHash common.Hash, index hexutil.Uint) (r interface{}, err error) {
 	p := make([]interface{}, 2)
 	p[0] = blockHash.String()
 	p[1] = index.String()
@@ -467,7 +489,7 @@ func (w *Wallet) GetTransactionByBlockHashAndIndex(blockHash common.Hash, index 
 }
 
 // GetRawTransactionByBlockNumberAndIndex (ctx context.Context, blockNr rpc.BlockNumber, index hexutil.Uint) hexutil.Bytes
-func (w *Wallet) GetRawTransactionByBlockNumberAndIndex(blockNr rpc.BlockNumber, index hexutil.Uint) (r hexutil.Bytes, err error) {
+func (api *NodeAPI) GetRawTransactionByBlockNumberAndIndex(blockNr rpc.BlockNumber, index hexutil.Uint) (r hexutil.Bytes, err error) {
 	p := make([]interface{}, 2)
 	p[0] = blockNr.String()
 	p[1] = index.String()
@@ -494,7 +516,7 @@ func (w *Wallet) GetRawTransactionByBlockNumberAndIndex(blockNr rpc.BlockNumber,
 }
 
 // GetRawTransactionByBlockHashAndIndex (ctx context.Context, blockHash common.Hash, index hexutil.Uint) hexutil.Bytes
-func (w *Wallet) GetRawTransactionByBlockHashAndIndex(blockHash common.Hash, index hexutil.Uint) (r hexutil.Bytes, err error) {
+func (api *NodeAPI) GetRawTransactionByBlockHashAndIndex(blockHash common.Hash, index hexutil.Uint) (r hexutil.Bytes, err error) {
 	p := make([]interface{}, 2)
 	p[0] = blockHash.String()
 	p[1] = index.String()
@@ -521,7 +543,7 @@ func (w *Wallet) GetRawTransactionByBlockHashAndIndex(blockHash common.Hash, ind
 }
 
 // GetTransactionCount (ctx context.Context, address common.Address, blockNr rpc.BlockNumber) (*hexutil.Uint64, error)
-func (w *Wallet) GetTransactionCount(address common.Address, blockNr rpc.BlockNumber) (*hexutil.Uint64, error) {
+func (api *NodeAPI) GetTransactionCount(address common.Address, blockNr rpc.BlockNumber) (*hexutil.Uint64, error) {
 	p := make([]interface{}, 2)
 	p[0] = address.String()
 	p[1] = blockNr.String()
@@ -548,7 +570,7 @@ func (w *Wallet) GetTransactionCount(address common.Address, blockNr rpc.BlockNu
 }
 
 // GetTransactionByHash (ctx context.Context, hash common.Hash) interface{}
-func (w *Wallet) GetTransactionByHash(hash common.Hash) (r interface{}, err error) {
+func (api *NodeAPI) GetTransactionByHash(hash common.Hash) (r interface{}, err error) {
 	p := make([]interface{}, 1)
 	p[0] = hash.String()
 
@@ -575,7 +597,7 @@ func (w *Wallet) GetTransactionByHash(hash common.Hash) (r interface{}, err erro
 }
 
 // GetRawTransactionByHash (ctx context.Context, hash common.Hash) (hexutil.Bytes, error)
-func (w *Wallet) GetRawTransactionByHash(hash common.Hash) (r hexutil.Bytes, err error) {
+func (api *NodeAPI) GetRawTransactionByHash(hash common.Hash) (r hexutil.Bytes, err error) {
 	p := make([]interface{}, 1)
 	p[0] = hash.String()
 
@@ -601,7 +623,7 @@ func (w *Wallet) GetRawTransactionByHash(hash common.Hash) (r hexutil.Bytes, err
 }
 
 // GetTransactionReceipt (ctx context.Context, hash common.Hash) (map[string]interface{}, error)
-func (w *Wallet) GetTransactionReceipt(hash common.Hash) (r map[string]interface{}, err error) {
+func (api *NodeAPI) GetTransactionReceipt(hash common.Hash) (r map[string]interface{}, err error) {
 	p := make([]interface{}, 1)
 	p[0] = hash.String()
 
@@ -627,7 +649,7 @@ func (w *Wallet) GetTransactionReceipt(hash common.Hash) (r map[string]interface
 }
 
 //EthEstimateGas limit contract fee > 1e11 and tx fee mod 1e11 == 0
-func (w *Wallet) EthEstimateGas(args wtypes.CallArgs) (*hexutil.Uint64, error) {
+func (api *NodeAPI) EthEstimateGas(args wtypes.CallArgs) (*hexutil.Uint64, error) {
 	if args.Value.ToInt().Sign() < 0 {
 		return nil, wtypes.ErrArgsInvalid
 	}
@@ -677,76 +699,66 @@ func (w *Wallet) EthEstimateGas(args wtypes.CallArgs) (*hexutil.Uint64, error) {
 }
 
 // SendRawTransaction wallet
-func (w *Wallet) SendRawTransaction(encodedTx hexutil.Bytes) (common.Hash, error) {
+func (api *NodeAPI) SendRawTransaction(encodedTx hexutil.Bytes) (common.Hash, error) {
 	p := make([]interface{}, 1)
 	p[0] = encodedTx
 
 	body, err := daemon.CallJSONRPC("eth_sendRawTransaction", p)
 	if err != nil || body == nil || len(body) == 0 {
-		w.Logger.Error("eth_sendRawTransaction check body", "tx", encodedTx, "err", err, "body", body)
 		//return common.EmptyHash, fmt.Errorf("CallJSONRPC fail,err:%v", err)
 		return common.EmptyHash, wtypes.ErrDaemonResponseBody
 	}
 	var jsonRes wtypes.RPCResponse
 	if err = json.Unmarshal(body, &jsonRes); err != nil {
-		w.Logger.Error("eth_sendRawTransaction json.Unmarshal body", "tx", encodedTx, "err", err, "body", string(body))
 		//return common.EmptyHash, fmt.Errorf("SendRawTransaction json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
 		return common.EmptyHash, wtypes.ErrDaemonResponseBody
 	}
 	if jsonRes.Error.Code != 0 {
-		w.Logger.Error("eth_sendRawTransaction check jsonRes.Error.Code", "tx", encodedTx, "err", err, "body", string(body), "jsonRes", jsonRes)
 		//return common.EmptyHash, fmt.Errorf("CallJSONRPC check jsonRes.Error.Code,err:%v", jsonRes.Error)
 		return common.EmptyHash, wtypes.ErrSendRawTransaction
 	}
 	var hash common.Hash
 
 	if err = json.Unmarshal(jsonRes.Result, &hash); err != nil {
-		w.Logger.Error("eth_sendRawTransaction json.Unmarshal jsonRes.Result", "tx", encodedTx, "err", err, "body", string(body), "jsonRes.Result", jsonRes.Result)
 		//return common.EmptyHash, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
 		return common.EmptyHash, wtypes.ErrDaemonResponseData
 	}
-	w.Logger.Info("eth_sendRawTransaction", "tx", encodedTx, "hash", hash)
 
 	return hash, nil
 }
 
 // SendRawUTXOTransaction wallet
-func (w *Wallet) SendRawUTXOTransaction(encodedTx hexutil.Bytes) (common.Hash, error) {
+func (api *NodeAPI) SendRawUTXOTransaction(encodedTx hexutil.Bytes) (common.Hash, error) {
 	p := make([]interface{}, 1)
 	p[0] = encodedTx
 
 	body, err := daemon.CallJSONRPC("eth_sendRawUTXOTransaction", p)
 	if err != nil || body == nil || len(body) == 0 {
-		w.Logger.Error("eth_sendRawUTXOTransaction check body", "tx", encodedTx, "err", err, "body", body)
 		//return common.EmptyHash, fmt.Errorf("CallJSONRPC fail,err:%v", err)
 		return common.EmptyHash, wtypes.ErrDaemonResponseBody
 	}
 	var jsonRes wtypes.RPCResponse
 	if err = json.Unmarshal(body, &jsonRes); err != nil {
-		w.Logger.Error("eth_sendRawUTXOTransaction json.Unmarshal body", "tx", encodedTx, "err", err, "body", string(body))
 		//return common.EmptyHash, fmt.Errorf("SendRawUTXOTransaction json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
 		return common.EmptyHash, wtypes.ErrDaemonResponseBody
 	}
 	if jsonRes.Error.Code != 0 {
-		w.Logger.Error("eth_sendRawUTXOTransaction check jsonRes.Error.Code", "tx", encodedTx, "err", err, "body", string(body), "jsonRes", jsonRes)
 		//return common.EmptyHash, fmt.Errorf("CallJSONRPC check jsonRes.Error.Code,err:%v", jsonRes.Error)
 		return common.EmptyHash, wtypes.ErrSendRawUTXOTransaction
 	}
 	var hash common.Hash
 
 	if err = json.Unmarshal(jsonRes.Result, &hash); err != nil {
-		w.Logger.Error("eth_sendRawUTXOTransaction json.Unmarshal jsonRes.Result", "tx", encodedTx, "err", err, "body", string(body), "jsonRes.Result", jsonRes.Result)
 		//return common.EmptyHash, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
 		return common.EmptyHash, wtypes.ErrDaemonResponseData
 	}
-	w.Logger.Info("eth_sendRawUTXOTransaction", "tx", encodedTx, "hash", hash)
 
 	return hash, nil
 }
 
 // GetBlockUTXO -
 // curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getBlockUTXO","params":["0x1a"],"id":1}' https://pocketapi-lianxiangcloud.com/getBlockUTXO
-func GetBlockUTXO(height *big.Int) (*rtypes.QuickRPCBlock, error) {
+func (api *NodeAPI) GetBlockUTXO(height *big.Int) (*rtypes.QuickRPCBlock, error) {
 	p := make([]interface{}, 1)
 	p[0] = hexutil.EncodeBig(height)
 	body, err := daemon.CallJSONRPC("eth_getBlockUTXO", p)
@@ -774,7 +786,7 @@ func GetBlockUTXO(height *big.Int) (*rtypes.QuickRPCBlock, error) {
 }
 
 // GenesisBlockNumber return genesisBlock init height
-func GenesisBlockNumber() (*hexutil.Uint64, error) {
+func (api *NodeAPI) GenesisBlockNumber() (*hexutil.Uint64, error) {
 	p := make([]interface{}, 0)
 	body, err := daemon.CallJSONRPC("eth_genesisBlockNumber", p)
 	if err != nil || body == nil || len(body) == 0 {

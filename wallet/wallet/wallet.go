@@ -11,10 +11,12 @@ import (
 	dbm "github.com/lianxiangcloud/linkchain/libs/db"
 	"github.com/lianxiangcloud/linkchain/libs/hexutil"
 	"github.com/lianxiangcloud/linkchain/libs/log"
+	"github.com/lianxiangcloud/linkchain/libs/rpc"
 	"github.com/lianxiangcloud/linkchain/libs/ser"
 	tctypes "github.com/lianxiangcloud/linkchain/types"
 	cfg "github.com/lianxiangcloud/linkchain/wallet/config"
 	"github.com/lianxiangcloud/linkchain/wallet/types"
+	wtypes "github.com/lianxiangcloud/linkchain/wallet/types"
 )
 
 const (
@@ -43,6 +45,7 @@ type Wallet struct {
 	currAccount *LinkAccount // latest unlock account
 
 	accManager *accounts.Manager
+	api        BackendAPI
 }
 
 // NewWallet returns a new, ready to go.
@@ -54,13 +57,14 @@ func NewWallet(config *cfg.Config,
 		walletDB:   db,
 		accManager: accManager,
 		addrMap:    make(map[common.Address]*LinkAccount),
+		api:        &NodeAPI{},
 	}
 	wallet.utxoGas = new(big.Int).Mul(new(big.Int).SetUint64(defaultUTXOGas), new(big.Int).SetInt64(tctypes.ParGasPrice))
 
 	// wallet.BaseService = *cmn.NewBaseService(logger, "Wallet", wallet)
 	wallet.Logger = logger
 
-	height, err := GenesisBlockNumber()
+	height, err := wallet.api.GenesisBlockNumber()
 	if err != nil {
 		wallet.Logger.Error("GenesisBlockNumber fail", "err", err)
 		return nil, err
@@ -76,7 +80,7 @@ func (w *Wallet) OpenWallet(keystoreFile string, password string) error {
 	w.lock.Lock()
 	defer w.lock.Unlock()
 
-	la, err := NewLinkAccount(w.walletDB, w.Logger, keystoreFile, password)
+	la, err := NewLinkAccount(w.walletDB, w.Logger, keystoreFile, password, w.api)
 	if err != nil {
 		w.Logger.Error("OpenWallet NewLinkAccount fail", "err", err)
 		return err
@@ -134,7 +138,7 @@ func (w *Wallet) Stop() {
 }
 
 func (w *Wallet) updateUTXOGas() error {
-	utxoGas, err := w.getUTXOGas()
+	utxoGas, err := w.api.GetUTXOGas()
 	if err != nil {
 		w.Logger.Error("updateUTXOGas", "err", err)
 		return err
@@ -185,7 +189,7 @@ func (w *Wallet) GetHeight(addr *common.Address) (localHeight *big.Int, remoteHe
 		return lkaccount.GetHeight()
 	}
 
-	rh, err := RefreshMaxBlock()
+	rh, err := w.api.RefreshMaxBlock()
 	if err != nil {
 		w.Logger.Error("GetHeight,RefreshMaxBlock fail", "err", err)
 		return big.NewInt(0), big.NewInt(0)
@@ -279,12 +283,12 @@ func (w *Wallet) getGOutIndex(token common.Address) uint64 {
 }
 
 func (w *Wallet) defaultStatus(addr *common.Address) *types.StatusResult {
-	rh, err := RefreshMaxBlock()
+	rh, err := w.api.RefreshMaxBlock()
 	if err != nil {
 		w.Logger.Error("GetHeight,RefreshMaxBlock fail", "err", err)
 		rh = big.NewInt(0)
 	}
-	chainVersion, err := GetChainVersion()
+	chainVersion, err := w.api.GetChainVersion()
 	if err != nil {
 		w.Logger.Error("Status getChainVersion fail", "err", err)
 		chainVersion = "0.0.0"
@@ -420,4 +424,47 @@ func (w *Wallet) DelUTXOAddInfo(hash common.Hash) error {
 	}
 
 	return types.ErrWalletNotOpen
+}
+
+func (w *Wallet) Transfer(txs []string) []wtypes.SendTxRet {
+	return w.api.Transfer(txs)
+}
+func (w *Wallet) GetBlockTransactionCountByNumber(blockNr rpc.BlockNumber) (*hexutil.Uint, error) {
+	return w.api.GetBlockTransactionCountByNumber(blockNr)
+}
+func (w *Wallet) GetBlockTransactionCountByHash(blockHash common.Hash) (*hexutil.Uint, error) {
+	return w.api.GetBlockTransactionCountByHash(blockHash)
+}
+func (w *Wallet) GetTransactionByBlockNumberAndIndex(blockNr rpc.BlockNumber, index hexutil.Uint) (interface{}, error) {
+	return w.api.GetTransactionByBlockNumberAndIndex(blockNr, index)
+}
+func (w *Wallet) GetTransactionByBlockHashAndIndex(blockHash common.Hash, index hexutil.Uint) (interface{}, error) {
+	return w.api.GetTransactionByBlockHashAndIndex(blockHash, index)
+}
+func (w *Wallet) GetRawTransactionByBlockNumberAndIndex(blockNr rpc.BlockNumber, index hexutil.Uint) (hexutil.Bytes, error) {
+	return w.api.GetRawTransactionByBlockNumberAndIndex(blockNr, index)
+}
+func (w *Wallet) GetRawTransactionByBlockHashAndIndex(blockHash common.Hash, index hexutil.Uint) (hexutil.Bytes, error) {
+	return w.api.GetRawTransactionByBlockHashAndIndex(blockHash, index)
+}
+func (w *Wallet) GetTransactionCount(address common.Address, blockNr rpc.BlockNumber) (*hexutil.Uint64, error) {
+	return w.api.GetTransactionCount(address, blockNr)
+}
+func (w *Wallet) GetTransactionByHash(hash common.Hash) (interface{}, error) {
+	return w.api.GetTransactionByHash(hash)
+}
+func (w *Wallet) GetRawTransactionByHash(hash common.Hash) (hexutil.Bytes, error) {
+	return w.api.GetRawTransactionByHash(hash)
+}
+func (w *Wallet) GetTransactionReceipt(hash common.Hash) (map[string]interface{}, error) {
+	return w.api.GetTransactionReceipt(hash)
+}
+func (w *Wallet) EthEstimateGas(args wtypes.CallArgs) (*hexutil.Uint64, error) {
+	return w.api.EthEstimateGas(args)
+}
+func (w *Wallet) SendRawTransaction(encodedTx hexutil.Bytes) (common.Hash, error) {
+	return w.api.SendRawTransaction(encodedTx)
+}
+func (w *Wallet) SendRawUTXOTransaction(encodedTx hexutil.Bytes) (common.Hash, error) {
+	return w.api.SendRawUTXOTransaction(encodedTx)
 }
