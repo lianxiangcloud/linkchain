@@ -63,10 +63,11 @@ type LinkAccount struct {
 	refreshBlockInterval time.Duration
 	syncQuick            bool
 	creatingTx           bool
+	api                  BackendAPI
 }
 
 // NewLinkAccount return a LinkAccount
-func NewLinkAccount(walletDB dbm.DB, logger log.Logger, keystoreFile string, password string) (*LinkAccount, error) {
+func NewLinkAccount(walletDB dbm.DB, logger log.Logger, keystoreFile string, password string, api BackendAPI) (*LinkAccount, error) {
 	la := &LinkAccount{
 		remoteHeight:         new(big.Int).SetUint64(defaultInitBlockHeight),
 		localHeight:          new(big.Int).SetUint64(defaultInitBlockHeight),
@@ -82,6 +83,7 @@ func NewLinkAccount(walletDB dbm.DB, logger log.Logger, keystoreFile string, pas
 		stop:                 make(chan int, 1),
 		walletDB:             walletDB,
 		refreshBlockInterval: defaultRefreshBlockInterval,
+		api:                  api,
 	}
 
 	newAccount, err := NewUTXOAccount(keystoreFile, password)
@@ -104,7 +106,7 @@ func NewLinkAccount(walletDB dbm.DB, logger log.Logger, keystoreFile string, pas
 		return nil, err
 	}
 
-	if remoteHeight, err := RefreshMaxBlock(); err == nil {
+	if remoteHeight, err := la.api.RefreshMaxBlock(); err == nil {
 		la.remoteHeight.Set(remoteHeight)
 	}
 
@@ -223,7 +225,7 @@ func (la *LinkAccount) printBalance() {
 }
 
 func (la *LinkAccount) resetRemoteHeight() error {
-	h, err := RefreshMaxBlock()
+	h, err := la.api.RefreshMaxBlock()
 	if err != nil {
 		la.Logger.Error("refreshLoop RefreshMaxBlock", "err", err)
 		return err
@@ -284,7 +286,7 @@ func (la *LinkAccount) Refresh() {
 
 		if la.walletOpen && la.autoRefresh && la.localHeight.Cmp(la.remoteHeight) <= 0 {
 			la.Logger.Debug("Refresh", "localHeight", la.localHeight, "remoteHeight", la.remoteHeight)
-			block, err = GetBlockUTXOsByNumber(la.localHeight)
+			block, err = la.api.GetBlockUTXOsByNumber(la.localHeight)
 			if err != nil {
 				la.Logger.Error("Refresh getBlockUTXOsByNumber fail", "height", la.localHeight, "err", err)
 				return
@@ -340,7 +342,7 @@ func (la *LinkAccount) RefreshQuick() {
 		if la.walletOpen && la.autoRefresh {
 			la.Logger.Debug("RefreshQuick", "localHeight", la.localHeight, "remoteHeight", la.remoteHeight)
 
-			quickBlock, err = GetBlockUTXO(la.localHeight)
+			quickBlock, err = la.api.GetBlockUTXO(la.localHeight)
 			if err != nil {
 				la.Logger.Info("RefreshQuick GetBlockUTXO fail", "height", la.localHeight, "err", err)
 				return
@@ -759,12 +761,12 @@ func (la *LinkAccount) GetAccountInfo(tokenID *common.Address) (*types.GetAccoun
 	}
 	ret.UTXOAccounts = utxo
 	eth := types.EthAccount{Address: la.account.EthAddress}
-	balance, err := GetTokenBalance(la.account.EthAddress, *tokenID)
+	balance, err := la.api.GetTokenBalance(la.account.EthAddress, *tokenID)
 	if err != nil {
 		balance = big.NewInt(0)
 		la.Logger.Error("GetAccounts getTokenBalance fail", "err", err)
 	}
-	nonce, err := EthGetTransactionCount(la.account.EthAddress)
+	nonce, err := la.api.EthGetTransactionCount(la.account.EthAddress)
 	if err != nil {
 		u := uint64(0)
 		nonce = &u
@@ -796,7 +798,7 @@ func (la *LinkAccount) RescanBlockchain() error {
 	}
 
 	la.localHeight.SetUint64(defaultInitBlockHeight)
-	if remoteHeight, err := RefreshMaxBlock(); err == nil {
+	if remoteHeight, err := la.api.RefreshMaxBlock(); err == nil {
 		la.remoteHeight.Set(remoteHeight)
 	}
 	la.utxoTotalBalance = make(map[common.Address]*big.Int)
@@ -825,7 +827,7 @@ func (la *LinkAccount) Status() *types.StatusResult {
 	if la.walletOpen {
 		ethAddress = la.account.EthAddress
 	}
-	chainVersion, err := GetChainVersion()
+	chainVersion, err := la.api.GetChainVersion()
 	if err != nil {
 		la.Logger.Error("Status getChainVersion fail", "err", err)
 		chainVersion = "0.0.0"
