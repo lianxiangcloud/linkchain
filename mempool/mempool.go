@@ -1070,7 +1070,6 @@ func (h *txHeap) Get(hash common.Hash) types.Tx {
 	h.RUnlock()
 	txpure, ok := tx.(*mempoolCachedTx)
 	if !ok {
-		log.Warn("txcache Get type conversion error")
 		return tx
 	}
 	return txpure.Tx
@@ -1078,11 +1077,10 @@ func (h *txHeap) Get(hash common.Hash) types.Tx {
 
 func (h *txHeap) CheckAndGet(hash common.Hash) types.Tx {
 	h.RLock()
-	tx := h.txMap[hash]
+	tx := h.txMap[hash] // tx could be nil
 	h.RUnlock()
 	txpure, ok := tx.(*mempoolCachedTx)
 	if !ok {
-		log.Warn("txcache CheckAndGet type conversion error")
 		return tx
 	}
 	if !txpure.BasicChecked {
