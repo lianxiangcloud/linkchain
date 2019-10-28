@@ -105,7 +105,7 @@ func (wallet *Wallet) SubmitUTXOTransaction(tx *types.UTXOTransaction) (common.H
 		return common.Hash{}, wtypes.ErrInnerServer
 	}
 	raw := hex.EncodeToString(rawTx)
-	ret := wallet.Transfer([]string{fmt.Sprintf("0x%s", raw)})
+	ret := wallet.api.Transfer([]string{fmt.Sprintf("0x%s", raw)})
 	err = nil
 	if ret[0].ErrCode != 0 {
 		//err = fmt.Errorf("ErrCode:%d,ErrMsg:%s", ret[0].ErrCode, ret[0].ErrMsg)
@@ -278,7 +278,7 @@ func (wallet *Wallet) constructSourceEntrySimple(selectIndice []uint64) ([]*type
 		gIdx := wallet.currAccount.Transfers[selectIdx].GlobalIndex
 		gIndice = append(gIndice, gIdx)
 	}
-	ringEntries, err := GetOutputsFromNode(gIndice, common.EmptyAddress)
+	ringEntries, err := wallet.api.GetOutputsFromNode(gIndice, common.EmptyAddress)
 	if err != nil {
 		wallet.Logger.Error("constructSourceEntrySimple GetOutputsFromNode fail", "err", err)
 		return nil, err
@@ -323,7 +323,7 @@ func (wallet *Wallet) constructSourceEntryNormal(selectIndice []uint64, rings ma
 				indice = append(indice, r[j])
 			}
 		}
-		ringEntries, err := GetOutputsFromNode(indice, common.EmptyAddress)
+		ringEntries, err := wallet.api.GetOutputsFromNode(indice, common.EmptyAddress)
 		if err != nil {
 			wallet.Logger.Error("constructSourceEntryNormal GetOutputsFromNode fail", "err", err)
 			return nil, err
@@ -495,7 +495,7 @@ func (wallet *Wallet) CreateAinTransaction(from common.Address, passwd string, n
 		wallet.Logger.Error("CreateAinTransaction wallet.accManager.Find fail", "acc", from, "err", err)
 		return nil, wtypes.ErrAccountNotFound
 	}
-	availableMoney, err := GetTokenBalance(from, tokenID)
+	availableMoney, err := wallet.api.GetTokenBalance(from, tokenID)
 	if err != nil {
 		wallet.Logger.Error("CreateAinTransaction getTokenBalance fail", "from", from, "tokenID", tokenID, "err", err)
 		return nil, err
@@ -866,7 +866,7 @@ func (wallet *Wallet) checkDest(dests []types.DestEntry, tokenID common.Address,
 		}
 		//estimateGas return fee. if addr is a contract, return value*0.02+contract fee, if addr is a normal, return value*0.02
 		if types.TypeAcDest == dests[i].Type() {
-			isContract, err := wallet.isContract(dests[i].(*types.AccountDestEntry).To)
+			isContract, err := wallet.api.IsContract(dests[i].(*types.AccountDestEntry).To)
 			if err != nil {
 				return big.NewInt(0), hasContract, err
 			}
