@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"math/big"
 	"os"
-	"sort"
 	"strings"
 	"testing"
 
@@ -168,107 +167,6 @@ func makeAccountManager(keydir string) (*accounts.Manager, error) {
 		keystore.NewKeyStore(keydir, scryptN, scryptP),
 	}
 	return accounts.NewManager(backends...), nil
-}
-
-func TestCheckDest(t *testing.T) {
-	type stest struct {
-		dests   []types.DestEntry
-		mode    InputMode
-		tokenID common.Address
-	}
-	transTests["TestCheckDest"] = []TransTest{
-		{
-			val: stest{
-				dests:   []types.DestEntry{},
-				mode:    UTXOInputMode,
-				tokenID: common.EmptyAddress,
-			},
-			output: "",
-			error:  "output empty",
-		},
-		{
-			val: stest{
-				dests: []types.DestEntry{
-					&types.UTXODestEntry{
-						Addr:   lktypes.AccountAddress{},
-						Amount: big.NewInt(1e11),
-					},
-					&types.UTXODestEntry{
-						Addr:   lktypes.AccountAddress{},
-						Amount: big.NewInt(1e11),
-					},
-				},
-				mode:    UTXOInputMode,
-				tokenID: common.EmptyAddress,
-			},
-			output: fmt.Sprintf("%x", big.NewInt(0).Add(big.NewInt(2*1e11), mockWallet.estimateUtxoTxFee()).Bytes()),
-			error:  "",
-		},
-		{
-			val: stest{
-				dests: []types.DestEntry{
-					&types.UTXODestEntry{
-						Addr:   lktypes.AccountAddress{},
-						Amount: big.NewInt(1e11),
-					},
-					&types.UTXODestEntry{
-						Addr:   lktypes.AccountAddress{},
-						Amount: big.NewInt(1e11),
-					},
-				},
-				mode:    AccountInputMode,
-				tokenID: common.EmptyAddress,
-			},
-			output: fmt.Sprintf("%x", big.NewInt(0).Add(big.NewInt(2*1e11), mockWallet.estimateTxFee(big.NewInt(2*1e11))).Bytes()),
-			error:  "",
-		},
-	}
-	runTransTests(t, "TestCheckDest", func(val interface{}) ([]byte, error) {
-		st := val.(stest)
-		amount, _, err := mockWallet.checkDest(st.dests, st.tokenID, st.mode)
-		return amount.Bytes(), err
-	})
-}
-
-func TestSortableSubaddr(t *testing.T) {
-	type sstest struct {
-		subaddr []uint64
-		balance map[uint64]*big.Int
-	}
-	transTests["TestSortableSubaddr"] = []TransTest{
-		{
-			val: sstest{
-				subaddr: []uint64{0, 1},
-				balance: map[uint64]*big.Int{
-					0: big.NewInt(100),
-					1: big.NewInt(200),
-				},
-			},
-			output: "0100",
-			error:  "",
-		},
-		{
-			val: sstest{
-				subaddr: []uint64{0, 1},
-				balance: map[uint64]*big.Int{
-					0: big.NewInt(200),
-					1: big.NewInt(100),
-				},
-			},
-			output: "0001",
-			error:  "",
-		},
-	}
-	runTransTests(t, "TestSortableSubaddr", func(val interface{}) ([]byte, error) {
-		sstest := val.(sstest)
-		ss := initSortableSubaddr(sstest.subaddr, sstest.balance)
-		sort.Sort(ss)
-		subaddr := make([]byte, 0)
-		for i := 0; i < len(ss); i++ {
-			subaddr = append(subaddr, byte(ss[i].Subaddr))
-		}
-		return subaddr, nil
-	})
 }
 
 func TestDecodeAmount(t *testing.T) {
@@ -761,7 +659,7 @@ func TestCreateUinTransaction(t *testing.T) {
 			}
 		}
 		subaddrs := []uint64{0}
-		txes, err := mockWallet.CreateUinTransaction(from, st.passwd, subaddrs, dests, common.EmptyAddress, from, nil)
+		txes, err := mockWallet.CreateUinTransaction(from, subaddrs, dests, common.EmptyAddress, nil)
 		if err != nil {
 			return nil, err
 		}
