@@ -6,23 +6,17 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
-	"os"
 	"strings"
 	"testing"
 
-	"github.com/lianxiangcloud/linkchain/accounts"
-	"github.com/lianxiangcloud/linkchain/accounts/keystore"
+	"github.com/golang/mock/gomock"
 	"github.com/lianxiangcloud/linkchain/libs/common"
 	lkctypes "github.com/lianxiangcloud/linkchain/libs/cryptonote/types"
-	lktypes "github.com/lianxiangcloud/linkchain/libs/cryptonote/types"
-	dbm "github.com/lianxiangcloud/linkchain/libs/db"
-	"github.com/lianxiangcloud/linkchain/libs/log"
 	"github.com/lianxiangcloud/linkchain/types"
 )
 
 var (
-	coinWallet *Wallet
-	coinTests  = make(map[string][]CoinTest)
+	coinTests = make(map[string][]CoinTest)
 )
 
 type CoinTest struct {
@@ -54,73 +48,6 @@ func runCoinTests(t *testing.T, id string, f func(val interface{}) ([]byte, erro
 			}
 		}
 	}
-}
-
-func init() {
-	keyJSON := `
-		{
-			"address":"54fb1c7d0f011dd63b08f85ed7b518ab82028100",
-			"crypto":{
-					"cipher":"aes-128-ctr",
-					"ciphertext":"e77ec15da9bdec5488ce40b07a860fb5383dffce6950defeb80f6fcad4916b3a",
-					"cipherparams":{
-							"iv":"5df504a561d39675b0f9ebcbafe5098c"
-					},
-					"kdf":"scrypt",
-					"kdfparams":{
-							"dklen":32,
-							"n":262144,
-							"p":1,
-							"r":8,
-							"salt":"908cd3b189fc8ceba599382cf28c772b735fb598c7dbbc59ef0772d2b851f57f"
-					},
-					"mac":"9bb92ffd436f5248b73a641a26ae73c0a7d673bb700064f388b2be0f35fedabd"
-			},
-			"id":"2e15f180-b4f1-4d9c-b401-59eeeab36c87",
-			"version":3
-		}
-	`
-	sKey, err := KeyFromAccount([]byte(keyJSON), "1234")
-	if err != nil {
-		panic(err)
-	}
-	mockAccount, err := RecoveryKeyToAccount(sKey)
-	if err != nil {
-		panic(err)
-	}
-	am, err := makeAccountManager("/tmp/test_data/keystore/")
-	if err != nil {
-		panic(err)
-	}
-	walletdb := dbm.NewDB("0", "leveldb", "/tmp/walletdb/", 1)
-	linkAccount := &LinkAccount{
-		Logger:    log.Root(),
-		account:   mockAccount,
-		walletDB:  walletdb,
-		Transfers: make([]*types.UTXOOutputDetail, 0),
-		txKeys:    make(map[common.Hash]lktypes.Key, 0),
-	}
-	coinWallet = &Wallet{
-		Logger:      log.Root(),
-		currAccount: linkAccount,
-		accManager:  am,
-		walletDB:    walletdb,
-		utxoGas:     new(big.Int).Mul(new(big.Int).SetInt64(50), new(big.Int).SetInt64(1e18)),
-	}
-	mockAccount.EthAddress = common.HexToAddress("0x54fb1c7d0f011dd63b08f85ed7b518ab82028100")
-}
-
-func makeAccountManager(keydir string) (*accounts.Manager, error) {
-	scryptN := keystore.StandardScryptN
-	scryptP := keystore.StandardScryptP
-
-	if err := os.MkdirAll(keydir, 0700); err != nil {
-		return nil, err
-	}
-	backends := []accounts.Backend{
-		keystore.NewKeyStore(keydir, scryptN, scryptP),
-	}
-	return accounts.NewManager(backends...), nil
 }
 
 func TestDescUTXOPoolByAmount(t *testing.T) {
@@ -288,7 +215,13 @@ func TestDirectSelection(t *testing.T) {
 		outputSum.Add(outputSum, dest.GetAmount())
 	}
 	fmt.Printf("input amount: %s output amount: %s\n", inputSum.String(), outputSum.String())
-	packets, err := coinWallet.directSelection(utxoPool, dests, 0, common.EmptyAddress)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockAPI := NewMockBackendAPI(ctrl)
+	mockWallet.api = mockAPI
+	mockWallet.currAccount.api = mockAPI
+	mockAPI.EXPECT().IsContract(gomock.Any()).Return(false, nil).AnyTimes()
+	packets, err := mockWallet.directSelection(utxoPool, dests, 0, common.EmptyAddress)
 	if err != nil {
 		panic(err)
 	}
