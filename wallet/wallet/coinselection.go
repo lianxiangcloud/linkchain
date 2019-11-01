@@ -474,6 +474,8 @@ func (wallet *Wallet) directSelection(utxoPool []*UTXOItem, dests []types.DestEn
 			addingFee = false
 			finish = false
 			checked = false
+		} else if !addingFee {
+			addingFee = true
 		}
 	}
 	if len(dests) > 0 || addingFee {
