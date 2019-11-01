@@ -48,7 +48,7 @@ func (s *PublicTransactionPoolAPI) signUTXOTransaction(ctx context.Context, args
 
 	dests := make([]types.DestEntry, 0)
 	hasOneAccountOutput := false
-	utxoDestsCnt := 0
+	utxoDestsCnt := 1
 	for i := 0; i < destsCnt; i++ {
 		toAddress := args.Dests[i].Addr
 		if len(toAddress) == wtypes.UTXO_ADDR_STR_LEN {
