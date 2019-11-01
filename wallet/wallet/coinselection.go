@@ -536,12 +536,13 @@ func (wallet *Wallet) selectionProcess(utxoPool []*UTXOItem, dests []types.DestE
 			return nil, err
 		}
 		paidDests, err = wallet.changeAndMerge(selectedUtxos, paidDests, changeSubaddr, tokenID)
-		if err == nil {
-			return []*inOutPacket{&inOutPacket{
-				Inputs:  selectedUtxos,
-				Outputs: paidDests,
-			}}, nil
+		if err != nil { //no reason to fail
+			return nil, err
 		}
+		return []*inOutPacket{&inOutPacket{
+			Inputs:  selectedUtxos,
+			Outputs: paidDests,
+		}}, nil
 	}
 	return wallet.directSelection(utxoPool, dests, changeSubaddr, tokenID)
 }
