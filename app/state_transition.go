@@ -240,7 +240,7 @@ func (tx *processTransaction) transitOutputs(res *TransitionResult) (vmerr error
 						vmerr = fmt.Errorf("%v: %s", vmerr, reason)
 					}
 				}
-				log.Warn("transitOutputs: vm create error", "hash", tx.Hash, "msg", string(ret))
+				log.Warn("transitOutputs: vm create error", "hash", tx.Hash, "msg", string(ret), "vmerr", vmerr)
 				tx.Gas += vm.RefundAllFee()
 				return
 			}
@@ -282,7 +282,7 @@ func (tx *processTransaction) transitOutputs(res *TransitionResult) (vmerr error
 						vmerr = fmt.Errorf("%v: %s", vmerr, reason)
 					}
 				}
-				log.Warn("transitOutputs: vm call error", "hash", tx.Hash, "msg", string(ret))
+				log.Warn("transitOutputs: vm call error", "hash", tx.Hash, "msg", string(ret), "vmerr", vmerr)
 				tx.Gas += vm.RefundAllFee()
 				return
 			}
