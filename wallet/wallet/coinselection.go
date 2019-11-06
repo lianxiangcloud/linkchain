@@ -487,7 +487,10 @@ func (wallet *Wallet) directSelection(utxoPool []*UTXOItem, dests []types.DestEn
 		}
 	}
 	if len(dests) > 0 || addingFee {
-		return nil, wtypes.ErrBalanceNotEnough
+		if len(dests) > 0 {
+			return nil, wtypes.ErrUtxoPoolDeplete
+		}
+		return nil, wtypes.ErrAddingFeeNotEnough
 	}
 	for _, packet := range packets {
 		packet.Outputs, err = wallet.changeAndMerge(packet.Inputs, packet.Outputs, changeSubaddr, tokenID)
