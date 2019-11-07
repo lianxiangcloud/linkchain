@@ -18,6 +18,7 @@
         - [ltk_rescanBlockchain](#ltk_rescanblockchain)
         - [ltk_status](#ltk_status)
         - [ltk_signUTXOTransaction](#ltk_signutxotransaction)
+        - [ltk_signHash](#ltk_signhash)
         - [ltk_sendUTXOTransaction](#ltk_sendutxotransaction)
         - [ltk_sendUTXOTransactionSplit](#ltk_sendutxotransactionsplit)
         - [ltk_getTxKey](#ltk_gettxkey)
@@ -41,11 +42,11 @@
         - [ltk_getTransactionReceipt](#ltk_gettransactionreceipt)
         - [ltk_estimateGas](#ltk_estimategas)
         - [ltk_signTransaction](#ltk_signtransaction)
-        - [ltk_signHash](#ltk_signHash)
         - [ltk_sendRawTransaction](#ltk_sendrawtransaction)
         - [ltk_sendRawUTXOTransaction](#ltk_sendrawutxotransaction)
         - [ltk_getLocalUTXOTxsByHeight](#ltk_getlocalutxotxsbyheight)
         - [ltk_getLocalOutputs](#ltk_getlocaloutputs)
+        - [ltk_call](#ltk_call)
 
 <!-- /TOC -->
 
@@ -1146,5 +1147,30 @@ curl -s -X POST http://127.0.0.1:18082 -d '{"jsonrpc":"2.0","id":"0","method":"l
    ],
    "jsonrpc" : "2.0",
    "id" : "0"
+}
+```
+
+### ltk_call
+
+功能：立即执行合约调用，而无需在区块链上创建交易。  
+参数：  
+
+1. 交易参数对象
+   from 字符串，十六进制 转账from地址  
+   to  字符串，十六进制 转账to地址  
+   value 字符串，十六进制 转账金额 单位:wei  
+   data 字符串，十六进制 合约参数  
+2. 区块参数， 字符串，十六进制区块号 或者"latest", "earliest" or "pending"
+
+返回：  
+     data 字符串，十六进制 合约执行返回的结果  
+示例：  
+
+```shell
+curl -s -X POST http://127.0.0.1:18082 -d'{"jsonrpc":"2.0","id":"0","method":"ltk_call","params":[{"to":"0x25faf109d3c0514e4e021dd6baabfa1e8473e97b","data":"0x92d0d153"},"latest"]}' -H 'Content-Type: application/json'|json_pp
+{
+   "id" : "0",
+   "result" : "0x000000000000000000000000000000000000000000000000000000000000000a",
+   "jsonrpc" : "2.0"
 }
 ```

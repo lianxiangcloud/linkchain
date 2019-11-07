@@ -1,3 +1,5 @@
+//go:generate mockgen -destination mock_nodeapi.go -package wallet -self_package github.com/lianxiangcloud/linkchain/wallet/wallet github.com/lianxiangcloud/linkchain/wallet/wallet BackendAPI
+
 package wallet
 
 import (
@@ -46,6 +48,7 @@ type BackendAPI interface {
 	SendRawUTXOTransaction(encodedTx hexutil.Bytes) (common.Hash, error)
 	GetBlockUTXO(height *big.Int) (*rtypes.QuickRPCBlock, error)
 	GenesisBlockNumber() (*hexutil.Uint64, error)
+	Call(args wtypes.CallArgs, blockNr string) (*hexutil.Bytes, error)
 }
 
 //NodeAPI implementation for API
@@ -810,4 +813,27 @@ func (api *NodeAPI) GenesisBlockNumber() (*hexutil.Uint64, error) {
 	}
 
 	return &blockNumber, nil
+}
+
+//Call -
+func (api *NodeAPI) Call(args wtypes.CallArgs, blockNr string) (*hexutil.Bytes, error) {
+	p := make([]interface{}, 2)
+	p[0] = args
+	p[1] = blockNr
+	body, err := daemon.CallJSONRPC("eth_call", p)
+	if err != nil || body == nil || len(body) == 0 {
+		return nil, wtypes.ErrNoConnectionToDaemon
+	}
+	var jsonRes wtypes.RPCResponse
+	if err = json.Unmarshal(body, &jsonRes); err != nil {
+		return nil, wtypes.ErrDaemonResponseBody
+	}
+	if jsonRes.Error.Code != 0 {
+		return nil, wtypes.ErrDaemonResponseCode
+	}
+	var ret hexutil.Bytes
+	if err = ser.UnmarshalJSON(jsonRes.Result, &ret); err != nil {
+		return nil, wtypes.ErrDaemonResponseData
+	}
+	return &ret, nil
 }
