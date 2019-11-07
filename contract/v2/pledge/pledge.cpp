@@ -31,6 +31,11 @@ enum Action {
     pledge    
 };
 
+enum Ptype {
+    change,    
+    quit    
+};
+
 struct PledgeRecord {
     uint64 orderid;
     tc::Address sender;
@@ -94,6 +99,11 @@ public:
     StorValue<bool> StopVoteAct{"stopVote"};
     StorValue<bool> StopPledgeAct{"stopPledge"};
 
+    //type 0,after time then can change deposit
+    StorValue<uint64> ChangePeriod{"changePeriod"};
+    //type 1,after time then can request withdraw
+    StorValue<uint64> QuitPeriod{"quitPeriod"};
+
     //ElectorInfo Map
     //Elector Address          => Info
     StorMap<Key<tc::Address>, ElectorInfo> ElectorsMap{"electorsMap"};
@@ -142,6 +152,9 @@ public:
     void changeDeposit(const tc::Address& electorFrom, const tc::Address& electorTo, const uint64& orderid);
     void requestWithdraw(const tc::Address& elector, const uint64& orderid);
     const char* version(){return "v2.0";}
+    void setPeriod(Ptype ptype, const uint64& period);
+    const char* getPeriod();
+    const char* getDepositTime(const uint64& orderid);
 
 	const char* getDeposit();
 	const char* getPledgeRecord(tc::Address& elector);
@@ -151,7 +164,7 @@ public:
 
 TC_ABI(Pledge, (participate)(deposit)(vote)(setElectorStatus)(setVoteCnts)(withDraw)\
 (confiscate)(setAction)(setShareRate)(getDeposit)(getElectorInfo)(getPledgeRecord)(getWhoVote)\
-(changeDeposit)(requestWithdraw)(version))
+(changeDeposit)(requestWithdraw)(version)(setPeriod)(getPeriod)(getDepositTime))
 
 
 void Pledge::participate(const tc::Address& elector, const tc::BInt& amount, const uint64& orderid, const uint& shareRate){
@@ -205,6 +218,7 @@ void Pledge::deposit(const tc::Address& elector, const tc::BInt& amount, const u
 }
 
 void Pledge::changeDeposit(const tc::Address& electorFrom, const tc::Address& electorTo, const uint64& orderid) {
+    TC_Payable(false);
     ElectorInfo elecFrom = ElectorsMap.get(electorFrom);
     ElectorInfo elecTo = ElectorsMap.get(electorTo);
     TC_RequireWithMsg(elecFrom.status == ElectorStatus::GOING, "electorFrom status is not on going");
@@ -214,7 +228,11 @@ void Pledge::changeDeposit(const tc::Address& electorFrom, const tc::Address& el
     uint64 time = orderTime.get(orderid);
     TC_RequireWithMsg(time > 0, "History or participate deposit not allow changeDeposit");
     uint64 now = tc::App::getInstance()->now();
-    TC_RequireWithMsg((now - time) > OneWeek, "date is less then 7 days");
+    uint64 needDelay = ChangePeriod.get();
+    if (needDelay == 0){
+        needDelay = OneWeek;
+    }
+    TC_RequireWithMsg((now - time) >= needDelay, "date is less then 7 days");
     orderTime.set(now, orderid);
 
     std::set<uint64> indexFrom = pledgeRecordIndex.get(electorFrom);
@@ -239,6 +257,7 @@ void Pledge::changeDeposit(const tc::Address& electorFrom, const tc::Address& el
 }
 
 void Pledge::vote(const tc::Address& elector) {
+    TC_Payable(false);
     TC_RequireWithMsg(ElectorsMap.get(elector).status == ElectorStatus::GOING, 
                     "Elector status is not ElectorStatus.GOING");
     TC_RequireWithMsg(StopVoteAct.get() == false, "Vote Action Stoped");
@@ -246,6 +265,7 @@ void Pledge::vote(const tc::Address& elector) {
 }
 
 void Pledge::setElectorStatus(const tc::Address& elector, const ElectorStatus& setStatus){
+    TC_Payable(false);
     TC_RequireWithMsg(CheckAddrRight(tc::App::getInstance()->sender(), "pledge"), "Address does not have permission");
     ElectorStatus status = (ElectorStatus)ElectorsMap.get(elector).status;
     if (setStatus == ElectorStatus::NOPASS){
@@ -272,6 +292,7 @@ void Pledge::setElectorStatus(const tc::Address& elector, const ElectorStatus& s
 }
 
 void Pledge::setVoteCnts(const tc::Address& elector, const tc::BInt& voteCnts){
+    TC_Payable(false);
     TC_RequireWithMsg(CheckAddrRight(tc::App::getInstance()->sender(), "pledge"), "Address does not have permission");
     TC_RequireWithMsg(ElectorsMap.get(elector).status == ElectorStatus::GOING, 
     "Elector status is not ElectorStatus.GOING");
@@ -282,6 +303,7 @@ void Pledge::setVoteCnts(const tc::Address& elector, const tc::BInt& voteCnts){
 }
 
 void Pledge::withDraw(const tc::Address& elector){
+    TC_Payable(false);
     auto elec = ElectorsMap.get(elector);
     TC_RequireWithMsg(CheckAddrRight(tc::App::getInstance()->sender(), "pledge"), "Address does not have permission");
     TC_RequireWithMsg(elec.status != ElectorStatus::WINOUT, "elector is WINOUT");
@@ -307,6 +329,7 @@ void Pledge::withDraw(const tc::Address& elector){
 }
 
 void Pledge:: requestWithdraw(const tc::Address& elector, const uint64& orderid) {
+    TC_Payable(false);
     ElectorInfo elec = ElectorsMap.get(elector);
     TC_RequireWithMsg(elec.status == ElectorStatus::GOING, "elector status is not on going");
     TC_RequireWithMsg(elec.totalAmount < winOutPledgeAmount, "pledge amount should be smaller than 5000000 ether");
@@ -316,7 +339,11 @@ void Pledge:: requestWithdraw(const tc::Address& elector, const uint64& orderid)
 
     uint64 time = orderTime.get(orderid);
     TC_RequireWithMsg(time > 0, "History or primary deposit not allow requestWithdraw");
-    TC_RequireWithMsg((tc::App::getInstance()->now() - time) > OneMonth, "date is less then 30 days");
+    uint64 needDelay = QuitPeriod.get();
+    if (needDelay == 0){
+        needDelay = OneMonth;
+    }
+    TC_RequireWithMsg((tc::App::getInstance()->now() - time) >= needDelay, "date is less then 30 days");
 
     index.erase(orderid);
     pledgeRecordIndex.set(index, elector);
@@ -335,6 +362,7 @@ void Pledge:: requestWithdraw(const tc::Address& elector, const uint64& orderid)
 }
 
 void Pledge::confiscate(const tc::Address& elector){
+    TC_Payable(false);
     TC_RequireWithMsg(CheckAddrRight(tc::App::getInstance()->sender(), "pledgeOwner"), "Address does not have permission");
     TC_RequireWithMsg(ElectorsMap.get(elector).status == ElectorStatus::DETAIN,
     "Elector status is not ElectorStatus.DETAIN");
@@ -357,7 +385,42 @@ void Pledge::setAction(Action action, bool isStop){
     }
 }
 
+void Pledge::setPeriod(Ptype ptype, const uint64& period){
+    TC_Payable(false);
+    TC_RequireWithMsg(CheckAddrRight(tc::App::getInstance()->sender(), "pledge"), "Address does not have permission");
+    if (ptype == Ptype::change){
+        ChangePeriod.set(period);
+    }
+    if (ptype == Ptype::quit){
+            QuitPeriod.set(period);
+    }
+}
+
+const char* Pledge::getPeriod(){
+    TC_Payable(false);
+    JsonRoot root = TC_JsonNewObject();
+    uint64 changePeriod = ChangePeriod.get();
+    if (changePeriod == 0){
+        changePeriod = OneWeek;
+    }
+    uint64 quitPeriod = QuitPeriod.get();
+    if (quitPeriod == 0){
+        quitPeriod = OneMonth;
+    }
+    TC_JsonPutInt64(root, "change", changePeriod);
+    TC_JsonPutInt64(root, "quit", quitPeriod);
+    return TC_JsonToString(root);
+}
+
+const char* Pledge::getDepositTime(const uint64& orderid){
+    TC_Payable(false);
+    JsonRoot root = TC_JsonNewObject();
+    TC_JsonPutInt64(root, "time", orderTime.get(orderid));
+    return TC_JsonToString(root);
+}
+
 void Pledge::setShareRate(const tc::Address& elector, const uint& shareRate){
+    TC_Payable(false);
     auto elec = ElectorsMap.get(elector);
     TC_RequireWithMsg(tc::App::getInstance()->sender() == elector, "Address does not have permission");
     TC_RequireWithMsg(elec.status != DEFAULT, "Elector does not exist");
@@ -368,6 +431,7 @@ void Pledge::setShareRate(const tc::Address& elector, const uint& shareRate){
 }
 
 const char* Pledge::getDeposit(){
+    TC_Payable(false);
     JsonRoot root = TC_JsonNewObject();
     for (auto& a : winElectorsAddress.get()){
         TC_JsonPutString(root, a.toString(), ElectorsMap.get(a).totalAmount.toString());
@@ -376,12 +440,13 @@ const char* Pledge::getDeposit(){
 }
 
 const char* Pledge::getPledgeRecord(tc::Address& elector){
-        JsonRoot root  = TC_JsonNewObject();
-        std::set<uint64> recordIndex = pledgeRecordIndex.get(elector);
+    TC_Payable(false);
+    JsonRoot root  = TC_JsonNewObject();
+    std::set<uint64> recordIndex = pledgeRecordIndex.get(elector);
 
-        int i = 0;
-        for (const uint64& index : recordIndex){
-            tc::json::PutObject(root, itoa(i++), pledgeRecordInfo.get(index));
-        }
-        return TC_JsonToString(root);
+    int i = 0;
+    for (const uint64& index : recordIndex){
+        tc::json::PutObject(root, itoa(i++), pledgeRecordInfo.get(index));
+    }
+    return TC_JsonToString(root);
 }
