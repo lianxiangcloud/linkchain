@@ -4,7 +4,7 @@ import (
 	"math/big"
 
 	"github.com/lianxiangcloud/linkchain/libs/common"
-    "github.com/lianxiangcloud/linkchain/libs/log"
+	"github.com/lianxiangcloud/linkchain/libs/log"
 )
 
 // StateDB is an VM database for full state querying.
@@ -59,7 +59,11 @@ type StateDB interface {
 	GetTokenBalance(addr common.Address, token common.Address) *big.Int
 	GetTokenBalances(addr common.Address) TokenValues
 
-    GetCoefficient(logger log.Logger) *Coefficient
+	GetCoefficient(logger log.Logger) *Coefficient
+
+	// for vm native
+	GetContractInfo([]byte) []byte
+	SetContractInfo([]byte, []byte)
 }
 
 type ChainContext interface {
