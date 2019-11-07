@@ -480,3 +480,6 @@ func (w *Wallet) SendRawTransaction(encodedTx hexutil.Bytes) (common.Hash, error
 func (w *Wallet) SendRawUTXOTransaction(encodedTx hexutil.Bytes) (common.Hash, error) {
 	return w.api.SendRawUTXOTransaction(encodedTx)
 }
+func (w *Wallet) Call(args wtypes.CallArgs, blockNr string) (*hexutil.Bytes, error) {
+	return w.api.Call(args, blockNr)
+}

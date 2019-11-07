@@ -154,3 +154,15 @@ func (s *PublicTransactionPoolAPI) SignSpecTx(ctx context.Context, args rtypes.S
 	return &rtypes.SignTransactionResult{data, tx}, nil
 }
 */
+
+// Call executes the given transaction on the state for the given block number.
+// It doesn't make and changes in the state/blockchain and is useful to execute and retrieve values.
+func (s *PublicTransactionPoolAPI) Call(ctx context.Context, args wtypes.CallArgs, blockNr rpc.BlockNumber) (*hexutil.Bytes, error) {
+	return s.wallet.Call(args, blockNr.String())
+}
+
+// TokenCall executes the given tokenTransaction on the state for the given block number.
+// It doesn't make and changes in the state/blockchain and is useful to execute and retrieve values.
+func (s *PublicTransactionPoolAPI) TokenCall(ctx context.Context, args wtypes.CallArgs, blockNr rpc.BlockNumber) (*hexutil.Bytes, error) {
+	return s.wallet.Call(args, blockNr.String())
+}

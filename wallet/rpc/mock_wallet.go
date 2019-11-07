@@ -54,6 +54,21 @@ func (mr *MockWalletMockRecorder) AutoRefreshBlockchain(arg0, arg1 interface{}) 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AutoRefreshBlockchain", reflect.TypeOf((*MockWallet)(nil).AutoRefreshBlockchain), arg0, arg1)
 }
 
+// Call mocks base method
+func (m *MockWallet) Call(arg0 types1.CallArgs, arg1 string) (*hexutil.Bytes, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Call", arg0, arg1)
+	ret0, _ := ret[0].(*hexutil.Bytes)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Call indicates an expected call of Call
+func (mr *MockWalletMockRecorder) Call(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Call", reflect.TypeOf((*MockWallet)(nil).Call), arg0, arg1)
+}
+
 // CreateSubAccount mocks base method
 func (m *MockWallet) CreateSubAccount(arg0 uint64, arg1 *common.Address) error {
 	m.ctrl.T.Helper()
