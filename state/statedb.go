@@ -25,6 +25,7 @@ import (
 
 	"github.com/lianxiangcloud/linkchain/libs/common"
 	"github.com/lianxiangcloud/linkchain/libs/crypto"
+	dbm "github.com/lianxiangcloud/linkchain/libs/db"
 	"github.com/lianxiangcloud/linkchain/libs/log"
 	"github.com/lianxiangcloud/linkchain/libs/ser"
 	"github.com/lianxiangcloud/linkchain/libs/trie"
@@ -774,4 +775,16 @@ func (s *StateDB) Commit(deleteEmptyObjects bool, height uint64) (root common.Ha
 	// log.Debug("Trie cache stats after commit", "misses", trie.CacheMisses(), "unloads", trie.CacheUnloads())
 	log.Info("Trie cache stats after commit", "misses", trie.CacheMisses(), "unloads", trie.CacheUnloads())
 	return root, err
+}
+
+// GetContractInfo : implement for vm native
+func (s *StateDB) GetContractInfo(addr []byte) []byte {
+	ldb := s.db.TrieDB().DiskDB().(dbm.DB)
+	return ldb.Get(addr)
+}
+
+// SetContractInfo : implement for vm native
+func (s *StateDB) SetContractInfo(addr, info []byte) {
+	ldb := s.db.TrieDB().DiskDB().(dbm.DB)
+	ldb.Set(addr, info)
 }
