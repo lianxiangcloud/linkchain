@@ -151,7 +151,7 @@ public:
     void setShareRate(const tc::Address& elector, const uint& shareRate);
     void changeDeposit(const tc::Address& electorFrom, const tc::Address& electorTo, const uint64& orderid);
     void requestWithdraw(const tc::Address& elector, const uint64& orderid);
-    const char* version(){return "v2.0";}
+    const char* version(){return "v2.1";}
     void setPeriod(Ptype ptype, const uint64& period);
     const char* getPeriod();
     const char* getDepositTime(const uint64& orderid);
@@ -367,13 +367,13 @@ void Pledge::confiscate(const tc::Address& elector){
     TC_RequireWithMsg(ElectorsMap.get(elector).status == ElectorStatus::DETAIN,
     "Elector status is not ElectorStatus.DETAIN");
 
-    tc::BInt transferAmount = ElectorsMap.get(elector).totalAmount;
-    TC_RequireWithMsg(transferAmount > 0, "Owner withdraw detain elector value error");
-
     auto elec = ElectorsMap.get(elector);
+    TC_RequireWithMsg(elec.totalAmount > 0, "Owner withdraw detain elector value error");
+
+    TC_Transfer(ContractFoundationAddr, elec.totalAmount.toString());
+
     elec.totalAmount = 0;
     ElectorsMap.set(elec, elector);
-    TC_Transfer(ContractFoundationAddr, TC_GetBalance(tc::App::getInstance()->address().toString()));
 }
 void Pledge::setAction(Action action, bool isStop){
     TC_RequireWithMsg(CheckAddrRight(tc::App::getInstance()->sender(), "pledge"), "Address does not have permission");
