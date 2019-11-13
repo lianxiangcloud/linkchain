@@ -151,7 +151,7 @@ public:
     void setShareRate(const tc::Address& elector, const uint& shareRate);
     void changeDeposit(const tc::Address& electorFrom, const tc::Address& electorTo, const uint64& orderid);
     void requestWithdraw(const tc::Address& elector, const uint64& orderid);
-    const char* version(){return "v2.0";}
+    const char* version(){return "v2.1";}
     void setPeriod(Ptype ptype, const uint64& period);
     const char* getPeriod();
     const char* getDepositTime(const uint64& orderid);
@@ -219,6 +219,7 @@ void Pledge::deposit(const tc::Address& elector, const tc::BInt& amount, const u
 
 void Pledge::changeDeposit(const tc::Address& electorFrom, const tc::Address& electorTo, const uint64& orderid) {
     TC_Payable(false);
+    TC_RequireWithMsg(electorFrom != electorTo, "From should be diff with To");
     ElectorInfo elecFrom = ElectorsMap.get(electorFrom);
     ElectorInfo elecTo = ElectorsMap.get(electorTo);
     TC_RequireWithMsg(elecFrom.status == ElectorStatus::GOING, "electorFrom status is not on going");
@@ -241,6 +242,7 @@ void Pledge::changeDeposit(const tc::Address& electorFrom, const tc::Address& el
     TC_RequireWithMsg(tc::App::getInstance()->sender() == record.sender, "Address does not have permission");
     TC_RequireWithMsg(record.hasWithdraw == false,"This deposit has been withdrawn");
 
+    TC_RequireWithMsg(elecFrom.totalAmount > record.amount,"From amount is not enough");
     elecFrom.totalAmount = elecFrom.totalAmount - record.amount;
     ElectorsMap.set(elecFrom, electorFrom);
     elecTo.totalAmount = elecTo.totalAmount + record.amount;
@@ -367,13 +369,13 @@ void Pledge::confiscate(const tc::Address& elector){
     TC_RequireWithMsg(ElectorsMap.get(elector).status == ElectorStatus::DETAIN,
     "Elector status is not ElectorStatus.DETAIN");
 
-    tc::BInt transferAmount = ElectorsMap.get(elector).totalAmount;
-    TC_RequireWithMsg(transferAmount > 0, "Owner withdraw detain elector value error");
-
     auto elec = ElectorsMap.get(elector);
+    TC_RequireWithMsg(elec.totalAmount > 0, "Owner withdraw detain elector value error");
+
+    TC_Transfer(ContractFoundationAddr, elec.totalAmount.toString());
+
     elec.totalAmount = 0;
     ElectorsMap.set(elec, elector);
-    TC_Transfer(ContractFoundationAddr, TC_GetBalance(tc::App::getInstance()->address().toString()));
 }
 void Pledge::setAction(Action action, bool isStop){
     TC_RequireWithMsg(CheckAddrRight(tc::App::getInstance()->sender(), "pledge"), "Address does not have permission");
