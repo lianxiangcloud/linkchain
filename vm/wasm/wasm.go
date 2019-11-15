@@ -621,6 +621,7 @@ func (wasm *WASM) Upgrade(caller types.ContractRef, contractAddr common.Address,
 	}
 
 	wasm.StateDB.SetCode(contractAddr, code)
+
 	vm.AppCache.Delete(contractAddr.String())
 
 	newRate, err := wasm.GetUTXOChangeRatePure(contractAddr)

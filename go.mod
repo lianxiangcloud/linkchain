@@ -26,7 +26,6 @@ require (
 	github.com/fatih/color v1.7.0
 	github.com/fortytw2/leaktest v1.3.0
 	github.com/go-kit/kit v0.8.0
-	github.com/go-logfmt/logfmt v0.4.0 // indirect
 	github.com/go-stack/stack v1.8.0
 	github.com/golang/mock v1.3.1
 	github.com/golang/protobuf v1.3.2
