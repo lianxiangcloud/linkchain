@@ -531,7 +531,8 @@ func (wasm *WASM) Create(c types.ContractRef, data []byte, gas uint64, value *bi
 
 func (wasm *WASM) Upgrade(caller types.ContractRef, contractAddr common.Address, code []byte) {
 	wasm.StateDB.SetCode(contractAddr, code)
-	vm.AppCache.Delete(contractAddr.String())
+	// vm.AppCache.Delete(contractAddr.String())
+	vm.RemoveCache(contractAddr.String())
 }
 
 //Token
