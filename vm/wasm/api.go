@@ -892,7 +892,8 @@ func tcSelfDestruct(eng *vm.Engine, index int64, args []uint64) (uint64, error) 
 	//suicideToken(eng, addr, to)
 	mState.Suicide(addr)
 	//delete cache
-	eng.AppCache.Delete(addr.String())
+	// eng.AppCache.Delete(addr.String())
+	eng.RemoveCache(addr.String())
 
 	return 0, nil
 }
@@ -1587,7 +1588,7 @@ func gasCallContract(eng *vm.Engine, index int64, args []uint64) (uint64, error)
 		}
 	}
 	var val *big.Int
-	if len(args) >= 4  {
+	if len(args) >= 4 {
 		valTmp, err := vmem.GetString(args[3])
 		if err != nil {
 			return 0, err
