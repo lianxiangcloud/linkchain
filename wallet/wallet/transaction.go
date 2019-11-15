@@ -347,6 +347,7 @@ func (wallet *Wallet) CreateAinTransaction(from common.Address, passwd string, n
 	}
 	tx, txKey, err := types.NewAinTokenTransaction(source, dests, tokenID, totalFee, nil)
 	if err != nil {
+		wallet.Logger.Error("CreateAinTransaction NewAinTokenTransaction err", "err", err)
 		return nil, wtypes.ErrNewAinTrans
 	}
 
