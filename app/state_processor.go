@@ -294,14 +294,14 @@ func GenerateTransaction(txi types.Tx, state *state.StateDB, vmenv *vm.VmFactory
 					default:
 					}
 				}
+				in := txInput{
+					From:  from,
+					Value: realValue,
+					Nonce: state.GetNonce(from), //tx.Nonce is volatile
+					Type:  Ain,
+				}
+				txo.Inputs = append(txo.Inputs, in)
 			}
-			in := txInput{
-				From:  from,
-				Value: realValue,
-				Nonce: state.GetNonce(from), //tx.Nonce is volatile
-				Type:  Ain,
-			}
-			txo.Inputs = append(txo.Inputs, in)
 		}
 
 		if (tx.UTXOKind() & types.Aout) == types.Aout {
