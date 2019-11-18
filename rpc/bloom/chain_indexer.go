@@ -258,7 +258,7 @@ func (c *ChainIndexer) updateLoop() {
 				// Cache the current section count and head to allow unlocking the mutex
 				section := c.storedSections
 				var oldHead common.Hash
-				if section > types.BlockHeightZero {
+				if section > 0 {
 					oldHead = c.SectionHead(section - 1)
 				}
 				// Process the newly defined section in the background
@@ -313,7 +313,7 @@ func (c *ChainIndexer) processSection(section uint64, lastHead common.Hash) (com
 	// Reset and partial processing
 
 	if err := c.backend.Reset(section, lastHead); err != nil {
-		c.setValidSections(types.BlockHeightZero)
+		c.setValidSections(0)
 		return common.EmptyHash, err
 	}
 
@@ -357,7 +357,7 @@ func (c *ChainIndexer) AddChildIndexer(indexer *ChainIndexer) {
 	c.children = append(c.children, indexer)
 
 	// Cascade any pending updates to new children too
-	if c.storedSections > types.BlockHeightZero {
+	if c.storedSections > 0 {
 		indexer.newHead(c.storedSections*c.sectionSize - 1)
 	}
 }
@@ -369,7 +369,7 @@ func (c *ChainIndexer) loadValidSections() {
 	if len(data) == 8 {
 		c.storedSections = binary.BigEndian.Uint64(data)
 	} else {
-		c.storedSections = types.BlockHeightZero
+		c.storedSections = 0
 	}
 }
 
