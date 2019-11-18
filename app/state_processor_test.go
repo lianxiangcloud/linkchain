@@ -1289,8 +1289,8 @@ func TestSingleUTXO2AccountToken(t *testing.T) {
 	amount2 := big.NewInt(0)
 	fee2 := types.CalNewAmountGas(big.NewInt(0), types.EverLiankeFee)
 	fee2i := big.NewInt(0).Mul(big.NewInt(0).SetUint64(fee2), big.NewInt(types.ParGasPrice))
-	tkamount2 := big.NewInt(10000)
-	tkamount2a := big.NewInt(9999)
+	tkamount2 := big.NewInt(0).Mul(big.NewInt(1e10), big.NewInt(10000))
+	tkamount2a := big.NewInt(0).Mul(big.NewInt(1e10), big.NewInt(9999))
 	tkamount2b := big.NewInt(0).Sub(tkamount2, tkamount2a)
 	ain := types.AccountSourceEntry{
 		From:   sAdd,
@@ -1342,7 +1342,7 @@ func TestSingleUTXO2AccountToken(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	nonce++
+	//nonce++
 
 	bfBalanceIn := []*big.Int{statedb.GetBalance(sAdd)}
 	bftkBalanceIn := []*big.Int{statedb.GetTokenBalance(sAdd, tkAdd)}
@@ -1503,8 +1503,8 @@ func TestSingleUTXO2MixToken(t *testing.T) {
 	amount2 := big.NewInt(0)
 	fee2 := types.CalNewAmountGas(big.NewInt(0), types.EverLiankeFee)
 	fee2i := big.NewInt(0).Mul(big.NewInt(0).SetUint64(fee2), big.NewInt(types.ParGasPrice))
-	tkamount2 := big.NewInt(10000)
-	tkamount2a := big.NewInt(9999)
+	tkamount2 := big.NewInt(0).Mul(big.NewInt(1e10), big.NewInt(10000))
+	tkamount2a := big.NewInt(0).Mul(big.NewInt(1e10), big.NewInt(9999))
 	tkamount2b := big.NewInt(0).Sub(tkamount2, tkamount2a)
 	ain := types.AccountSourceEntry{
 		From:   sAdd,
@@ -1532,7 +1532,7 @@ func TestSingleUTXO2MixToken(t *testing.T) {
 	fee3 := types.CalNewAmountGas(big.NewInt(0), types.EverLiankeFee) + uint64(5e8)
 	fee3i := big.NewInt(0).Mul(big.NewInt(0).SetUint64(fee3), big.NewInt(types.ParGasPrice))
 	tkamount3 := tkamount2a
-	tkamount3a := big.NewInt(3000)
+	tkamount3a := big.NewInt(0).Mul(big.NewInt(1e10), big.NewInt(3000))
 	tkamount3b := big.NewInt(0).Sub(tkamount3, tkamount3a)
 	sEntey1 := &types.UTXOSourceEntry{
 		Ring: []types.UTXORingEntry{types.UTXORingEntry{
@@ -1562,7 +1562,7 @@ func TestSingleUTXO2MixToken(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	nonce++
+	//nonce++
 	balance32, _ := getBalance(tx3, lktypes.SecretKey(utxo2.Skv), lktypes.SecretKey(utxo2.Sks))
 
 	bfBalanceIn := []*big.Int{statedb.GetBalance(sAdd)}

@@ -31,11 +31,13 @@ import (
 )
 
 var (
-	bigZero                  = new(big.Int)
-	tt255                    = math.BigPow(2, 255)
-	errWriteProtection       = errors.New("evm: write protection")
-	errReturnDataOutOfBounds = errors.New("evm: return data out of bounds")
-	errMaxCodeSizeExceeded   = errors.New("evm: max code size exceeded")
+	bigZero                   = new(big.Int)
+	tt255                     = math.BigPow(2, 255)
+	maxIssueAmount            = big.NewInt(0).Mul(big.NewInt(1e10), big.NewInt(0).SetUint64(0xffffffffffffffff))
+	errWriteProtection        = errors.New("evm: write protection")
+	errReturnDataOutOfBounds  = errors.New("evm: return data out of bounds")
+	errMaxCodeSizeExceeded    = errors.New("evm: max code size exceeded")
+	errMaxIssueAmountExceeded = errors.New("evm: max issue amount exceeded")
 )
 
 func opAdd(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
@@ -399,6 +401,10 @@ func opBalance(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *
 func opIssue(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
 	amount := stack.pop()
 	log.Debug("opIssue", "amount sign", amount.Sign(), "amount", amount)
+	if amount.Cmp(maxIssueAmount) > 0 {
+		log.Info("opIssue max issue amount exceed", "amount sign", amount.Sign(), "amount", amount)
+		return nil, errMaxIssueAmountExceeded
+	}
 	if amount.Sign() > 0 {
 		evm.StateDB.AddTokenBalance(contract.Address(), *contract.CodeAddr, amount)
 		br := types.GenBalanceRecord(common.EmptyAddress, contract.Address(), types.NoAddress, types.AccountAddress, types.TxContract, *contract.CodeAddr, amount)

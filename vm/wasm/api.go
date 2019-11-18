@@ -16,7 +16,11 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
-var errGasUintOverflow = errors.New("gas uint64 overflow")
+var (
+	errGasUintOverflow        = errors.New("gas uint64 overflow")
+	maxIssueAmount            = big.NewInt(0).Mul(big.NewInt(1e10), big.NewInt(0).SetUint64(0xffffffffffffffff))
+	errMaxIssueAmountExceeded = errors.New("wasm: max issue amount exceeded")
+)
 
 func init() {
 	env := vm.NewEnvTable()
@@ -1149,6 +1153,9 @@ func tcIssue(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 	if !ok {
 		return 0, vm.ErrInvalidApiArgs
 	}
+	if amount.Cmp(maxIssueAmount) > 0 {
+		return 0, errMaxIssueAmountExceeded
+	}
 
 	if amount.Sign() > 0 {
 		contractAddr := common.BytesToAddress(eng.Contract.Address().Bytes())
@@ -1608,7 +1615,7 @@ func gasCallContract(eng *vm.Engine, index int64, args []uint64) (uint64, error)
 		}
 	}
 	var val *big.Int
-	if len(args) >= 4  {
+	if len(args) >= 4 {
 		valTmp, err := vmem.GetString(args[3])
 		if err != nil {
 			return 0, err

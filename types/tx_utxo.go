@@ -89,11 +89,11 @@ const (
 
 var _ RegularTx = &UTXOTransaction{}
 
-func GetUtxoCommitmentChangeRate(addr common.Address) int64 {
+func GetUtxoCommitmentChangeRate(addr common.Address) int64 { // UTXO value unit
 	if common.IsLKC(addr) {
 		return 1e10
 	}
-	return 1
+	return 1e10
 }
 
 func RegisterUTXOTxData() {
