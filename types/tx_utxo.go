@@ -1073,7 +1073,12 @@ func (tx *UTXOTransaction) checkCommitEqual() error {
 					log.Warn("AccountOut AmountCommit Not Equal")
 					return ErrCheckAmountCommit
 				}
-				sumOutpks, _ = ringct.AddKeys(sumOutpks, output.Commit)
+				emptyKey := types.Key{}
+				if sumOutpks == emptyKey {
+					sumOutpks = output.Commit
+				} else {
+					sumOutpks, _ = ringct.AddKeys(sumOutpks, output.Commit)
+				}
 			default:
 			}
 		}

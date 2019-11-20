@@ -713,7 +713,7 @@ func (wallet *Wallet) CreateUinTransaction(from common.Address, subaddrs []uint6
 	if !common.IsLKC(tokenID) {
 		availableLkcMoney, err = wallet.api.GetTokenBalance(from, common.EmptyAddress)
 		if err != nil {
-			wallet.Logger.Error("CreateAinTransaction getTokenBalance fail", "from", from, "tokenID", tokenID, "err", err)
+			wallet.Logger.Error("CreateUinTransaction getTokenBalance fail", "from", from, "tokenID", tokenID, "err", err)
 			return nil, err
 		}
 	}
