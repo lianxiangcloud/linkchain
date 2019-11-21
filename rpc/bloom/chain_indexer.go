@@ -318,6 +318,9 @@ func (c *ChainIndexer) processSection(section uint64, lastHead common.Hash) (com
 	}
 
 	for number := section * c.sectionSize; number < (section+1)*c.sectionSize; number++ {
+		if number < types.BlockHeightZero {
+			continue
+		}
 		header, err := c.bc.HeaderByHeight(nil, rpc.BlockNumber(number))
 		if err != nil {
 			return common.EmptyHash, fmt.Errorf("blockchain HeaderByNumber: %s", err)
