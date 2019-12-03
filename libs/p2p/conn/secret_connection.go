@@ -112,6 +112,10 @@ func MakeSecretConnection(conn io.ReadWriteCloser, locPrivKey crypto.PrivKey) (*
 		return nil, err
 	}
 	remPubKey, remSignature := authSigMsg.Key, authSigMsg.Sig
+	if remPubKey == nil {
+		return nil, errors.New("Peer sent a nil public key")
+	}
+	
 	if !remPubKey.VerifyBytes(challenge[:], remSignature) {
 		return nil, errors.New("Challenge verification failed")
 	}
