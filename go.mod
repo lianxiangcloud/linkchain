@@ -4,7 +4,7 @@ go 1.12
 
 replace (
 	github.com/NebulousLabs/go-upnp => github.com/lianxiangcloud/go-upnp v0.0.0-20190905032046-65768e0b268c
-	github.com/go-interpreter/wagon => github.com/xunleichain/wagon v0.5.3
+	github.com/go-interpreter/wagon => github.com/xunleichain/wagon v0.5.4
 	gopkg.in/sourcemap.v1 => github.com/go-sourcemap/sourcemap v1.0.5
 )
 
@@ -48,7 +48,7 @@ require (
 	github.com/spf13/viper v1.4.0
 	github.com/stretchr/testify v1.3.0
 	github.com/syndtr/goleveldb v1.0.0
-	github.com/xunleichain/tc-wasm v0.3.5
+	github.com/xunleichain/tc-wasm v0.3.6
 	golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4
 	golang.org/x/net v0.0.0-20190628185345-da137c7871d7
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
