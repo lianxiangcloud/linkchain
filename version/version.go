@@ -9,7 +9,7 @@ const (
 
 var (
 	// Version is the current version.
-	Version = "0.1.2"
+	Version = "0.1.3"
 
 	// GitCommit is the current HEAD set using ldflags.
 	GitCommit string
