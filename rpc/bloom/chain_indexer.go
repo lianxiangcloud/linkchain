@@ -319,6 +319,12 @@ func (c *ChainIndexer) processSection(section uint64, lastHead common.Hash) (com
 
 	for number := section * c.sectionSize; number < (section+1)*c.sectionSize; number++ {
 		if number < types.BlockHeightZero {
+			header := &types.Header{
+				Height: number,
+			}
+			header.SetBloom(types.Bloom{})
+			c.backend.Process(header)
+			lastHead = header.Hash()
 			continue
 		}
 		header, err := c.bc.HeaderByHeight(nil, rpc.BlockNumber(number))
