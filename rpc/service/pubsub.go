@@ -358,8 +358,18 @@ func (ps *PubsubApi) GetLogs(ctx context.Context, crit filters.FilterCriteria) (
 	}
 	log.Trace("rpc GetLogs:", "crit", crit.String())
 
+	begin := crit.FromBlock.ToInt().Int64()
+	end := crit.ToBlock.ToInt().Int64()
+	blockHeightZero := int64(types.BlockHeightZero)
+	if begin > end || end < blockHeightZero {
+		return returnLogs(nil), nil
+	}
+	if begin < blockHeightZero {
+		begin = blockHeightZero
+	}
+
 	// Create and run the filter to get all the logs
-	filter := filters.New(ps.backend(), crit.FromBlock.ToInt().Int64(), crit.ToBlock.ToInt().Int64(), crit.Addresses, crit.Topics)
+	filter := filters.New(ps.backend(), begin, end, crit.Addresses, crit.Topics)
 
 	logs, err := filter.Logs(ctx)
 	if err != nil {

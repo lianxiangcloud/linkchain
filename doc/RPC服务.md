@@ -1271,8 +1271,8 @@ Websocket接口，返回与给定过滤器对象匹配的所有log的数组
 
 #### 参数
 1. `object` 过滤选项
-    - from `int` 块高，可选，默认为最新块
-    - to `int` 块高，可选，默认为最新块
+    - fromBlock `string` 16进制块高，可选，默认为最新块
+    - toBlock `string` 16进制块高，可选，默认为最新块
     - addrs `string数组` 日志来源的合约地址
     - topics `string数组` 每个topic 32个字节
 
