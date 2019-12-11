@@ -62,7 +62,7 @@ total 89668
 linkchain version: 0.1.0, gitCommit:7f5d2a3e
 ```
 
-## 运行享云链节点
+## 运行享云链节点连到享云链线上环境
 
 进入docker容器内  
 `$ sudo docker run -ti lkbuilder`
@@ -78,6 +78,23 @@ linkchain version: 0.1.0, gitCommit:7f5d2a3e
 
 暂停节点  
 `$ ./start.sh stop`
+
+## 运行享云链节点连到享云链沙盒环境
+
+进入docker容器内  
+`$ sudo docker run -ti lkbuilder`
+
+进入启动脚本目录  
+`$ cd /src/pack/lkchain/sbin`
+
+第一次运行节点，需要执行初始化  
+`$ ./sandbox_start.sh init`
+
+启动节点  
+`$ ./sandbox_start.sh start`
+
+暂停节点  
+`$ ./sandbox_start.sh stop`
 
 ## 测试模式运行单节点本地测试网络
 
