@@ -1,0 +1,59 @@
+{
+  "genesis_time": "2019-09-03 10:27:50.515457503 +0800 CST",
+  "chain_id": "chainID",
+  "consensus_params": {
+    "block_size_params": {
+      "max_bytes": "22020096",
+      "max_txs": "10000",
+      "max_gas": "5000000000"
+    },
+    "tx_size_params": {
+      "max_bytes": "10240",
+      "max_gas": "5000000000"
+    },
+    "block_gossip_params": {
+      "block_part_size_bytes": "32768"
+    },
+    "evidence_params": {
+      "max_age": "100000"
+    }
+  },
+  "validators": [
+    {
+      "pub_key": {
+        "type": "PubKeyEd25519",
+        "value": "0x724c2517228e6aa00003e29c69a19eba4f45ed383b5c82de51a7eee3da390b56644c40d9e9a59e9c"
+      },
+      "coinbase": "0x00000000000000000000466f756e646174696f6e",
+      "power": "10",
+      "name": ""
+    },
+    {
+      "pub_key": {
+        "type": "PubKeyEd25519",
+        "value": "0x724c2517228e6aa0001169707e9492c05062233c69afaa6680ecc8d68c79d2f1fbee9b6b94cb3543"
+      },
+      "coinbase": "0x00000000000000000000466f756e646174696f6e",
+      "power": "10",
+      "name": ""
+    },
+    {
+      "pub_key": {
+        "type": "PubKeyEd25519",
+        "value": "0x724c2517228e6aa0005204ec07e9882136bc37739e0290e03c473ab67c1b6bc0160f7d92a876ea1d"
+      },
+      "coinbase": "0x00000000000000000000466f756e646174696f6e",
+      "power": "10",
+      "name": ""
+    },
+    {
+      "pub_key": {
+        "type": "PubKeyEd25519",
+        "value": "0x724c2517228e6aa000606db704dbd0bf20272241c6a262220f05b8dcf6ae7720da07bdc28ca7f2ce"
+      },
+      "coinbase": "0x00000000000000000000466f756e646174696f6e",
+      "power": "10",
+      "name": ""
+    }
+  ]
+}
