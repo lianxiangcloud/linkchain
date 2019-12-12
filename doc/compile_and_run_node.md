@@ -63,7 +63,7 @@ total 89668
 linkchain version: 0.1.0, gitCommit:7f5d2a3e
 ```
 
-## 运行享云链节点连到享云链线上环境
+## 运行享云链节点连到享云链正式环境
 
 进入docker容器内  
 `$ sudo docker run -ti lkbuilder`
