@@ -2,6 +2,7 @@
 proc=lkchain
 rootpath=$(dirname $(pwd))
 datapath=$rootpath/data
+keypath=$rootpath/data/keystore/*
 logpath=$datapath/logs
 sandbox_genesis_file=$rootpath/init/sandbox/genesis.json
 emptyBlockInterval=300
@@ -19,6 +20,7 @@ function Init() {
     fi
 
     $proc init --home $datapath  --genesis_file $sandbox_genesis_file --log.filename $logpath/lkchain.log
+    rm $keypath -rf
 }
 
 function Start() {
