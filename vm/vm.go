@@ -19,7 +19,7 @@ type VmInterface interface {
 	DelegateCall(caller types.ContractRef, addr common.Address, input []byte, gas uint64) (ret []byte, leftOverGas uint64, byteCodeGas uint64, err error)
 	StaticCall(caller types.ContractRef, addr common.Address, input []byte, gas uint64) (ret []byte, leftOverGas uint64, byteCodeGas uint64, err error)
 	Create(caller types.ContractRef, code []byte, gas uint64, value *big.Int) (ret []byte, contractAddr common.Address, leftOverGas uint64, err error)
-	Upgrade(caller types.ContractRef, addr common.Address, code []byte)
+	Upgrade(caller types.ContractRef, addr common.Address, code []byte) error
 	// Interpreter() types.Interpreter
 	SetToken(addr common.Address)
 	GetCoinbase() common.Address

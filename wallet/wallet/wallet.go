@@ -52,14 +52,18 @@ type Wallet struct {
 func NewWallet(config *cfg.Config,
 	logger log.Logger, db dbm.DB, accManager *accounts.Manager) (*Wallet, error) {
 
+	nodeAPI := &NodeAPI{}
 	wallet := &Wallet{
 		config:     config,
 		walletDB:   db,
 		accManager: accManager,
 		addrMap:    make(map[common.Address]*LinkAccount),
-		api:        &NodeAPI{},
+		api:        nodeAPI,
 	}
 	wallet.utxoGas = new(big.Int).Mul(new(big.Int).SetUint64(defaultUTXOGas), new(big.Int).SetInt64(tctypes.ParGasPrice))
+
+	// init UTXOChangeRateGetter
+	tctypes.RegisterUTXORateGetter(tctypes.NewUTXOChangeRateGetter(nodeAPI.GetUTXOChangeRate))
 
 	// wallet.BaseService = *cmn.NewBaseService(logger, "Wallet", wallet)
 	wallet.Logger = logger

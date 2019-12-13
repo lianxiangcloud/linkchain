@@ -837,3 +837,30 @@ func (api *NodeAPI) Call(args wtypes.CallArgs, blockNr string) (*hexutil.Bytes, 
 	}
 	return &ret, nil
 }
+
+func (api *NodeAPI) GetUTXOChangeRate(addr common.Address) (int64, error) {
+	p := make([]interface{}, 1)
+	p[0] = addr
+	body, err := daemon.CallJSONRPC("eth_getUTXOChangeRate", p)
+	if err != nil || body == nil || len(body) == 0 {
+		return 0, wtypes.ErrNoConnectionToDaemon
+	}
+
+	var jsonRes wtypes.RPCResponse
+	if err = json.Unmarshal(body, &jsonRes); err != nil {
+		return 0, fmt.Errorf("GetUTXOChangeRate json.Unmarshal(body, &jsonRes) fail, err:%v, body:%s", err, string(body))
+		//return 0, wtypes.ErrDaemonResponseBody
+	}
+	if jsonRes.Error.Code != 0 {
+		return 0, fmt.Errorf("json RPC error:%v,body:[%s]", jsonRes.Error, string(body))
+		//return 0, wtypes.ErrDaemonResponseCode
+	}
+
+	var rate hexutil.Uint64
+	if err = json.Unmarshal(jsonRes.Result, &rate); err != nil {
+		return 0, fmt.Errorf("json.Unmarshal jsonRes.Result fail, err:%v, body:%s", err, string(body))
+		//return 0, wtypes.ErrDaemonResponseData
+	}
+
+	return int64(rate), nil
+}

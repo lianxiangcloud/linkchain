@@ -30,6 +30,8 @@ const (
 	// maxTransactionSize is 32KB in order to prevent DOS attacks
 	// maxTransactionSize is 256KB for wasm
 	maxTransactionSize = 256 * 1024
+	// staticCallSimulateGas is used for simulating staticCall during getting utxo commit rate
+	staticCallSimulateGas = uint64(1e10)
 )
 
 var _ types.TxCensor = &LinkApplication{}
@@ -128,6 +130,10 @@ func NewLinkApplication(db dbm.DB, bc *blockchain.BlockStore, utxoStore *utxo.Ut
 	}
 	app.processor = NewStateProcessor(bc, app)
 	app.lastCoe = GetCoefficient(app.storeState, app.logger)
+
+	// Init UtxoChangeRate Getter
+	types.RegisterUTXORateGetter(types.NewUTXOChangeRateGetter(app.GetUTXOChangeRate))
+
 	return app, nil
 }
 
@@ -187,6 +193,46 @@ func (app *LinkApplication) IsWasmContract(data []byte) bool {
 }
 func (app *LinkApplication) GetUTXOGas() uint64 {
 	return app.lastCoe.UTXOFee.Uint64()
+}
+
+func (app *LinkApplication) GetUTXOChangeRate(addr common.Address) (int64, error) {
+	app.LockState()
+	defer app.UnlockState()
+
+	tmpState := app.storeState.Copy()
+	header := app.currentBlock.Head()
+	msgcode := tmpState.GetCode(addr)
+	var rateUint8 uint8
+	if !wasm.IsWasmContract(msgcode) {
+		contextEvm := evm.NewEVMContext(header, app.blockChain, nil, config.EvmGasRate)
+		EVM := evm.NewEVM(contextEvm, tmpState, app.vmConfig)
+		evmData := types.UTXOChangeRateDataEVM()
+		ret, _, _, err := EVM.Call(evm.AccountRef(common.EmptyAddress), addr, common.EmptyAddress, evmData, staticCallSimulateGas, big.NewInt(0))
+		if err != nil {
+			return 0, err
+		}
+		rateUint8, err = types.UTXOChangeRateResultDecodeEVM(ret)
+		if err != nil {
+			return 0, err
+		}
+	} else {
+		contextWasm := wasm.NewWASMContext(header, app.blockChain, nil, config.WasmGasRate)
+		WASM := wasm.NewWASM(contextWasm, tmpState, app.vmConfig)
+		wasmData := types.UTXOChangeRateDataWASM()
+		ret, _, _, err := WASM.Call(evm.AccountRef(common.EmptyAddress), addr, common.EmptyAddress, wasmData, staticCallSimulateGas, big.NewInt(0))
+		if err != nil {
+			return 0, err
+		}
+		rateUint8, err = types.UTXOChangeRateResultDecodeWASM(ret)
+		if err != nil {
+			return 0, err
+		}
+	}
+	rate, err := types.UTXOChangeRateFromUint8(rateUint8)
+	if err != nil {
+		return 0, err
+	}
+	return int64(rate), nil
 }
 
 func (app *LinkApplication) CreateBlock(height uint64, maxTxs int, gasLimit uint64, timeUnix uint64) *types.Block {

@@ -16,7 +16,9 @@ import (
 var (
 	defaultDifficulty        = big.NewInt(10000000)
 	wasmIDLength             = 4
-	wasmID            uint32 = 0x6d736100 //Notice: types/transaction has a duplication of this
+	wasmID            uint32 = 0x6d736100 // Notice: types/transaction has a duplication of this
+	// staticCallSimulateGas is used for simulating staticCall during getting utxo commit rate
+	staticCallSimulateGas = uint64(1e10)
 )
 
 // emptyCodeHash is used by create to ensure deployment is disallowed to already
@@ -203,6 +205,8 @@ type WASM struct {
 	Context
 	// StateDB gives access to the underlying state
 	StateDB types.StateDB
+	// Issued marked that WASM has called tcIssue and may be reverted because of that
+	Issued chan bool
 
 	env *vm.EnvTable
 	eng *vm.Engine
@@ -220,6 +224,7 @@ func NewWASM(c types.Context, statedb types.StateDB, vmc types.VmConfig) *WASM {
 	return &WASM{
 		Context: ctx,
 		StateDB: statedb,
+		Issued:  make(chan bool, 1),
 		otxs:    make([]types.BalanceRecord, 0),
 	}
 }
@@ -231,6 +236,7 @@ func (wasm *WASM) Reset(msg types.Message) {
 	wasm.Context.GasPrice = new(big.Int).Set(msg.GasPrice()) //gasPrice
 	wasm.Context.Token = common.EmptyAddress
 	wasm.otxs = make([]types.BalanceRecord, 0)
+	wasm.Issued = make(chan bool, 1)
 }
 
 func (wasm *WASM) GetCode(bz []byte) []byte {
@@ -272,6 +278,19 @@ func (wasm *WASM) UTXOCall(c types.ContractRef, addr, token common.Address, inpu
 	if gasUsed < contract.ByteCodeGas {
 		byteCodeGas = contract.ByteCodeGas - gasUsed
 	}
+
+	select {
+	case <-wasm.Issued:
+		if err == nil {
+			_, err = wasm.GetUTXOChangeRate(contract.Address())
+			if err != nil {
+				log.Error("issue without decimals set", "conAddr", contract.self.Address())
+				err = vm.ErrExecutionReverted
+			}
+		}
+	default:
+	}
+
 	if err != nil {
 		wasm.StateDB.RevertToSnapshot(snapshot)
 		if err != vm.ErrExecutionReverted {
@@ -323,6 +342,19 @@ func (wasm *WASM) Call(c types.ContractRef, addr, token common.Address, input []
 	if gasUsed < contract.ByteCodeGas {
 		byteCodeGas = contract.ByteCodeGas - gasUsed
 	}
+
+	select {
+	case <-wasm.Issued:
+		if err == nil {
+			_, err = wasm.GetUTXOChangeRate(contract.Address())
+			if err != nil {
+				log.Error("issue without decimals set", "conAddr", contract.self.Address())
+				err = vm.ErrExecutionReverted
+			}
+		}
+	default:
+	}
+
 	if err != nil {
 		wasm.StateDB.RevertToSnapshot(snapshot)
 		if err != vm.ErrExecutionReverted {
@@ -364,6 +396,19 @@ func (wasm *WASM) CallCode(c types.ContractRef, addr common.Address, input []byt
 	if gasUsed < contract.ByteCodeGas {
 		byteCodeGas = contract.ByteCodeGas - gasUsed
 	}
+
+	select {
+	case <-wasm.Issued:
+		if err == nil {
+			_, err = wasm.GetUTXOChangeRate(contract.Address())
+			if err != nil {
+				log.Error("issue without decimals set", "conAddr", contract.self.Address())
+				err = vm.ErrExecutionReverted
+			}
+		}
+	default:
+	}
+
 	if err != nil {
 		wasm.StateDB.RevertToSnapshot(snapshot)
 		if err != vm.ErrExecutionReverted {
@@ -397,6 +442,19 @@ func (wasm *WASM) DelegateCall(c types.ContractRef, addr common.Address, input [
 	if gasUsed < contract.ByteCodeGas {
 		byteCodeGas = contract.ByteCodeGas - gasUsed
 	}
+
+	select {
+	case <-wasm.Issued:
+		if err == nil {
+			_, err = wasm.GetUTXOChangeRate(contract.Address())
+			if err != nil {
+				log.Error("issue without decimals set", "conAddr", contract.self.Address())
+				err = vm.ErrExecutionReverted
+			}
+		}
+	default:
+	}
+
 	if err != nil {
 		wasm.StateDB.RevertToSnapshot(snapshot)
 		if err != vm.ErrExecutionReverted {
@@ -440,6 +498,19 @@ func (wasm *WASM) StaticCall(c types.ContractRef, addr common.Address, input []b
 	if gasUsed < contract.ByteCodeGas {
 		byteCodeGas = contract.ByteCodeGas - gasUsed
 	}
+
+	select {
+	case needCheck := <-wasm.Issued:
+		if needCheck && err == nil {
+			_, err = wasm.GetUTXOChangeRate(contract.Address())
+			if err != nil {
+				log.Error("issue without decimals set", "conAddr", contract.self.Address())
+				err = vm.ErrExecutionReverted
+			}
+		}
+	default:
+	}
+
 	if err != nil {
 		wasm.StateDB.RevertToSnapshot(snapshot)
 		if err != vm.ErrExecutionReverted {
@@ -510,6 +581,18 @@ func (wasm *WASM) Create(c types.ContractRef, data []byte, gas uint64, value *bi
 		}
 	}
 
+	select {
+	case <-wasm.Issued:
+		if err == nil {
+			_, err = wasm.GetUTXOChangeRate(contract.Address())
+			if err != nil {
+				log.Error("issue without decimals set", "conAddr", contract.self.Address())
+				err = vm.ErrExecutionReverted
+			}
+		}
+	default:
+	}
+
 	// When an error was returned by the WASM or when setting the creation code
 	// above we revert to the snapshot and consume any gas remaining. Additionally
 	// when we're in homestead this also counts for code storage gas errors.
@@ -529,9 +612,26 @@ func (wasm *WASM) Create(c types.ContractRef, data []byte, gas uint64, value *bi
 // Interpreter returns the WASM interpreter
 // func (wasm *WASM) Interpreter() *Interpreter { return wasm.interpreter }
 
-func (wasm *WASM) Upgrade(caller types.ContractRef, contractAddr common.Address, code []byte) {
+func (wasm *WASM) Upgrade(caller types.ContractRef, contractAddr common.Address, code []byte) error {
+	snapshot := wasm.StateDB.Snapshot()
+	rate, err := wasm.GetUTXOChangeRate(contractAddr)
+	if err != nil {
+		rate = -1
+	}
+
 	wasm.StateDB.SetCode(contractAddr, code)
 	vm.AppCache.Delete(contractAddr.String())
+
+	rate2, err2 := wasm.GetUTXOChangeRate(contractAddr)
+	if err2 != nil {
+		rate2 = -1
+	}
+	if rate != rate2 {
+		wasm.StateDB.RevertToSnapshot(snapshot)
+		return types.ErrForbiddenDecimalsChanged
+	}
+
+	return nil
 }
 
 //Token
@@ -586,4 +686,26 @@ func (wasm *WASM) RefundAllFee() uint64 {
 
 func (wasm *WASM) RefundFee() uint64 {
 	return wasm.RefundAllFee()
+}
+
+func (wasm *WASM) GetUTXOChangeRate(addr common.Address) (int64, error) {
+	data := types.UTXOChangeRateDataWASM()
+	select {
+	case wasm.Issued <- false:
+	default:
+	}
+	ret, _, _, err := wasm.StaticCall(AccountRef(common.EmptyAddress), addr, data, staticCallSimulateGas)
+	if err != nil {
+		return 0, err
+	}
+	rateUint8, err := types.UTXOChangeRateResultDecodeWASM(ret)
+	if err != nil {
+		return 0, err
+	}
+	rate, err := types.UTXOChangeRateFromUint8(rateUint8)
+	if err != nil {
+		return 0, err
+	}
+
+	return rate, nil
 }

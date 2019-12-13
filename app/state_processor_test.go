@@ -272,7 +272,12 @@ func getBalance(tx *types.UTXOTransaction, skv, sks lktypes.SecretKey) (amount *
 				log.Error("EcdhDecode fail", "err", err)
 				continue
 			}
-			amount = big.NewInt(0).Mul(types.Hash2BigInt(ecdh.Amount), big.NewInt(types.GetUtxoCommitmentChangeRate(tx.TokenID)))
+			utxoRate, err := types.GetUtxoCommitmentChangeRate(tx.TokenID)
+			if err != nil {
+				log.Error("GetUtxoCommitmentChangeRate fail", "err", err)
+				continue
+			}
+			amount = big.NewInt(0).Mul(types.Hash2BigInt(ecdh.Amount), big.NewInt(utxoRate))
 			mask = ecdh.Mask
 			log.Debug("GenerateKeyDerivation", "amount", ecdh.Amount, "mash", ecdh.Mask)
 		default:
@@ -673,6 +678,95 @@ func TestAccount2AccountToken(t *testing.T) {
 	hashChecker(t, receiptHash, stateHash, balanceRecordHash, "0x9835cf7e62ae08fb00d725b3b07b427140c8664d6066eac36e3d01aa53ba0693", "0x8f471a6cad341c53425ec81e267b070a237388428e61f9355864cb8e8b67c238", "0xd6e243526bd1c7d6f726f5ee7098b39caf475b90b7e7caed3a315dbdf6437fe8")
 }
 
+func TestIssueConstructor(t *testing.T) {
+	statedb := newTestState()
+
+	sender := Bank[0].PrivateKey
+	sAdd := Bank[0].Address
+
+	fee1 := uint64(9999999)
+	nonce := uint64(0)
+	wasmTx := newContractTx(sAdd, fee1, nonce, "../test/token/app_issue_test_contracts/WIssCon.bin")
+	wasmTx.Sign(types.GlobalSTDSigner, sender)
+
+	block := genBlock(types.Txs{wasmTx})
+	receipts, _, _, _, _, _, err := SP.Process(block, statedb, VC)
+	assert.Nil(t, err)
+	assert.Equal(t, "", receipts[0].VMErr)
+}
+
+//token err by constructor
+func TestTokenErrByConstructor(t *testing.T) {
+	// evm start
+	statedb := newTestState()
+
+	sender := Bank[0].PrivateKey
+	sAdd := Bank[0].Address
+
+	fee1 := uint64(9999999)
+	nonce := uint64(0)
+	evmTx := newContractTx(sAdd, fee1, nonce, "../test/token/app_issue_test_contracts/ErrCon.bin")
+	evmTx.Sign(types.GlobalSTDSigner, sender)
+
+	wasmTx := newContractTx(sAdd, fee1, nonce+1, "../test/token/app_issue_test_contracts/WErrCon.bin")
+	wasmTx.Sign(types.GlobalSTDSigner, sender)
+
+	block := genBlock(types.Txs{evmTx, wasmTx})
+	receipts, _, _, _, _, _, err := SP.Process(block, statedb, VC)
+	assert.Nil(t, err)
+	assert.Equal(t, types.ExecutionReverted.Error(), receipts[0].VMErr)
+	assert.Equal(t, types.ExecutionReverted.Error(), receipts[1].VMErr)
+}
+
+//token err by call
+func TestTokenErrByCallEVM(t *testing.T) {
+	statedb := newTestState()
+
+	sender := Bank[0].PrivateKey
+	sAdd := Bank[0].Address
+
+	fee1 := uint64(9999999)
+	nonce := uint64(0)
+	tx1 := newContractTx(sAdd, fee1, nonce, "../test/token/app_issue_test_contracts/ErrCall.bin")
+	tx1.Sign(types.GlobalSTDSigner, sender)
+	tkAdd := crypto.CreateAddress(sAdd, tx1.Nonce(), tx1.Data())
+
+	data, err := genContractCreateTestDataEVM()
+	assert.Nil(t, err)
+	fee2 := uint64(10000000)
+	tx2, err := genCallContractTx(Bank[0], nonce+1, &tkAdd, big.NewInt(1e10), fee2, data)
+	assert.Nil(t, err)
+	tx2.Sign(types.GlobalSTDSigner, sender)
+	block := genBlock(types.Txs{tx1, tx2})
+	receipts, _, _, _, _, _, err := SP.Process(block, statedb, VC)
+	assert.Nil(t, err)
+	assert.Equal(t, types.ExecutionReverted.Error(), receipts[1].VMErr)
+}
+
+func TestTokenErrByCallWASM(t *testing.T) {
+	statedb := newTestState()
+
+	sender := Bank[0].PrivateKey
+	sAdd := Bank[0].Address
+
+	fee1 := uint64(9999999)
+	nonce := uint64(0)
+	tx1 := newContractTx(sAdd, fee1, nonce, "../test/token/app_issue_test_contracts/WErrCall.bin")
+	tx1.Sign(types.GlobalSTDSigner, sender)
+	tkAdd := crypto.CreateAddress(sAdd, tx1.Nonce(), tx1.Data())
+
+	data, err := genContractCreateTestDataWASM()
+	assert.Nil(t, err)
+	fee2 := uint64(10000000)
+	tx2, err := genCallContractTx(Bank[0], nonce+1, &tkAdd, big.NewInt(1e10), fee2, data)
+	assert.Nil(t, err)
+	tx2.Sign(types.GlobalSTDSigner, sender)
+	block := genBlock(types.Txs{tx1, tx2})
+	receipts, _, _, _, _, _, err := SP.Process(block, statedb, VC)
+	assert.Nil(t, err)
+	assert.Equal(t, types.ExecutionReverted.Error(), receipts[1].VMErr)
+}
+
 //cct
 func TestContractCreation(t *testing.T) {
 	statedb := newTestState()
@@ -818,9 +912,9 @@ func TestContractUpdate(t *testing.T) {
 	sAdd := Bank[0].Address
 
 	amount1 := big.NewInt(0)
-	fee1 := uint64(1995447)
+	fee1 := uint64(597636)
 	nonce := uint64(0)
-	tx1 := newContractTx(accounts[0].Address, fee1, nonce, "../test/token/tcvm/TestToken.bin")
+	tx1 := newContractTx(accounts[0].Address, fee1, nonce, "../test/token/app_issue_test_contracts/WBase.bin")
 	tx1.Sign(types.GlobalSTDSigner, sender)
 	fromAddress, _ := tx1.From()
 	contractAddr := crypto.CreateAddress(fromAddress, tx1.Nonce(), tx1.Data())
@@ -828,7 +922,7 @@ func TestContractUpdate(t *testing.T) {
 
 	amount2 := big.NewInt(0)
 	fee2 := uint64(0)
-	tx2 := genContractUpgradeTx(fromAddress, contractAddr, nonce, "../test/token/tcvm/TestToken.bin")
+	tx2 := genContractUpgradeTx(fromAddress, contractAddr, nonce, "../test/token/app_issue_test_contracts/WBase.bin")
 	tx2.Sign(types.GlobalSTDSigner, sender)
 	nonce++
 
@@ -856,7 +950,33 @@ func TestContractUpdate(t *testing.T) {
 	stateHash := statedb.IntermediateRoot(false)
 	balanceRecordHash := types.RlpHash(types.BlockBalanceRecordsInstance.Json())
 	log.Debug("SAVER", "rh", receiptHash.Hex(), "sh", stateHash.Hex(), "brh", balanceRecordHash.Hex())
-	hashChecker(t, receiptHash, stateHash, balanceRecordHash, "0xba3b228862af7d9e1efaedfc16169f7b116d13b9f1c0b6095bf239bfd0349dc4", "0x6154d4374568c16e723f87ec0856a3706e9f5986e2ce42ef7a9cfabe1bd2a24d", "0xcd1f574e804d049399b17a069ea3f59d509df1363381944db53b012a4f10af9b")
+	hashChecker(t, receiptHash, stateHash, balanceRecordHash, "0x75a5f72871cfc6383b55475c607601a97491a8a73ffabd4db4284fb1cffe1eed", "0x820ba2456efed1c83eec8de06675a7c1cdf6b5e02beaf0073fd5b200f3a2f61b", "0x965537a6a7f67405e691401fefa28f930a08bf363688841a42a08c4a98a6f1f9")
+}
+
+//cut err
+func TestContractUpdateFail(t *testing.T) {
+	statedb := newTestState()
+	types.SaveBalanceRecord = true
+	types.BlockBalanceRecordsInstance = types.NewBlockBalanceRecords()
+
+	sender := Bank[0].PrivateKey
+
+	fee1 := uint64(597636)
+	nonce := uint64(0)
+	tx1 := newContractTx(accounts[0].Address, fee1, nonce, "../test/token/app_issue_test_contracts/WBase.bin")
+	tx1.Sign(types.GlobalSTDSigner, sender)
+	fromAddress, _ := tx1.From()
+	contractAddr := crypto.CreateAddress(fromAddress, tx1.Nonce(), tx1.Data())
+	nonce++
+
+	tx2 := genContractUpgradeTx(fromAddress, contractAddr, nonce, "../test/token/app_issue_test_contracts/WErrUpdate.bin")
+	tx2.Sign(types.GlobalSTDSigner, sender)
+	nonce++
+
+	block := genBlock(types.Txs{tx1, tx2})
+	receipts, _, _, _, _, _, err := SP.Process(block, statedb, VC)
+	assert.Nil(t, err)
+	assert.Equal(t, types.ErrForbiddenDecimalsChanged.Error(), receipts[1].VMErr)
 }
 
 //*********** UTXO Based Transactions Test **********
@@ -1084,81 +1204,81 @@ func TestSingleAccount2MulitipleUTXO(t *testing.T) {
 }
 
 //A->U+token
-func TestSingleAccount2MulitipleUTXOToken(t *testing.T) {
-	statedb := newTestState()
-	types.SaveBalanceRecord = true
-	types.BlockBalanceRecordsInstance = types.NewBlockBalanceRecords()
+// func TestSingleAccount2MulitipleUTXOToken(t *testing.T) {
+// 	statedb := newTestState()
+// 	types.SaveBalanceRecord = true
+// 	types.BlockBalanceRecordsInstance = types.NewBlockBalanceRecords()
 
-	sender := Bank[0].PrivateKey
-	sAdd := Bank[0].Address
-	utxo1, utxo2 := UtxoAccs[0], UtxoAccs[1]
+// 	sender := Bank[0].PrivateKey
+// 	sAdd := Bank[0].Address
+// 	utxo1, utxo2 := UtxoAccs[0], UtxoAccs[1]
 
-	amount1 := big.NewInt(0)
-	fee1 := uint64(1494617)
-	nonce := uint64(0)
-	tx1 := newContractTx(sAdd, fee1, nonce, "../test/token/sol/SimpleToken.bin")
-	tx1.Sign(types.GlobalSTDSigner, sender)
-	from, err := tx1.From()
-	if err != nil {
-		panic(err)
-	}
-	tkAdd := crypto.CreateAddress(from, tx1.Nonce(), tx1.Data())
-	nonce++
+// 	amount1 := big.NewInt(0)
+// 	fee1 := uint64(1494617)
+// 	nonce := uint64(0)
+// 	tx1 := newContractTx(sAdd, fee1, nonce, "../test/token/sol/SimpleToken.bin")
+// 	tx1.Sign(types.GlobalSTDSigner, sender)
+// 	from, err := tx1.From()
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	tkAdd := crypto.CreateAddress(from, tx1.Nonce(), tx1.Data())
+// 	nonce++
 
-	amount2 := big.NewInt(0)
-	tkamount2 := big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(1))
-	fee2 := types.CalNewAmountGas(big.NewInt(0), types.EverLiankeFee)
-	fee2i := big.NewInt(0).Mul(big.NewInt(0).SetUint64(fee2), big.NewInt(types.ParGasPrice))
-	tkamount2a := big.NewInt(0).Mul(big.NewInt(1e17), big.NewInt(5))
-	tkamount2b := big.NewInt(0).Sub(tkamount2, tkamount2a)
-	ain := types.AccountSourceEntry{
-		From:   sAdd,
-		Nonce:  nonce,
-		Amount: tkamount2,
-	}
-	uout1 := types.UTXODestEntry{
-		Addr:   utxo1.Addr,
-		Amount: tkamount2a,
-	}
-	uout2 := types.UTXODestEntry{
-		Addr:   utxo2.Addr,
-		Amount: tkamount2b,
-	}
-	tx2, _, err := types.NewAinTokenTransaction(&ain, []types.DestEntry{&uout1, &uout2}, tkAdd, fee2i, nil)
-	if err != nil {
-		panic(err)
-	}
-	tx2.Sign(types.GlobalSTDSigner, sender)
-	nonce++
-	balance21, _ := getBalance(tx2, lktypes.SecretKey(utxo1.Skv), lktypes.SecretKey(utxo1.Sks))
-	balance22, _ := getBalance(tx2, lktypes.SecretKey(utxo2.Skv), lktypes.SecretKey(utxo2.Sks))
+// 	amount2 := big.NewInt(0)
+// 	tkamount2 := big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(1))
+// 	fee2 := types.CalNewAmountGas(big.NewInt(0), types.EverLiankeFee)
+// 	fee2i := big.NewInt(0).Mul(big.NewInt(0).SetUint64(fee2), big.NewInt(types.ParGasPrice))
+// 	tkamount2a := big.NewInt(0).Mul(big.NewInt(1e17), big.NewInt(5))
+// 	tkamount2b := big.NewInt(0).Sub(tkamount2, tkamount2a)
+// 	ain := types.AccountSourceEntry{
+// 		From:   sAdd,
+// 		Nonce:  nonce,
+// 		Amount: tkamount2,
+// 	}
+// 	uout1 := types.UTXODestEntry{
+// 		Addr:   utxo1.Addr,
+// 		Amount: tkamount2a,
+// 	}
+// 	uout2 := types.UTXODestEntry{
+// 		Addr:   utxo2.Addr,
+// 		Amount: tkamount2b,
+// 	}
+// 	tx2, _, err := types.NewAinTokenTransaction(&ain, []types.DestEntry{&uout1, &uout2}, tkAdd, fee2i, nil)
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	tx2.Sign(types.GlobalSTDSigner, sender)
+// 	nonce++
+// 	balance21, _ := getBalance(tx2, lktypes.SecretKey(utxo1.Skv), lktypes.SecretKey(utxo1.Sks))
+// 	balance22, _ := getBalance(tx2, lktypes.SecretKey(utxo2.Skv), lktypes.SecretKey(utxo2.Sks))
 
-	bfBalanceIn := []*big.Int{statedb.GetBalance(sAdd)}
-	bfBalanceOut := []*big.Int{big.NewInt(0), big.NewInt(0)}
-	bftkBalanceIn := []*big.Int{statedb.GetTokenBalance(sAdd, tkAdd)}
-	bftkBalanceOut := []*big.Int{big.NewInt(0), big.NewInt(0)}
-	block := genBlock(types.Txs{tx1, tx2})
-	receipts, _, blockGas, _, utxoOutputs, keyImages, err := SP.Process(block, statedb, VC)
-	if err != nil {
-		panic(err)
-	}
-	afBalanceIn := []*big.Int{statedb.GetBalance(sAdd)}
-	afBalanceOut := []*big.Int{big.NewInt(0), big.NewInt(0)}
-	aftkBalanceIn := []*big.Int{statedb.GetTokenBalance(sAdd, tkAdd)}
-	aftkBalanceOut := []*big.Int{balance21, balance22}
+// 	bfBalanceIn := []*big.Int{statedb.GetBalance(sAdd)}
+// 	bfBalanceOut := []*big.Int{big.NewInt(0), big.NewInt(0)}
+// 	bftkBalanceIn := []*big.Int{statedb.GetTokenBalance(sAdd, tkAdd)}
+// 	bftkBalanceOut := []*big.Int{big.NewInt(0), big.NewInt(0)}
+// 	block := genBlock(types.Txs{tx1, tx2})
+// 	receipts, _, blockGas, _, utxoOutputs, keyImages, err := SP.Process(block, statedb, VC)
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	afBalanceIn := []*big.Int{statedb.GetBalance(sAdd)}
+// 	afBalanceOut := []*big.Int{big.NewInt(0), big.NewInt(0)}
+// 	aftkBalanceIn := []*big.Int{statedb.GetTokenBalance(sAdd, tkAdd)}
+// 	aftkBalanceOut := []*big.Int{balance21, balance22}
 
-	expectAmount := calExpectAmount(amount1, amount2)
-	expecttkAmount := calExpectAmount(tkamount2)
-	expectFee := calExpectFee(fee1, fee2)
-	actualFee := big.NewInt(0).Mul(big.NewInt(0).SetUint64(blockGas), big.NewInt(types.ParGasPrice))
-	expectNonce := []uint64{nonce}
-	actualNonce := []uint64{statedb.GetNonce(sAdd)}
+// 	expectAmount := calExpectAmount(amount1, amount2)
+// 	expecttkAmount := calExpectAmount(tkamount2)
+// 	expectFee := calExpectFee(fee1, fee2)
+// 	actualFee := big.NewInt(0).Mul(big.NewInt(0).SetUint64(blockGas), big.NewInt(types.ParGasPrice))
+// 	expectNonce := []uint64{nonce}
+// 	actualNonce := []uint64{statedb.GetNonce(sAdd)}
 
-	balancesChecker(t, bfBalanceIn, afBalanceIn, bfBalanceOut, afBalanceOut, expectAmount, expectFee, actualFee)
-	balancesChecker(t, bftkBalanceIn, aftkBalanceIn, bftkBalanceOut, aftkBalanceOut, expecttkAmount, big.NewInt(0), big.NewInt(0))
-	resultChecker(t, receipts, utxoOutputs, keyImages, 2, 2, 0)
-	othersChecker(t, expectNonce, actualNonce)
-}
+// 	balancesChecker(t, bfBalanceIn, afBalanceIn, bfBalanceOut, afBalanceOut, expectAmount, expectFee, actualFee)
+// 	balancesChecker(t, bftkBalanceIn, aftkBalanceIn, bftkBalanceOut, aftkBalanceOut, expecttkAmount, big.NewInt(0), big.NewInt(0))
+// 	resultChecker(t, receipts, utxoOutputs, keyImages, 2, 2, 0)
+// 	othersChecker(t, expectNonce, actualNonce)
+// }
 
 //U->A
 func TestSingleUTXO2Account(t *testing.T) {
@@ -1264,112 +1384,112 @@ func TestSingleUTXO2Account(t *testing.T) {
 }
 
 //U->A token
-func TestSingleUTXO2AccountToken(t *testing.T) {
-	statedb := newTestState()
-	types.SaveBalanceRecord = true
-	types.BlockBalanceRecordsInstance = types.NewBlockBalanceRecords()
+// func TestSingleUTXO2AccountToken(t *testing.T) {
+// 	statedb := newTestState()
+// 	types.SaveBalanceRecord = true
+// 	types.BlockBalanceRecordsInstance = types.NewBlockBalanceRecords()
 
-	sender := Bank[0].PrivateKey
-	sAdd := Bank[0].Address
-	rAdd := Bank[1].Address
-	utxo1, utxo2 := UtxoAccs[0], UtxoAccs[1]
+// 	sender := Bank[0].PrivateKey
+// 	sAdd := Bank[0].Address
+// 	rAdd := Bank[1].Address
+// 	utxo1, utxo2 := UtxoAccs[0], UtxoAccs[1]
 
-	amount1 := big.NewInt(0)
-	fee1 := uint64(1494617)
-	nonce := uint64(0)
-	tx1 := newContractTx(sAdd, fee1, nonce, "../test/token/sol/SimpleToken.bin")
-	tx1.Sign(types.GlobalSTDSigner, sender)
-	from, err := tx1.From()
-	if err != nil {
-		panic(err)
-	}
-	tkAdd := crypto.CreateAddress(from, tx1.Nonce(), tx1.Data())
-	nonce++
+// 	amount1 := big.NewInt(0)
+// 	fee1 := uint64(1494617)
+// 	nonce := uint64(0)
+// 	tx1 := newContractTx(sAdd, fee1, nonce, "../test/token/sol/SimpleToken.bin")
+// 	tx1.Sign(types.GlobalSTDSigner, sender)
+// 	from, err := tx1.From()
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	tkAdd := crypto.CreateAddress(from, tx1.Nonce(), tx1.Data())
+// 	nonce++
 
-	amount2 := big.NewInt(0)
-	fee2 := types.CalNewAmountGas(big.NewInt(0), types.EverLiankeFee)
-	fee2i := big.NewInt(0).Mul(big.NewInt(0).SetUint64(fee2), big.NewInt(types.ParGasPrice))
-	tkamount2 := big.NewInt(0).Mul(big.NewInt(1e10), big.NewInt(10000))
-	tkamount2a := big.NewInt(0).Mul(big.NewInt(1e10), big.NewInt(9999))
-	tkamount2b := big.NewInt(0).Sub(tkamount2, tkamount2a)
-	ain := types.AccountSourceEntry{
-		From:   sAdd,
-		Nonce:  nonce,
-		Amount: tkamount2,
-	}
-	uout1 := types.UTXODestEntry{
-		Addr:   utxo1.Addr,
-		Amount: tkamount2a,
-	}
-	uout2 := types.UTXODestEntry{
-		Addr:   utxo2.Addr,
-		Amount: tkamount2b,
-	}
-	tx2, _, err := types.NewAinTokenTransaction(&ain, []types.DestEntry{&uout1, &uout2}, tkAdd, fee2i, nil)
-	if err != nil {
-		panic(err)
-	}
-	tx2.Sign(types.GlobalSTDSigner, sender)
-	nonce++
-	balance21, mask21 := getBalance(tx2, lktypes.SecretKey(utxo1.Skv), lktypes.SecretKey(utxo1.Sks))
-	balance22, _ := getBalance(tx2, lktypes.SecretKey(utxo2.Skv), lktypes.SecretKey(utxo2.Sks))
+// 	amount2 := big.NewInt(0)
+// 	fee2 := types.CalNewAmountGas(big.NewInt(0), types.EverLiankeFee)
+// 	fee2i := big.NewInt(0).Mul(big.NewInt(0).SetUint64(fee2), big.NewInt(types.ParGasPrice))
+// 	tkamount2 := big.NewInt(0).Mul(big.NewInt(1e10), big.NewInt(10000))
+// 	tkamount2a := big.NewInt(0).Mul(big.NewInt(1e10), big.NewInt(9999))
+// 	tkamount2b := big.NewInt(0).Sub(tkamount2, tkamount2a)
+// 	ain := types.AccountSourceEntry{
+// 		From:   sAdd,
+// 		Nonce:  nonce,
+// 		Amount: tkamount2,
+// 	}
+// 	uout1 := types.UTXODestEntry{
+// 		Addr:   utxo1.Addr,
+// 		Amount: tkamount2a,
+// 	}
+// 	uout2 := types.UTXODestEntry{
+// 		Addr:   utxo2.Addr,
+// 		Amount: tkamount2b,
+// 	}
+// 	tx2, _, err := types.NewAinTokenTransaction(&ain, []types.DestEntry{&uout1, &uout2}, tkAdd, fee2i, nil)
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	tx2.Sign(types.GlobalSTDSigner, sender)
+// 	nonce++
+// 	balance21, mask21 := getBalance(tx2, lktypes.SecretKey(utxo1.Skv), lktypes.SecretKey(utxo1.Sks))
+// 	balance22, _ := getBalance(tx2, lktypes.SecretKey(utxo2.Skv), lktypes.SecretKey(utxo2.Sks))
 
-	amount3 := big.NewInt(0)
-	fee3 := types.CalNewAmountGas(big.NewInt(0), types.EverLiankeFee) + uint64(5e8)
-	fee3i := big.NewInt(0).Mul(big.NewInt(0).SetUint64(fee3), big.NewInt(types.ParGasPrice))
-	tkamount3 := tkamount2a
-	sEntey1 := &types.UTXOSourceEntry{
-		Ring: []types.UTXORingEntry{types.UTXORingEntry{
-			Index:  0,
-			OTAddr: tx2.Outputs[0].(*types.UTXOOutput).OTAddr,
-		}},
-		RingIndex: 0,
-		RKey:      tx2.RKey,
-		OutIndex:  0,
-		Amount:    balance21,
-		Mask:      mask21,
-	}
-	aDest := &types.AccountDestEntry{
-		To:     rAdd,
-		Amount: tkamount3,
-	}
-	tx3, ie, mk, _, err := types.NewUinTokenTransaction(&utxo1.Acc, utxo1.Keyi, []*types.UTXOSourceEntry{sEntey1}, []types.DestEntry{aDest}, tkAdd, common.EmptyAddress, fee3i, nil)
-	if err != nil {
-		panic(err)
-	}
-	tx3.Sign(types.GlobalSTDSigner, sender)
-	err = types.UInTransWithRctSig(tx3, []*types.UTXOSourceEntry{sEntey1}, ie, []types.DestEntry{aDest}, mk)
-	if err != nil {
-		panic(err)
-	}
-	//nonce++
+// 	amount3 := big.NewInt(0)
+// 	fee3 := types.CalNewAmountGas(big.NewInt(0), types.EverLiankeFee) + uint64(5e8)
+// 	fee3i := big.NewInt(0).Mul(big.NewInt(0).SetUint64(fee3), big.NewInt(types.ParGasPrice))
+// 	tkamount3 := tkamount2a
+// 	sEntey1 := &types.UTXOSourceEntry{
+// 		Ring: []types.UTXORingEntry{types.UTXORingEntry{
+// 			Index:  0,
+// 			OTAddr: tx2.Outputs[0].(*types.UTXOOutput).OTAddr,
+// 		}},
+// 		RingIndex: 0,
+// 		RKey:      tx2.RKey,
+// 		OutIndex:  0,
+// 		Amount:    balance21,
+// 		Mask:      mask21,
+// 	}
+// 	aDest := &types.AccountDestEntry{
+// 		To:     rAdd,
+// 		Amount: tkamount3,
+// 	}
+// 	tx3, ie, mk, _, err := types.NewUinTokenTransaction(&utxo1.Acc, utxo1.Keyi, []*types.UTXOSourceEntry{sEntey1}, []types.DestEntry{aDest}, tkAdd, common.EmptyAddress, fee3i, nil)
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	tx3.Sign(types.GlobalSTDSigner, sender)
+// 	err = types.UInTransWithRctSig(tx3, []*types.UTXOSourceEntry{sEntey1}, ie, []types.DestEntry{aDest}, mk)
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	//nonce++
 
-	bfBalanceIn := []*big.Int{statedb.GetBalance(sAdd)}
-	bftkBalanceIn := []*big.Int{statedb.GetTokenBalance(sAdd, tkAdd)}
-	bfBalanceOut := []*big.Int{}
-	bftkBalanceOut := []*big.Int{big.NewInt(0), statedb.GetTokenBalance(rAdd, tkAdd)}
-	block := genBlock(types.Txs{tx1, tx2, tx3})
-	receipts, _, blockGas, _, utxoOutputs, keyImages, err := SP.Process(block, statedb, VC)
-	if err != nil {
-		panic(err)
-	}
-	afBalanceIn := []*big.Int{statedb.GetBalance(sAdd)}
-	aftkBalanceIn := []*big.Int{statedb.GetTokenBalance(sAdd, tkAdd)}
-	afBalanceOut := []*big.Int{}
-	aftkBalanceOut := []*big.Int{balance22, statedb.GetTokenBalance(rAdd, tkAdd)}
+// 	bfBalanceIn := []*big.Int{statedb.GetBalance(sAdd)}
+// 	bftkBalanceIn := []*big.Int{statedb.GetTokenBalance(sAdd, tkAdd)}
+// 	bfBalanceOut := []*big.Int{}
+// 	bftkBalanceOut := []*big.Int{big.NewInt(0), statedb.GetTokenBalance(rAdd, tkAdd)}
+// 	block := genBlock(types.Txs{tx1, tx2, tx3})
+// 	receipts, _, blockGas, _, utxoOutputs, keyImages, err := SP.Process(block, statedb, VC)
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	afBalanceIn := []*big.Int{statedb.GetBalance(sAdd)}
+// 	aftkBalanceIn := []*big.Int{statedb.GetTokenBalance(sAdd, tkAdd)}
+// 	afBalanceOut := []*big.Int{}
+// 	aftkBalanceOut := []*big.Int{balance22, statedb.GetTokenBalance(rAdd, tkAdd)}
 
-	expectAmount := calExpectAmount(amount1, amount2, amount3)
-	expecttkAmount := calExpectAmount(tkamount2b, tkamount3)
-	expectFee := calExpectFee(fee1, fee2, fee3)
-	actualFee := big.NewInt(0).Mul(big.NewInt(0).SetUint64(blockGas), big.NewInt(types.ParGasPrice))
-	expectNonce := []uint64{nonce}
-	actualNonce := []uint64{statedb.GetNonce(sAdd)}
+// 	expectAmount := calExpectAmount(amount1, amount2, amount3)
+// 	expecttkAmount := calExpectAmount(tkamount2b, tkamount3)
+// 	expectFee := calExpectFee(fee1, fee2, fee3)
+// 	actualFee := big.NewInt(0).Mul(big.NewInt(0).SetUint64(blockGas), big.NewInt(types.ParGasPrice))
+// 	expectNonce := []uint64{nonce}
+// 	actualNonce := []uint64{statedb.GetNonce(sAdd)}
 
-	balancesChecker(t, bfBalanceIn, afBalanceIn, bfBalanceOut, afBalanceOut, expectAmount, expectFee, actualFee)
-	balancesChecker(t, bftkBalanceIn, aftkBalanceIn, bftkBalanceOut, aftkBalanceOut, expecttkAmount, big.NewInt(0), big.NewInt(0))
-	resultChecker(t, receipts, utxoOutputs, keyImages, 3, 2, 1)
-	othersChecker(t, expectNonce, actualNonce)
-}
+// 	balancesChecker(t, bfBalanceIn, afBalanceIn, bfBalanceOut, afBalanceOut, expectAmount, expectFee, actualFee)
+// 	balancesChecker(t, bftkBalanceIn, aftkBalanceIn, bftkBalanceOut, aftkBalanceOut, expecttkAmount, big.NewInt(0), big.NewInt(0))
+// 	resultChecker(t, receipts, utxoOutputs, keyImages, 3, 2, 1)
+// 	othersChecker(t, expectNonce, actualNonce)
+// }
 
 //U->M
 func TestSingleUTXO2Mix(t *testing.T) {
@@ -1479,118 +1599,118 @@ func TestSingleUTXO2Mix(t *testing.T) {
 }
 
 //U->M token
-func TestSingleUTXO2MixToken(t *testing.T) {
-	statedb := newTestState()
-	types.SaveBalanceRecord = true
-	types.BlockBalanceRecordsInstance = types.NewBlockBalanceRecords()
+// func TestSingleUTXO2MixToken(t *testing.T) {
+// 	statedb := newTestState()
+// 	types.SaveBalanceRecord = true
+// 	types.BlockBalanceRecordsInstance = types.NewBlockBalanceRecords()
 
-	sender := Bank[0].PrivateKey
-	sAdd := Bank[0].Address
-	utxo1, utxo2 := UtxoAccs[0], UtxoAccs[1]
+// 	sender := Bank[0].PrivateKey
+// 	sAdd := Bank[0].Address
+// 	utxo1, utxo2 := UtxoAccs[0], UtxoAccs[1]
 
-	amount1 := big.NewInt(0)
-	fee1 := uint64(1494617)
-	nonce := uint64(0)
-	tx1 := newContractTx(sAdd, fee1, nonce, "../test/token/sol/SimpleToken.bin")
-	tx1.Sign(types.GlobalSTDSigner, sender)
-	from, err := tx1.From()
-	if err != nil {
-		panic(err)
-	}
-	tkAdd := crypto.CreateAddress(from, tx1.Nonce(), tx1.Data())
-	nonce++
+// 	amount1 := big.NewInt(0)
+// 	fee1 := uint64(1494617)
+// 	nonce := uint64(0)
+// 	tx1 := newContractTx(sAdd, fee1, nonce, "../test/token/sol/SimpleToken.bin")
+// 	tx1.Sign(types.GlobalSTDSigner, sender)
+// 	from, err := tx1.From()
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	tkAdd := crypto.CreateAddress(from, tx1.Nonce(), tx1.Data())
+// 	nonce++
 
-	amount2 := big.NewInt(0)
-	fee2 := types.CalNewAmountGas(big.NewInt(0), types.EverLiankeFee)
-	fee2i := big.NewInt(0).Mul(big.NewInt(0).SetUint64(fee2), big.NewInt(types.ParGasPrice))
-	tkamount2 := big.NewInt(0).Mul(big.NewInt(1e10), big.NewInt(10000))
-	tkamount2a := big.NewInt(0).Mul(big.NewInt(1e10), big.NewInt(9999))
-	tkamount2b := big.NewInt(0).Sub(tkamount2, tkamount2a)
-	ain := types.AccountSourceEntry{
-		From:   sAdd,
-		Nonce:  nonce,
-		Amount: tkamount2,
-	}
-	uout1 := types.UTXODestEntry{
-		Addr:   utxo1.Addr,
-		Amount: tkamount2a,
-	}
-	uout2 := types.UTXODestEntry{
-		Addr:   utxo2.Addr,
-		Amount: tkamount2b,
-	}
-	tx2, _, err := types.NewAinTokenTransaction(&ain, []types.DestEntry{&uout1, &uout2}, tkAdd, fee2i, nil)
-	if err != nil {
-		panic(err)
-	}
-	tx2.Sign(types.GlobalSTDSigner, sender)
-	nonce++
-	balance21, mask21 := getBalance(tx2, lktypes.SecretKey(utxo1.Skv), lktypes.SecretKey(utxo1.Sks))
-	balance22, _ := getBalance(tx2, lktypes.SecretKey(utxo2.Skv), lktypes.SecretKey(utxo2.Sks))
+// 	amount2 := big.NewInt(0)
+// 	fee2 := types.CalNewAmountGas(big.NewInt(0), types.EverLiankeFee)
+// 	fee2i := big.NewInt(0).Mul(big.NewInt(0).SetUint64(fee2), big.NewInt(types.ParGasPrice))
+// 	tkamount2 := big.NewInt(0).Mul(big.NewInt(1e10), big.NewInt(10000))
+// 	tkamount2a := big.NewInt(0).Mul(big.NewInt(1e10), big.NewInt(9999))
+// 	tkamount2b := big.NewInt(0).Sub(tkamount2, tkamount2a)
+// 	ain := types.AccountSourceEntry{
+// 		From:   sAdd,
+// 		Nonce:  nonce,
+// 		Amount: tkamount2,
+// 	}
+// 	uout1 := types.UTXODestEntry{
+// 		Addr:   utxo1.Addr,
+// 		Amount: tkamount2a,
+// 	}
+// 	uout2 := types.UTXODestEntry{
+// 		Addr:   utxo2.Addr,
+// 		Amount: tkamount2b,
+// 	}
+// 	tx2, _, err := types.NewAinTokenTransaction(&ain, []types.DestEntry{&uout1, &uout2}, tkAdd, fee2i, nil)
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	tx2.Sign(types.GlobalSTDSigner, sender)
+// 	nonce++
+// 	balance21, mask21 := getBalance(tx2, lktypes.SecretKey(utxo1.Skv), lktypes.SecretKey(utxo1.Sks))
+// 	balance22, _ := getBalance(tx2, lktypes.SecretKey(utxo2.Skv), lktypes.SecretKey(utxo2.Sks))
 
-	amount3 := big.NewInt(0)
-	fee3 := types.CalNewAmountGas(big.NewInt(0), types.EverLiankeFee) + uint64(5e8)
-	fee3i := big.NewInt(0).Mul(big.NewInt(0).SetUint64(fee3), big.NewInt(types.ParGasPrice))
-	tkamount3 := tkamount2a
-	tkamount3a := big.NewInt(0).Mul(big.NewInt(1e10), big.NewInt(3000))
-	tkamount3b := big.NewInt(0).Sub(tkamount3, tkamount3a)
-	sEntey1 := &types.UTXOSourceEntry{
-		Ring: []types.UTXORingEntry{types.UTXORingEntry{
-			Index:  0,
-			OTAddr: tx2.Outputs[0].(*types.UTXOOutput).OTAddr,
-		}},
-		RingIndex: 0,
-		RKey:      tx2.RKey,
-		OutIndex:  0,
-		Amount:    balance21,
-		Mask:      mask21,
-	}
-	aDest := &types.AccountDestEntry{
-		To:     sAdd,
-		Amount: tkamount3a,
-	}
-	uDest := &types.UTXODestEntry{
-		Addr:   uout2.Addr,
-		Amount: tkamount3b,
-	}
-	tx3, ie, mk, _, err := types.NewUinTokenTransaction(&utxo1.Acc, utxo1.Keyi, []*types.UTXOSourceEntry{sEntey1}, []types.DestEntry{aDest, uDest}, tkAdd, common.EmptyAddress, fee3i, nil)
-	if err != nil {
-		panic(err)
-	}
-	tx3.Sign(types.GlobalSTDSigner, sender)
-	err = types.UInTransWithRctSig(tx3, []*types.UTXOSourceEntry{sEntey1}, ie, []types.DestEntry{aDest, uDest}, mk)
-	if err != nil {
-		panic(err)
-	}
-	//nonce++
-	balance32, _ := getBalance(tx3, lktypes.SecretKey(utxo2.Skv), lktypes.SecretKey(utxo2.Sks))
+// 	amount3 := big.NewInt(0)
+// 	fee3 := types.CalNewAmountGas(big.NewInt(0), types.EverLiankeFee) + uint64(5e8)
+// 	fee3i := big.NewInt(0).Mul(big.NewInt(0).SetUint64(fee3), big.NewInt(types.ParGasPrice))
+// 	tkamount3 := tkamount2a
+// 	tkamount3a := big.NewInt(0).Mul(big.NewInt(1e10), big.NewInt(3000))
+// 	tkamount3b := big.NewInt(0).Sub(tkamount3, tkamount3a)
+// 	sEntey1 := &types.UTXOSourceEntry{
+// 		Ring: []types.UTXORingEntry{types.UTXORingEntry{
+// 			Index:  0,
+// 			OTAddr: tx2.Outputs[0].(*types.UTXOOutput).OTAddr,
+// 		}},
+// 		RingIndex: 0,
+// 		RKey:      tx2.RKey,
+// 		OutIndex:  0,
+// 		Amount:    balance21,
+// 		Mask:      mask21,
+// 	}
+// 	aDest := &types.AccountDestEntry{
+// 		To:     sAdd,
+// 		Amount: tkamount3a,
+// 	}
+// 	uDest := &types.UTXODestEntry{
+// 		Addr:   uout2.Addr,
+// 		Amount: tkamount3b,
+// 	}
+// 	tx3, ie, mk, _, err := types.NewUinTokenTransaction(&utxo1.Acc, utxo1.Keyi, []*types.UTXOSourceEntry{sEntey1}, []types.DestEntry{aDest, uDest}, tkAdd, common.EmptyAddress, fee3i, nil)
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	tx3.Sign(types.GlobalSTDSigner, sender)
+// 	err = types.UInTransWithRctSig(tx3, []*types.UTXOSourceEntry{sEntey1}, ie, []types.DestEntry{aDest, uDest}, mk)
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	//nonce++
+// 	balance32, _ := getBalance(tx3, lktypes.SecretKey(utxo2.Skv), lktypes.SecretKey(utxo2.Sks))
 
-	bfBalanceIn := []*big.Int{statedb.GetBalance(sAdd)}
-	bftkBalanceIn := []*big.Int{statedb.GetTokenBalance(sAdd, tkAdd)}
-	bfBalanceOut := []*big.Int{}
-	bftkBalanceOut := []*big.Int{big.NewInt(0), big.NewInt(0)}
-	block := genBlock(types.Txs{tx1, tx2, tx3})
-	receipts, _, blockGas, _, utxoOutputs, keyImages, err := SP.Process(block, statedb, VC)
-	if err != nil {
-		panic(err)
-	}
-	afBalanceIn := []*big.Int{statedb.GetBalance(sAdd)}
-	aftkBalanceIn := []*big.Int{statedb.GetTokenBalance(sAdd, tkAdd)}
-	afBalanceOut := []*big.Int{}
-	aftkBalanceOut := []*big.Int{balance22, balance32}
+// 	bfBalanceIn := []*big.Int{statedb.GetBalance(sAdd)}
+// 	bftkBalanceIn := []*big.Int{statedb.GetTokenBalance(sAdd, tkAdd)}
+// 	bfBalanceOut := []*big.Int{}
+// 	bftkBalanceOut := []*big.Int{big.NewInt(0), big.NewInt(0)}
+// 	block := genBlock(types.Txs{tx1, tx2, tx3})
+// 	receipts, _, blockGas, _, utxoOutputs, keyImages, err := SP.Process(block, statedb, VC)
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	afBalanceIn := []*big.Int{statedb.GetBalance(sAdd)}
+// 	aftkBalanceIn := []*big.Int{statedb.GetTokenBalance(sAdd, tkAdd)}
+// 	afBalanceOut := []*big.Int{}
+// 	aftkBalanceOut := []*big.Int{balance22, balance32}
 
-	expectAmount := calExpectAmount(amount1, amount2, amount3)
-	expecttkAmount := calExpectAmount(tkamount2b, tkamount3b)
-	expectFee := calExpectFee(fee1, fee2, fee3)
-	actualFee := big.NewInt(0).Mul(big.NewInt(0).SetUint64(blockGas), big.NewInt(types.ParGasPrice))
-	expectNonce := []uint64{nonce}
-	actualNonce := []uint64{statedb.GetNonce(sAdd)}
+// 	expectAmount := calExpectAmount(amount1, amount2, amount3)
+// 	expecttkAmount := calExpectAmount(tkamount2b, tkamount3b)
+// 	expectFee := calExpectFee(fee1, fee2, fee3)
+// 	actualFee := big.NewInt(0).Mul(big.NewInt(0).SetUint64(blockGas), big.NewInt(types.ParGasPrice))
+// 	expectNonce := []uint64{nonce}
+// 	actualNonce := []uint64{statedb.GetNonce(sAdd)}
 
-	balancesChecker(t, bfBalanceIn, afBalanceIn, bfBalanceOut, afBalanceOut, expectAmount, expectFee, actualFee)
-	balancesChecker(t, bftkBalanceIn, aftkBalanceIn, bftkBalanceOut, aftkBalanceOut, expecttkAmount, big.NewInt(0), big.NewInt(0))
-	resultChecker(t, receipts, utxoOutputs, keyImages, 3, 3, 1)
-	othersChecker(t, expectNonce, actualNonce)
-}
+// 	balancesChecker(t, bfBalanceIn, afBalanceIn, bfBalanceOut, afBalanceOut, expectAmount, expectFee, actualFee)
+// 	balancesChecker(t, bftkBalanceIn, aftkBalanceIn, bftkBalanceOut, aftkBalanceOut, expecttkAmount, big.NewInt(0), big.NewInt(0))
+// 	resultChecker(t, receipts, utxoOutputs, keyImages, 3, 3, 1)
+// 	othersChecker(t, expectNonce, actualNonce)
+// }
 
 /* Not Support
 //U->C
