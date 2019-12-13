@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"math/big"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -16,18 +17,20 @@ import (
 	"github.com/lianxiangcloud/linkchain/utxo"
 
 	"github.com/lianxiangcloud/linkchain/libs/crypto"
+	"github.com/lianxiangcloud/linkchain/libs/hexutil"
 	"github.com/lianxiangcloud/linkchain/libs/log"
 	"github.com/lianxiangcloud/linkchain/libs/ser"
 	"github.com/lianxiangcloud/linkchain/libs/txmgr"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
+	"github.com/lianxiangcloud/linkchain/accounts/abi"
 	"github.com/lianxiangcloud/linkchain/accounts/keystore"
 	"github.com/lianxiangcloud/linkchain/libs/common"
 	"github.com/lianxiangcloud/linkchain/libs/db"
 	dbm "github.com/lianxiangcloud/linkchain/libs/db"
 	"github.com/lianxiangcloud/linkchain/state"
 	"github.com/lianxiangcloud/linkchain/types"
-	//"github.com/stretchr/testify/assert"
 )
 
 type ks struct {
@@ -188,8 +191,7 @@ func TestApp(t *testing.T) {
 			t.Fatalf("CheckTx err:%v", err)
 		}
 	}
-	//types.TxUpdateValidatorsType,
-	//types.TxContractCreateType,
+
 	for i := 0; i < 2; i++ {
 		mstAddr := common.BytesToAddress([]byte("mst"))
 		nonce := app.checkTxState.GetNonce(mstAddr)
@@ -401,6 +403,61 @@ func TestApp(t *testing.T) {
 	log.Debug("SAVER", "rh", receiptHash.Hex(), "sh", stateHash.Hex(), "brh", balanceRecordHash.Hex())
 	hashChecker(t, receiptHash, stateHash, balanceRecordHash, "0x66ae609bdf4359513afb0e33644289c32dea91de418689caaf04f49d0d4332ec", "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470", "0xa2d6b1b8c3c53f7ff250fc1783614577e886697b7cfc5377608d6f23a799a7bc")
 
+	// ---------
+	nonce = app.checkTxState.GetNonce(accounts[1].Address)
+	evmTkTx := newContractTx(accounts[1].Address, uint64(10000000), nonce, "../test/token/app_issue_test_contracts/Base.bin")
+	evmTkTx.Sign(types.GlobalSTDSigner, accounts[1].PrivateKey)
+
+	wasmTkTx := newContractTx(accounts[1].Address, uint64(10000000), nonce+1, "../test/token/app_issue_test_contracts/WBase.bin")
+	wasmTkTx.Sign(types.GlobalSTDSigner, accounts[1].PrivateKey)
+
+	addr := common.HexToAddress("0x3deb07ae9177f1358319189a9cf31293d1cf8003")
+	data, err := genContractCreateTestDataEVM() //hex.DecodeString("d0ca6234")
+	assert.Nil(t, err)
+	evmCallTx, err := genCallContractTx(accounts[1], nonce+2, &addr, big.NewInt(10), uint64(1000000000), data)
+	assert.Nil(t, err)
+
+	addr = common.HexToAddress("0x69cdcca69ad21cb0497964b03f6f69e0fef382c0")
+	data, err = genContractCreateTestDataWASM()
+	assert.Nil(t, err)
+	wasmCallTx, err := genCallContractTx(accounts[1], nonce+3, &addr, big.NewInt(0), uint64(10000000), data)
+	assert.Nil(t, err)
+
+	txs = nil
+	txs = append(txs, evmTkTx, wasmTkTx, evmCallTx, wasmCallTx)
+	txpool = &Mempool{}
+	txpool.On("VerifyTxFromCache", mock.Anything).Return(nil, false)
+	txpool.On("Lock").Return()
+	txpool.On("Unlock").Return()
+	txpool.On("Update", mock.Anything, mock.Anything).Return(nil)
+	txpool.On("Reap", mock.Anything).Return(txs)
+	txpool.On("GetTxFromCache", mock.Anything).Return(nil)
+	txpool.On("KeyImageReset").Return()
+	txpool.On("KeyImageRemoveKeys", mock.Anything).Return(nil)
+	app.SetMempool(txpool)
+
+	//block5
+	height = uint64(5)
+	block = app.CreateBlock(height, 1000, 1e18, uint64(time.Now().Unix()))
+	block.LastCommit = &types.Commit{}
+	app.PreRunBlock(block)
+	if !app.CheckBlock(block) {
+		t.Logf("CheckBlock not ok")
+	}
+
+	partSet = block.MakePartSet(types.DefaultConsensusParams().BlockGossip.BlockPartSizeBytes)
+
+	_, err = app.CommitBlock(block, partSet, &types.Commit{}, false)
+	if err != nil {
+		t.Fatalf("CommitBlock err:%v", err)
+	}
+	rate, err := types.GetUtxoCommitmentChangeRate(common.HexToAddress("0x3deb07ae9177f1358319189a9cf31293d1cf8003"))
+	assert.Nil(t, err)
+	assert.Equal(t, int64(1e12), rate)
+	rate, err = types.GetUtxoCommitmentChangeRate(common.HexToAddress("0x69cdcca69ad21cb0497964b03f6f69e0fef382c0"))
+	assert.Nil(t, err)
+	assert.Equal(t, int64(1e9), rate)
+	// ------
 }
 
 func createTokenTrans(from *keystore.Key, to *common.Address, tokenAddress common.Address, nonce uint64, amount *big.Int, ret uint8, reterr string) (*types.TokenTransaction, error) {
@@ -428,6 +485,18 @@ func genTx(from *keystore.Key, nonce uint64, to *common.Address, amount *big.Int
 	}
 	gasLimit := types.CalNewAmountGas(amount, types.EverLiankeFee)
 	tx := types.NewTransaction(nonce, toAddr, amount, gasLimit, gasPrice, payload)
+	if err := tx.Sign(types.GlobalSTDSigner, from.PrivateKey); err != nil {
+		return nil, err
+	}
+	return tx, nil
+}
+
+func genCallContractTx(from *keystore.Key, nonce uint64, to *common.Address, amount *big.Int, gas uint64, payload []byte) (*types.Transaction, error) {
+	toAddr := common.EmptyAddress
+	if to != nil {
+		toAddr = *to
+	}
+	tx := types.NewTransaction(nonce, toAddr, amount, gas, gasPrice, payload)
 	if err := tx.Sign(types.GlobalSTDSigner, from.PrivateKey); err != nil {
 		return nil, err
 	}
@@ -571,7 +640,7 @@ func newTestApp(sdb dbm.DB, txpool types.Mempool, blockStore *blockchain.BlockSt
 
 	//var linkApp *LinkApplication
 	balanceRecord := blockchain.NewBalanceRecordStore(dbm.NewMemDB(), false)
-	linkApp, err := NewLinkApplication(sdb, blockStore, utxoStore, crossState, nil, false, balanceRecord, nil, nil)
+	linkApp, err := NewLinkApplication(sdb, blockStore, utxoStore, crossState, types.NewEventBus(), false, balanceRecord, nil, nil)
 	linkApp.SetMempool(txpool)
 	for i := 0; i < 2; i++ {
 		state := linkApp.storeState
@@ -621,4 +690,20 @@ func genUTXOTransaction(hextx string) *types.UTXOTransaction {
 	}
 	fmt.Printf("UTXOTx\n: %s\n", utxoTx)
 	return &utxoTx
+}
+
+func genContractCreateTestDataEVM() ([]byte, error) {
+	cabi, err := abi.JSON(strings.NewReader(`[{"constant":true,"inputs":[],"name":"name","outputs":[{"name":"","type":"string"}],"payable":false,"stateMutability":"pure","type":"function"},{"constant":true,"inputs":[],"name":"decimals","outputs":[{"name":"","type":"uint8"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"_totalSupply","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"value","type":"uint256"}],"name":"addOrder","outputs":[],"payable":true,"stateMutability":"payable","type":"function"},{"constant":true,"inputs":[{"name":"owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[],"name":"exchangebytoken","outputs":[],"payable":true,"stateMutability":"payable","type":"function"},{"constant":false,"inputs":[],"name":"exchangebylk","outputs":[],"payable":true,"stateMutability":"payable","type":"function"},{"inputs":[],"payable":false,"stateMutability":"nonpayable","type":"constructor"},{"payable":false,"stateMutability":"nonpayable","type":"fallback"},{"anonymous":false,"inputs":[{"indexed":false,"name":"from","type":"address"},{"indexed":false,"name":"to","type":"address"},{"indexed":false,"name":"token","type":"address"},{"indexed":false,"name":"value","type":"uint256"}],"name":"Transfer","type":"event"}]`))
+	if err != nil {
+		return nil, err
+	}
+	data, err := cabi.Pack("exchangebylk")
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+func genContractCreateTestDataWASM() ([]byte, error) {
+	return hexutil.Bytes("CallIssue|{}"), nil
 }

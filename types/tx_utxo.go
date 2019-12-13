@@ -84,16 +84,22 @@ const (
 	BULLETPROOF_MAX_OUTPUTS     int   = 16
 	CRYPTONOTE_MAX_TX_SIZE      int   = 1000000
 	SHORT_RING_MEMBER_NUM       int   = 1
-	UTXO_COMMITMENT_CHANGE_RATE int64 = 1e10 //DEPRECATED
+	UTXO_COMMITMENT_CHANGE_RATE int64 = 1e10
 )
 
 var _ RegularTx = &UTXOTransaction{}
 
-func GetUtxoCommitmentChangeRate(addr common.Address) int64 { // UTXO value unit
+var utxoChangeRateGetter *UTXOChangeRateGetter
+
+func GetUtxoCommitmentChangeRate(addr common.Address) (int64, error) { // UTXO value unit
 	if common.IsLKC(addr) {
-		return 1e10
+		return UTXO_COMMITMENT_CHANGE_RATE, nil
 	}
-	return 1e10
+	rate, err := utxoChangeRateGetter.GetRate(addr)
+	if err != nil {
+		return 0, err
+	}
+	return rate, nil
 }
 
 func RegisterUTXOTxData() {
@@ -107,6 +113,10 @@ func RegisterUTXOTxData() {
 	ser.RegisterInterface((*Output)(nil), nil)
 	ser.RegisterConcrete(&UTXOOutput{}, "UTXOOutput", nil)
 	ser.RegisterConcrete(&AccountOutput{}, "AccountOutput", nil)
+}
+
+func RegisterUTXORateGetter(getter *UTXOChangeRateGetter) {
+	utxoChangeRateGetter = getter
 }
 
 //Input represents a utxo or account input
@@ -853,8 +863,12 @@ func (tx *UTXOTransaction) checkTxSemantic(censor TxCensor) error {
 			if (kind & Ain) == Ain {
 				return ErrAccountInputSizeNotExpect
 			}
-			if input.Amount == nil || input.Amount.Cmp(big.NewInt(GetUtxoCommitmentChangeRate(tx.TokenID))) < 0 ||
-				big.NewInt(0).Mod(input.Amount, big.NewInt(GetUtxoCommitmentChangeRate(tx.TokenID))).Sign() != 0 {
+			utxoRate, err := GetUtxoCommitmentChangeRate(tx.TokenID)
+			if err != nil {
+				return err
+			}
+			if input.Amount == nil || input.Amount.Cmp(big.NewInt(utxoRate)) < 0 ||
+				big.NewInt(0).Mod(input.Amount, big.NewInt(utxoRate)).Sign() != 0 {
 				return ErrMoneyInvalid
 			}
 
@@ -883,8 +897,12 @@ func (tx *UTXOTransaction) checkTxSemantic(censor TxCensor) error {
 			if output.Amount == nil || output.Amount.Sign() < 0 {
 				return ErrMoneyInvalid
 			}
-			if output.Amount.Sign() > 0 && (output.Amount.Cmp(big.NewInt(GetUtxoCommitmentChangeRate(tx.TokenID))) < 0 ||
-				big.NewInt(0).Mod(output.Amount, big.NewInt(GetUtxoCommitmentChangeRate(tx.TokenID))).Sign() != 0) {
+			utxoRate, err := GetUtxoCommitmentChangeRate(tx.TokenID)
+			if err != nil {
+				return err
+			}
+			if output.Amount.Sign() > 0 && (output.Amount.Cmp(big.NewInt(utxoRate)) < 0 ||
+				big.NewInt(0).Mod(output.Amount, big.NewInt(utxoRate)).Sign() != 0) {
 				return ErrMoneyInvalid
 			}
 			if hasOneAccountOutput {
@@ -995,7 +1013,11 @@ func (tx *UTXOTransaction) checkCommitEqual() error {
 			switch input := txin.(type) {
 			case *UTXOInput:
 			case *AccountInput:
-				commit := AmountCommit(big.NewInt(0).Div(input.Amount, big.NewInt(GetUtxoCommitmentChangeRate(tx.TokenID))), input.CF)
+				utxoRate, err := GetUtxoCommitmentChangeRate(tx.TokenID)
+				if err != nil {
+					return err
+				}
+				commit := AmountCommit(big.NewInt(0).Div(input.Amount, big.NewInt(utxoRate)), input.CF)
 				if !commit.IsEqual(&input.Commit) {
 					return ErrCheckAmountCommit
 				}
@@ -1040,7 +1062,11 @@ func (tx *UTXOTransaction) checkCommitEqual() error {
 	//TODO: adding intrinsic gas when calculate contract fee
 	if common.IsLKC(tx.TokenID) {
 		//Fee commit always use lkc addr
-		txFeekey, err := BigInt2Hash(big.NewInt(0).Div(tx.Fee, big.NewInt(GetUtxoCommitmentChangeRate(common.EmptyAddress))))
+		utxoRate, err := GetUtxoCommitmentChangeRate(common.EmptyAddress)
+		if err != nil {
+			return err
+		}
+		txFeekey, err := BigInt2Hash(big.NewInt(0).Div(tx.Fee, big.NewInt(utxoRate)))
 		if err != nil {
 			log.Warn("UTXO BigInt2Hash Error")
 			return err
@@ -1063,7 +1089,11 @@ func (tx *UTXOTransaction) checkCommitEqual() error {
 			switch output := txin.(type) {
 			case *UTXOOutput:
 			case *AccountOutput:
-				oAmountKey, err := BigInt2Hash(big.NewInt(0).Div(output.Amount, big.NewInt(GetUtxoCommitmentChangeRate(tx.TokenID))))
+				utxoRate, err := GetUtxoCommitmentChangeRate(tx.TokenID)
+				if err != nil {
+					return err
+				}
+				oAmountKey, err := BigInt2Hash(big.NewInt(0).Div(output.Amount, big.NewInt(utxoRate)))
 				if err != nil {
 					log.Warn("Amount bigInt2hash Error")
 					return err
@@ -1353,6 +1383,7 @@ func (tx *UTXOTransaction) checkState(censor TxCensor) error {
 			}
 			//check balance
 			if state.GetTokenBalance(fromAddr, tx.TokenID).Cmp(input.Amount) < 0 {
+				log.Error("insufficient tkBalance", "got", state.GetTokenBalance(fromAddr, tx.TokenID), "want", input.Amount, "nonce", nonce, "txHash", tx.Hash())
 				return ErrInsufficientFunds
 			}
 			if !common.IsLKC(tx.TokenID) { //other token Fee
@@ -1541,7 +1572,11 @@ func aInTransWithRctSig(utxoTrans *UTXOTransaction, dests []DestEntry, mkeys typ
 	outAmounts := make([]types.Key, 0)
 	for _, dest := range dests {
 		if TypeUTXODest == dest.Type() {
-			amountKey, err := BigInt2Hash(big.NewInt(0).Div(dest.GetAmount(), big.NewInt(GetUtxoCommitmentChangeRate(utxoTrans.TokenID))))
+			utxoRate, err := GetUtxoCommitmentChangeRate(utxoTrans.TokenID)
+			if err != nil {
+				return err
+			}
+			amountKey, err := BigInt2Hash(big.NewInt(0).Div(dest.GetAmount(), big.NewInt(utxoRate)))
 			if err != nil {
 				return err
 			}
@@ -1588,7 +1623,11 @@ func aInTransWithRctSig(utxoTrans *UTXOTransaction, dests []DestEntry, mkeys typ
 	}
 	for i, output := range utxoTrans.Outputs {
 		if OutAc == output.Type() {
-			amountKey, err := BigInt2Hash(big.NewInt(0).Div(output.(*AccountOutput).Amount, big.NewInt(GetUtxoCommitmentChangeRate(utxoTrans.TokenID))))
+			utxoRate, err := GetUtxoCommitmentChangeRate(utxoTrans.TokenID)
+			if err != nil {
+				return err
+			}
+			amountKey, err := BigInt2Hash(big.NewInt(0).Div(output.(*AccountOutput).Amount, big.NewInt(utxoRate)))
 			if err != nil {
 				return err
 			}
@@ -1601,7 +1640,11 @@ func aInTransWithRctSig(utxoTrans *UTXOTransaction, dests []DestEntry, mkeys typ
 	if InAc != utxoTrans.Inputs[0].Type() {
 		return ErrInputTypeNotExpect
 	}
-	amountKey, err := BigInt2Hash(big.NewInt(0).Div(utxoTrans.Inputs[0].(*AccountInput).Amount, big.NewInt(GetUtxoCommitmentChangeRate(utxoTrans.TokenID))))
+	utxoRate, err := GetUtxoCommitmentChangeRate(utxoTrans.TokenID)
+	if err != nil {
+		return err
+	}
+	amountKey, err := BigInt2Hash(big.NewInt(0).Div(utxoTrans.Inputs[0].(*AccountInput).Amount, big.NewInt(utxoRate)))
 	if err != nil {
 		return err
 	}
@@ -1757,7 +1800,11 @@ func constructUinTrans(rPubKey types.Key, sources []*UTXOSourceEntry, utxoIns []
 			n++
 		} else {
 			accOutput := output.(*AccountOutput)
-			amountKey, err := BigInt2Hash(big.NewInt(0).Div(accOutput.Amount, big.NewInt(GetUtxoCommitmentChangeRate(utxoTrans.TokenID))))
+			utxoRate, err := GetUtxoCommitmentChangeRate(utxoTrans.TokenID)
+			if err != nil {
+				return nil, err
+			}
+			amountKey, err := BigInt2Hash(big.NewInt(0).Div(accOutput.Amount, big.NewInt(utxoRate)))
 			if err != nil {
 				return nil, err
 			}
@@ -1784,7 +1831,11 @@ func UInTransWithRctSig(utxoTrans *UTXOTransaction, sources []*UTXOSourceEntry, 
 	outAmounts := make([]types.Key, 0)
 	for _, dest := range dests {
 		if TypeUTXODest == dest.Type() {
-			amountKey, err := BigInt2Hash(big.NewInt(0).Div(dest.GetAmount(), big.NewInt(GetUtxoCommitmentChangeRate(utxoTrans.TokenID))))
+			utxoRate, err := GetUtxoCommitmentChangeRate(utxoTrans.TokenID)
+			if err != nil {
+				return err
+			}
+			amountKey, err := BigInt2Hash(big.NewInt(0).Div(dest.GetAmount(), big.NewInt(utxoRate)))
 			if err != nil {
 				return err
 			}
@@ -1835,7 +1886,11 @@ func UInTransWithRctSig(utxoTrans *UTXOTransaction, sources []*UTXOSourceEntry, 
 				Mask: sources[i].Ring[j].Commit,
 			}
 		}
-		amountKey, err := BigInt2Hash(big.NewInt(0).Div(sources[i].Amount, big.NewInt(GetUtxoCommitmentChangeRate(utxoTrans.TokenID))))
+		utxoRate, err := GetUtxoCommitmentChangeRate(utxoTrans.TokenID)
+		if err != nil {
+			return err
+		}
+		amountKey, err := BigInt2Hash(big.NewInt(0).Div(sources[i].Amount, big.NewInt(utxoRate)))
 		if err != nil {
 			return err
 		}

@@ -258,7 +258,12 @@ func (tx *processTransaction) transitOutputs(res *TransitionResult) (vmerr error
 			vm.Reset(types.NewMessage(tx.RefundAddr, nil, tx.TokenAddress, tx.State.GetNonce(tx.RefundAddr), nil, 0, tx.GasPrice, nil))
 			vm.SetToken(tx.TokenAddress)
 			from := evm.AccountRef(tx.RefundAddr)
-			vm.Upgrade(from, out.To, out.Data)
+			vmerr = vm.Upgrade(from, out.To, out.Data)
+			if vmerr != nil {
+				// no fee to refund
+				log.Warn("transitOutputs: update error", "hash", tx.Hash, "vmerr", vmerr)
+				return
+			}
 			log.Debug("transitOutputs: contract update", "hash", tx.Hash)
 
 		} else if out.Type == Aout {

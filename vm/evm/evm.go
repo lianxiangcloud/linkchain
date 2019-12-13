@@ -17,6 +17,7 @@
 package evm
 
 import (
+	"fmt"
 	"math/big"
 	"sync/atomic"
 	"time"
@@ -29,6 +30,9 @@ import (
 )
 
 var defaultDifficulty = big.NewInt(10000000)
+
+// staticCallSimulateGas is used for simulating staticCall during getting utxo commit rate
+var staticCallSimulateGas = uint64(1e10)
 
 // emptyCodeHash is used by create to ensure deployment is disallowed to already
 // deployed contract addresses (relevant after the account abstraction).
@@ -179,6 +183,8 @@ type EVM struct {
 	Context
 	// StateDB gives access to the underlying state
 	StateDB types.StateDB
+	// Issued marked that EVM has called opIssue and may be reverted because of that
+	Issued chan bool
 	// Depth is the current call stack
 	depth int
 
@@ -196,10 +202,10 @@ type EVM struct {
 	// applied in opCall*.
 	callGasTemp uint64
 
-	otxs        []types.BalanceRecord
-	fees        []uint64
-	refundFees  []uint64
-	feeSaved    bool
+	otxs       []types.BalanceRecord
+	fees       []uint64
+	refundFees []uint64
+	feeSaved   bool
 }
 
 // NewEVM returns a new EVM. The returned EVM is not thread safe and should
@@ -215,6 +221,7 @@ func NewEVM(c types.Context, statedb types.StateDB, vmc types.VmConfig) *EVM {
 		otxs:       make([]types.BalanceRecord, 0),
 		fees:       make([]uint64, 0),
 		refundFees: make([]uint64, 0),
+		Issued:     make(chan bool, 1),
 	}
 
 	evm.interpreter = NewInterpreter(evm, vmConfig)
@@ -226,15 +233,16 @@ func (evm *EVM) Reset(msg types.Message) {
 	evm.abort = 0
 	evm.callGasTemp = 0
 
-	evm.Context.Origin   = msg.MsgFrom()
+	evm.Context.Origin = msg.MsgFrom()
 	evm.Context.GasPrice = new(big.Int).Set(msg.GasPrice())
-	evm.Context.Token    = msg.TokenAddress()
-	evm.otxs             = make([]types.BalanceRecord, 0)
-	evm.fees             = make([]uint64, 0)
-	evm.refundFees       = make([]uint64, 0)
+	evm.Context.Token = msg.TokenAddress()
+	evm.otxs = make([]types.BalanceRecord, 0)
+	evm.fees = make([]uint64, 0)
+	evm.refundFees = make([]uint64, 0)
 
 	evm.interpreter.readOnly = false
 	evm.interpreter.returnData = nil
+	evm.Issued = make(chan bool, 1)
 }
 
 // Cancel cancels any running EVM operation. This may be called concurrently and
@@ -278,10 +286,23 @@ func (evm *EVM) UTXOCall(c types.ContractRef, addr, token common.Address, input 
 	// When an error was returned by the EVM or when setting the creation code
 	// above we revert to the snapshot and consume any gas remaining. Additionally
 	// when we're in homestead this also counts for code storage gas errors.
-    gasUsed := gas - contract.Gas
-    if gasUsed < contract.ByteCodeGas {
-        byteCodeGas = contract.ByteCodeGas - gasUsed
-    }
+	gasUsed := gas - contract.Gas
+	if gasUsed < contract.ByteCodeGas {
+		byteCodeGas = contract.ByteCodeGas - gasUsed
+	}
+
+	select {
+	case <-evm.Issued:
+		if err == nil {
+			_, err = evm.GetUTXOChangeRate(contract.self.Address())
+			if err != nil {
+				log.Error("issue without decimals set", "conAddr", contract.self.Address())
+				err = types.ExecutionReverted
+			}
+		}
+	default:
+	}
+
 	if err != nil {
 		evm.StateDB.RevertToSnapshot(snapshot)
 		if err != types.ExecutionReverted {
@@ -355,10 +376,23 @@ func (evm *EVM) Call(c types.ContractRef, addr, token common.Address, input []by
 	// When an error was returned by the EVM or when setting the creation code
 	// above we revert to the snapshot and consume any gas remaining. Additionally
 	// when we're in homestead this also counts for code storage gas errors.
-    gasUsed := gas - contract.Gas
-    if gasUsed < contract.ByteCodeGas {
-        byteCodeGas = contract.ByteCodeGas - gasUsed
-    }
+	gasUsed := gas - contract.Gas
+	if gasUsed < contract.ByteCodeGas {
+		byteCodeGas = contract.ByteCodeGas - gasUsed
+	}
+
+	select {
+	case <-evm.Issued:
+		if err == nil {
+			_, err = evm.GetUTXOChangeRate(contract.self.Address())
+			if err != nil {
+				log.Error("issue without decimals set", "conAddr", contract.self.Address())
+				err = types.ExecutionReverted
+			}
+		}
+	default:
+	}
+
 	if err != nil {
 		evm.StateDB.RevertToSnapshot(snapshot)
 		if err != types.ExecutionReverted {
@@ -401,10 +435,23 @@ func (evm *EVM) CallCode(c types.ContractRef, addr common.Address, input []byte,
 	contract.SetCallCode(&addr, evm.StateDB.GetCodeHash(addr), evm.StateDB.GetCode(addr))
 
 	ret, err = run(evm, contract, input, false)
-    gasUsed := gas - contract.Gas
-    if gasUsed < contract.ByteCodeGas {
-        byteCodeGas = contract.ByteCodeGas - gasUsed
-    }
+	gasUsed := gas - contract.Gas
+	if gasUsed < contract.ByteCodeGas {
+		byteCodeGas = contract.ByteCodeGas - gasUsed
+	}
+
+	select {
+	case <-evm.Issued:
+		if err == nil {
+			_, err = evm.GetUTXOChangeRate(contract.self.Address())
+			if err != nil {
+				log.Error("issue without decimals set", "conAddr", contract.self.Address())
+				err = types.ExecutionReverted
+			}
+		}
+	default:
+	}
+
 	if err != nil {
 		evm.StateDB.RevertToSnapshot(snapshot)
 		if err != types.ExecutionReverted {
@@ -439,10 +486,23 @@ func (evm *EVM) DelegateCall(c types.ContractRef, addr common.Address, input []b
 	contract.SetCallCode(&addr, evm.StateDB.GetCodeHash(addr), evm.StateDB.GetCode(addr))
 
 	ret, err = run(evm, contract, input, false)
-    gasUsed := gas - contract.Gas
-    if gasUsed < contract.ByteCodeGas {
-        byteCodeGas = contract.ByteCodeGas - gasUsed
-    }
+	gasUsed := gas - contract.Gas
+	if gasUsed < contract.ByteCodeGas {
+		byteCodeGas = contract.ByteCodeGas - gasUsed
+	}
+
+	select {
+	case <-evm.Issued:
+		if err == nil {
+			_, err = evm.GetUTXOChangeRate(contract.self.Address())
+			if err != nil {
+				log.Error("issue without decimals set", "conAddr", contract.self.Address())
+				err = types.ExecutionReverted
+			}
+		}
+	default:
+	}
+
 	if err != nil {
 		evm.StateDB.RevertToSnapshot(snapshot)
 		if err != types.ExecutionReverted {
@@ -486,11 +546,24 @@ func (evm *EVM) StaticCall(c types.ContractRef, addr common.Address, input []byt
 	// When an error was returned by the EVM or when setting the creation code
 	// above we revert to the snapshot and consume any gas remaining. Additionally
 	// when we're in Homestead this also counts for code storage gas errors.
-	ret, err = run(evm, contract, input, true) 
-    gasUsed := gas - contract.Gas
-    if gasUsed < contract.ByteCodeGas {
-        byteCodeGas = contract.ByteCodeGas - gasUsed
-    }
+	ret, err = run(evm, contract, input, true)
+	gasUsed := gas - contract.Gas
+	if gasUsed < contract.ByteCodeGas {
+		byteCodeGas = contract.ByteCodeGas - gasUsed
+	}
+
+	select {
+	case needCheck := <-evm.Issued:
+		if needCheck && err == nil {
+			_, err = evm.GetUTXOChangeRate(contract.self.Address())
+			if err != nil {
+				log.Error("issue without decimals set", "conAddr", contract.self.Address())
+				err = types.ExecutionReverted
+			}
+		}
+	default:
+	}
+
 	if err != nil {
 		evm.StateDB.RevertToSnapshot(snapshot)
 		if err != types.ExecutionReverted {
@@ -578,6 +651,18 @@ func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64,
 		}
 	}
 
+	select {
+	case <-evm.Issued:
+		if err == nil {
+			_, err = evm.GetUTXOChangeRate(contract.self.Address())
+			if err != nil {
+				log.Error("issue without decimals set", "conAddr", contract.self.Address())
+				err = types.ExecutionReverted
+			}
+		}
+	default:
+	}
+
 	// When an error was returned by the EVM or when setting the creation code
 	// above we revert to the snapshot and consume any gas remaining. Additionally
 	// when we're in homestead this also counts for code storage gas errors.
@@ -620,8 +705,9 @@ func (evm *EVM) Create2(c types.ContractRef, code []byte, gas uint64, endowment 
 // Interpreter returns the EVM interpreter
 func (evm *EVM) Interpreter() types.Interpreter { return evm.interpreter }
 
-func (evm *EVM) Upgrade(c types.ContractRef, contactAddr common.Address, code []byte) {
+func (evm *EVM) Upgrade(c types.ContractRef, contactAddr common.Address, code []byte) error {
 	log.Error("evm should not support upgrade")
+	return fmt.Errorf("evm should not support upgrade")
 }
 
 //Token
@@ -674,4 +760,25 @@ func (evm *EVM) RefundAllFee() uint64 {
 		refundFee += fee
 	}
 	return refundFee + evm.RefundFee()
+}
+
+func (evm *EVM) GetUTXOChangeRate(addr common.Address) (int64, error) {
+	data := types.UTXOChangeRateDataEVM()
+	select {
+	case evm.Issued <- false:
+	default:
+	}
+	ret, _, _, err := evm.StaticCall(AccountRef(common.EmptyAddress), addr, data, staticCallSimulateGas)
+	if err != nil {
+		return 0, err
+	}
+	rateUint8, err := types.UTXOChangeRateResultDecodeEVM(ret)
+	if err != nil {
+		return 0, err
+	}
+	rate, err := types.UTXOChangeRateFromUint8(rateUint8)
+	if err != nil {
+		return 0, err
+	}
+	return rate, nil
 }

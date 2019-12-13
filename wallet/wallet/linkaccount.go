@@ -576,7 +576,12 @@ func (la *LinkAccount) processNewTransaction(tx *tctypes.UTXOTransaction, height
 			uod.SubAddrIndex = subaddrIndex
 			uod.RKey = realRKey
 			uod.Mask = ecdh.Mask
-			uod.Amount = big.NewInt(0).Mul(tctypes.Hash2BigInt(ecdh.Amount), big.NewInt(tctypes.GetUtxoCommitmentChangeRate(tx.TokenID)))
+			utxoRate, err := tctypes.GetUtxoCommitmentChangeRate(tx.TokenID)
+			if err != nil {
+				la.Logger.Error("GetUtxoCommitmentChangeRate err", "err", err)
+				continue
+			}
+			uod.Amount = big.NewInt(0).Mul(tctypes.Hash2BigInt(ecdh.Amount), big.NewInt(utxoRate))
 			la.Logger.Debug("processNewTransaction output", "ro.Amount", ro.Amount.String(), "ecdh.Amount", ecdh.Amount.String(), "outputID", outputID, "scalar", scalar)
 			uod.Remark = ro.Remark
 			uod.TokenID = tx.TokenID

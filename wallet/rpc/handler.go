@@ -373,10 +373,14 @@ func (s *PublicTransactionPoolAPI) CheckProofKey(ctx context.Context, args wtype
 					if !bytes.Equal(tx.RCTSig.OutPk[outIdx].Mask[:], tMask[:]) {
 						return nil, wtypes.ErrTransInvalid
 					}
+					utxoRate, err := types.GetUtxoCommitmentChangeRate(tx.TokenID)
+					if err != nil {
+						return nil, wtypes.ErrTransInvalid
+					}
 					ret.Records = append(ret.Records, &wtypes.VerifyProofKey{
 						Hash:   args.Hash,
 						Addr:   args.Addr,
-						Amount: (*hexutil.Big)(big.NewInt(0).Mul(types.Hash2BigInt(ecdh.Amount), big.NewInt(types.GetUtxoCommitmentChangeRate(tx.TokenID)))),
+						Amount: (*hexutil.Big)(big.NewInt(0).Mul(types.Hash2BigInt(ecdh.Amount), big.NewInt(utxoRate))),
 					})
 				}
 				outIdx++

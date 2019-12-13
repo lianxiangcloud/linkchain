@@ -323,6 +323,15 @@ func (s *PublicBlockChainAPI) TokenCall(ctx context.Context, args CallArgs, bloc
 	return s.Call(ctx, args, blockNr)
 }
 
+// GetUTXOChangeRate returns utxo change rate of target contract
+func (s *PublicBlockChainAPI) GetUTXOChangeRate(ctx context.Context, addr common.Address) (hexutil.Uint64, error) {
+	rate, err := types.GetUtxoCommitmentChangeRate(addr)
+	if err != nil {
+		return hexutil.Uint64(0), err
+	}
+	return hexutil.Uint64(rate), nil
+}
+
 // EstimateGas returns an estimate of the amount of gas needed to execute the
 // given transaction against the current pending block.
 func (s *PublicBlockChainAPI) EstimateGas(ctx context.Context, args CallArgs) (hexutil.Uint64, error) {
@@ -363,7 +372,7 @@ func (s *PublicBlockChainAPI) EstimateGas(ctx context.Context, args CallArgs) (h
 		}
 		return 0, fmt.Errorf("gas required exceeds allowance or always failing transaction")
 	}
-	estimateGas := gasUsed + refundFee	
+	estimateGas := gasUsed + refundFee
 	if extraByteCodeGas > 0 {
 		maxCallGas := 10 * cfg.CallNewAccountGas
 		if extraByteCodeGas > maxCallGas {

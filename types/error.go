@@ -102,4 +102,7 @@ var (
 
 	ErrInsufficientBalanceForGas = errors.New("insufficient balance to pay for gas")
 	ErrIntrinsicGasOverflow      = errors.New("intrinsic gas overflow")
+
+	ErrUTXOChangeRateTooLarge   = errors.New("utxo change rate too large")
+	ErrForbiddenDecimalsChanged = errors.New("decimals change is forbidden")
 )

@@ -391,8 +391,12 @@ func (wallet *Wallet) checkDest(dests []types.DestEntry, tokenID common.Address,
 		outKind       = NilOut
 	)
 	for i := 0; i < len(dests); i++ {
-		if dests[i].GetAmount().Sign() <= 0 || dests[i].GetAmount().Cmp(big.NewInt(types.GetUtxoCommitmentChangeRate(tokenID))) < 0 ||
-			big.NewInt(0).Mod(dests[i].GetAmount(), big.NewInt(types.GetUtxoCommitmentChangeRate(tokenID))).Sign() != 0 {
+		utxoRate, err := types.GetUtxoCommitmentChangeRate(tokenID)
+		if err != nil {
+			return nil, NilOut, err
+		}
+		if dests[i].GetAmount().Sign() <= 0 || dests[i].GetAmount().Cmp(big.NewInt(utxoRate)) < 0 ||
+			big.NewInt(0).Mod(dests[i].GetAmount(), big.NewInt(utxoRate)).Sign() != 0 {
 			return nil, NilOut, wtypes.ErrOutputMoneyInvalid
 		}
 		if types.TypeAcDest == dests[i].Type() {

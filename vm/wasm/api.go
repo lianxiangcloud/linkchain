@@ -1139,6 +1139,16 @@ func (t *TCIssue) Gas(index int64, ops interface{}, args []uint64) (uint64, erro
 
 //void TC_Issue(char* amount);
 func tcIssue(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
+	mWasm, ok := eng.Ctx.(*WASM)
+	if !ok {
+		err := fmt.Errorf("TC_Issue get WASM failed")
+		eng.Logger().Error(err.Error())
+		return 0, err
+	}
+	select {
+	case mWasm.Issued <- true:
+	default:
+	}
 	runningFrame, _ := eng.RunningAppFrame()
 	vmem := runningFrame.VM.VMemory()
 	amountTmp, err := vmem.GetString(args[0])
@@ -1156,10 +1166,6 @@ func tcIssue(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 		mState := eng.State.(types.StateDB)
 		mState.AddTokenBalance(contractAddr, codeAddr, amount)
 
-		mWasm, ok := eng.Ctx.(*WASM)
-		if !ok {
-			eng.Logger().Error("TC_Issue get WASM failed")
-		}
 		mWasm.otxs = append(mWasm.otxs,
 			types.GenBalanceRecord(common.EmptyAddress, contractAddr, types.NoAddress, types.AccountAddress, types.TxContract, common.BytesToAddress(eng.Contract.CodeAddr.Bytes()), amount))
 	}

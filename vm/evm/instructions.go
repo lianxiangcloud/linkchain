@@ -397,6 +397,10 @@ func opBalance(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *
 }
 
 func opIssue(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
+	select {
+	case evm.Issued <- true:
+	default:
+	}
 	amount := stack.pop()
 	log.Debug("opIssue", "amount sign", amount.Sign(), "amount", amount)
 	if amount.Sign() > 0 {
