@@ -284,7 +284,7 @@ func (wasm *WASM) UTXOCall(c types.ContractRef, addr, token common.Address, inpu
 		if err == nil {
 			_, err = wasm.GetUTXOChangeRate(contract.Address())
 			if err != nil {
-				log.Error("issue without decimals set", "conAddr", contract.self.Address())
+				log.Error("issue without decimals set", "conAddr", contract.Address())
 				err = vm.ErrExecutionReverted
 			}
 		}
@@ -348,7 +348,7 @@ func (wasm *WASM) Call(c types.ContractRef, addr, token common.Address, input []
 		if err == nil {
 			_, err = wasm.GetUTXOChangeRate(contract.Address())
 			if err != nil {
-				log.Error("issue without decimals set", "conAddr", contract.self.Address())
+				log.Error("issue without decimals set", "conAddr", contract.Address())
 				err = vm.ErrExecutionReverted
 			}
 		}
@@ -402,7 +402,7 @@ func (wasm *WASM) CallCode(c types.ContractRef, addr common.Address, input []byt
 		if err == nil {
 			_, err = wasm.GetUTXOChangeRate(contract.Address())
 			if err != nil {
-				log.Error("issue without decimals set", "conAddr", contract.self.Address())
+				log.Error("issue without decimals set", "conAddr", contract.Address())
 				err = vm.ErrExecutionReverted
 			}
 		}
@@ -448,7 +448,7 @@ func (wasm *WASM) DelegateCall(c types.ContractRef, addr common.Address, input [
 		if err == nil {
 			_, err = wasm.GetUTXOChangeRate(contract.Address())
 			if err != nil {
-				log.Error("issue without decimals set", "conAddr", contract.self.Address())
+				log.Error("issue without decimals set", "conAddr", contract.Address())
 				err = vm.ErrExecutionReverted
 			}
 		}
@@ -504,7 +504,7 @@ func (wasm *WASM) StaticCall(c types.ContractRef, addr common.Address, input []b
 		if needCheck && err == nil {
 			_, err = wasm.GetUTXOChangeRate(contract.Address())
 			if err != nil {
-				log.Error("issue without decimals set", "conAddr", contract.self.Address())
+				log.Error("issue without decimals set", "conAddr", contract.Address())
 				err = vm.ErrExecutionReverted
 			}
 		}
@@ -586,7 +586,7 @@ func (wasm *WASM) Create(c types.ContractRef, data []byte, gas uint64, value *bi
 		if err == nil {
 			_, err = wasm.GetUTXOChangeRate(contract.Address())
 			if err != nil {
-				log.Error("issue without decimals set", "conAddr", contract.self.Address())
+				log.Error("issue without decimals set", "conAddr", contract.Address())
 				err = vm.ErrExecutionReverted
 			}
 		}
@@ -614,19 +614,19 @@ func (wasm *WASM) Create(c types.ContractRef, data []byte, gas uint64, value *bi
 
 func (wasm *WASM) Upgrade(caller types.ContractRef, contractAddr common.Address, code []byte) error {
 	snapshot := wasm.StateDB.Snapshot()
-	rate, err := wasm.GetUTXOChangeRate(contractAddr)
+	oldRate, err := wasm.GetUTXOChangeRate(contractAddr)
 	if err != nil {
-		rate = -1
+		oldRate = -1
 	}
 
 	wasm.StateDB.SetCode(contractAddr, code)
 	vm.AppCache.Delete(contractAddr.String())
 
-	rate2, err2 := wasm.GetUTXOChangeRate(contractAddr)
-	if err2 != nil {
-		rate2 = -1
+	newRate, err := wasm.GetUTXOChangeRate(contractAddr)
+	if err != nil {
+		newRate = -1
 	}
-	if rate != rate2 {
+	if oldRate != newRate {
 		wasm.StateDB.RevertToSnapshot(snapshot)
 		return types.ErrForbiddenDecimalsChanged
 	}

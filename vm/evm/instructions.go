@@ -404,8 +404,8 @@ func opIssue(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *St
 	amount := stack.pop()
 	log.Debug("opIssue", "amount sign", amount.Sign(), "amount", amount)
 	if amount.Sign() > 0 {
-		evm.StateDB.AddTokenBalance(contract.Address(), *contract.CodeAddr, amount)
-		br := types.GenBalanceRecord(common.EmptyAddress, contract.Address(), types.NoAddress, types.AccountAddress, types.TxContract, *contract.CodeAddr, amount)
+		evm.StateDB.AddTokenBalance(*contract.CodeAddr, *contract.CodeAddr, amount)
+		br := types.GenBalanceRecord(common.EmptyAddress, *contract.CodeAddr, types.NoAddress, types.AccountAddress, types.TxContract, *contract.CodeAddr, amount)
 		evm.otxs = append(evm.otxs, br)
 	}
 	evm.interpreter.intPool.put(amount)

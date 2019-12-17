@@ -767,6 +767,110 @@ func TestTokenErrByCallWASM(t *testing.T) {
 	assert.Equal(t, types.ExecutionReverted.Error(), receipts[1].VMErr)
 }
 
+func TestIssueEVMCall(t *testing.T) {
+	statedb := newTestState()
+
+	sender := Bank[0].PrivateKey
+	sAdd := Bank[0].Address
+
+	fee1 := uint64(9999999)
+	nonce := uint64(0)
+	baseTx := newContractTx(sAdd, fee1, nonce, "../test/token/app_issue_test_contracts/Base.bin")
+	baseTx.Sign(types.GlobalSTDSigner, sender)
+	baseAddr := crypto.CreateAddress(sAdd, baseTx.Nonce(), baseTx.Data())
+
+	concallTx := newContractTx(sAdd, fee1, nonce+1, "../test/token/app_issue_test_contracts/ConCall.bin")
+	concallTx.Sign(types.GlobalSTDSigner, sender)
+	concallAddr := crypto.CreateAddress(sAdd, concallTx.Nonce(), concallTx.Data())
+
+	block := genBlock(types.Txs{baseTx, concallTx})
+	receipts, _, _, _, _, _, err := SP.Process(block, statedb, VC)
+	assert.Nil(t, err)
+	assert.Equal(t, "", receipts[0].VMErr)
+
+	cabi, err := abi.JSON(strings.NewReader(`[{"constant":false,"inputs":[{"name":"_t","type":"address"}],"name":"setaddr","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[],"name":"exchangecall","outputs":[],"payable":true,"stateMutability":"payable","type":"function"},{"constant":false,"inputs":[],"name":"exchange","outputs":[],"payable":true,"stateMutability":"payable","type":"function"},{"inputs":[],"payable":false,"stateMutability":"nonpayable","type":"constructor"},{"payable":false,"stateMutability":"nonpayable","type":"fallback"}]`))
+	assert.Nil(t, err)
+
+	method := "setaddr"
+	dataSetaddr, err := cabi.Pack(method, baseAddr)
+	assert.Nil(t, err)
+	txSetaddr, err := genCallContractTx(Bank[0], nonce+2, &concallAddr, big.NewInt(0), fee1, dataSetaddr)
+	assert.Nil(t, err)
+
+	method = "exchange"
+	dataExchange, err := cabi.Pack(method)
+	assert.Nil(t, err)
+	txExchange, err := genCallContractTx(Bank[0], nonce+3, &concallAddr, big.NewInt(1e10), fee1, dataExchange)
+	assert.Nil(t, err)
+
+	method = "exchangecall"
+	dataExchangecall, err := cabi.Pack(method)
+	assert.Nil(t, err)
+	txExchangecall, err := genCallContractTx(Bank[0], nonce+4, &concallAddr, big.NewInt(0), fee1, dataExchangecall)
+	assert.Nil(t, err)
+
+	block = genBlock(types.Txs{txSetaddr})
+	block.Height = 2
+	receipts, _, _, _, _, _, err = SP.Process(block, statedb, VC)
+	assert.Nil(t, err)
+	assert.Equal(t, "", receipts[0].VMErr)
+
+	block = genBlock(types.Txs{txExchange, txExchangecall})
+	block.Height = 3
+	receipts, _, _, _, _, _, err = SP.Process(block, statedb, VC)
+	assert.Nil(t, err)
+	assert.Equal(t, "", receipts[0].VMErr)
+	assert.Equal(t, "", receipts[1].VMErr)
+
+	assert.Equal(t, 2, len(statedb.GetTokenBalances(baseAddr)))
+	assert.True(t, big.NewInt(0).Exp(big.NewInt(10), big.NewInt(24), nil).Cmp(statedb.GetTokenBalance(baseAddr, baseAddr)) == 0)
+	assert.Equal(t, int64(20000000000), statedb.GetTokenBalance(concallAddr, baseAddr).Int64())
+}
+
+func TestIssueWASMCall(t *testing.T) {
+	statedb := newTestState()
+
+	sender := Bank[0].PrivateKey
+	sAdd := Bank[0].Address
+
+	fee1 := uint64(9999999)
+	nonce := uint64(0)
+	baseTx := newContractTx(sAdd, fee1, nonce, "../test/token/app_issue_test_contracts/WBase.bin")
+	baseTx.Sign(types.GlobalSTDSigner, sender)
+	baseAddr := crypto.CreateAddress(sAdd, baseTx.Nonce(), baseTx.Data())
+
+	concallTx := newContractTx(sAdd, fee1, nonce+1, "../test/token/app_issue_test_contracts/WConCall.bin")
+	concallTx.Sign(types.GlobalSTDSigner, sender)
+	concallAddr := crypto.CreateAddress(sAdd, concallTx.Nonce(), concallTx.Data())
+
+	block := genBlock(types.Txs{baseTx, concallTx})
+	receipts, _, _, _, _, _, err := SP.Process(block, statedb, VC)
+	assert.Nil(t, err)
+	assert.Equal(t, "", receipts[0].VMErr)
+
+	//Call
+	dataCall := genIssueCallDataWASM(baseAddr)
+	txCall, err := genCallContractTx(Bank[0], nonce+2, &concallAddr, big.NewInt(1e10), fee1, dataCall)
+	assert.Nil(t, err)
+
+	//DCall
+	dataDCall := genIssueDCallDataWASM(baseAddr)
+	txDCall, err := genCallContractTx(Bank[0], nonce+3, &concallAddr, big.NewInt(0), fee1, dataDCall)
+	assert.Nil(t, err)
+
+	block = genBlock(types.Txs{txCall, txDCall})
+	block.Height = 2
+	receipts, _, _, _, _, _, err = SP.Process(block, statedb, VC)
+	assert.Nil(t, err)
+	fmt.Println(receipts)
+	assert.Equal(t, "", receipts[0].VMErr)
+	assert.Equal(t, "", receipts[1].VMErr)
+
+	assert.Equal(t, 1, len(statedb.GetTokenBalances(baseAddr)))
+	assert.Equal(t, int64(300), statedb.GetTokenBalance(baseAddr, baseAddr).Int64())
+	assert.Equal(t, int64(0), statedb.GetTokenBalance(concallAddr, baseAddr).Int64())
+}
+
 //cct
 func TestContractCreation(t *testing.T) {
 	statedb := newTestState()

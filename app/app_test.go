@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"math/big"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -411,13 +412,13 @@ func TestApp(t *testing.T) {
 	wasmTkTx := newContractTx(accounts[1].Address, uint64(10000000), nonce+1, "../test/token/app_issue_test_contracts/WBase.bin")
 	wasmTkTx.Sign(types.GlobalSTDSigner, accounts[1].PrivateKey)
 
-	addr := common.HexToAddress("0x3deb07ae9177f1358319189a9cf31293d1cf8003")
+	addr := crypto.CreateAddress(accounts[1].Address, evmTkTx.Nonce(), evmTkTx.Data())
 	data, err := genContractCreateTestDataEVM() //hex.DecodeString("d0ca6234")
 	assert.Nil(t, err)
 	evmCallTx, err := genCallContractTx(accounts[1], nonce+2, &addr, big.NewInt(10), uint64(1000000000), data)
 	assert.Nil(t, err)
 
-	addr = common.HexToAddress("0x69cdcca69ad21cb0497964b03f6f69e0fef382c0")
+	addr = crypto.CreateAddress(accounts[1].Address, wasmTkTx.Nonce(), wasmTkTx.Data())
 	data, err = genContractCreateTestDataWASM()
 	assert.Nil(t, err)
 	wasmCallTx, err := genCallContractTx(accounts[1], nonce+3, &addr, big.NewInt(0), uint64(10000000), data)
@@ -451,10 +452,10 @@ func TestApp(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CommitBlock err:%v", err)
 	}
-	rate, err := types.GetUtxoCommitmentChangeRate(common.HexToAddress("0x3deb07ae9177f1358319189a9cf31293d1cf8003"))
+	rate, err := types.GetUtxoCommitmentChangeRate(crypto.CreateAddress(accounts[1].Address, evmTkTx.Nonce(), evmTkTx.Data()))
 	assert.Nil(t, err)
 	assert.Equal(t, int64(1e12), rate)
-	rate, err = types.GetUtxoCommitmentChangeRate(common.HexToAddress("0x69cdcca69ad21cb0497964b03f6f69e0fef382c0"))
+	rate, err = types.GetUtxoCommitmentChangeRate(crypto.CreateAddress(accounts[1].Address, wasmTkTx.Nonce(), wasmTkTx.Data()))
 	assert.Nil(t, err)
 	assert.Equal(t, int64(1e9), rate)
 	// ------
@@ -706,4 +707,26 @@ func genContractCreateTestDataEVM() ([]byte, error) {
 
 func genContractCreateTestDataWASM() ([]byte, error) {
 	return hexutil.Bytes("CallIssue|{}"), nil
+}
+
+func genIssueCallDataWASM(addr common.Address) []byte {
+
+	return getWasmInput("Call", addr.String())
+}
+
+func genIssueDCallDataWASM(addr common.Address) []byte {
+	return getWasmInput("DCall", addr.String())
+}
+
+func getWasmInput(function string, args ...string) hexutil.Bytes {
+	input := function + "|{"
+	for index, arg := range args {
+		input += "\"" + strconv.Itoa(index) + "\"" + ":" + "\"" + arg + "\","
+	}
+	if input[len(input)-1] == ',' {
+		input = input[:len(input)-1]
+	}
+	input += "}"
+
+	return hexutil.Bytes(input)
 }
