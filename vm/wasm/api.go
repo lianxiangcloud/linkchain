@@ -1161,13 +1161,12 @@ func tcIssue(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 	}
 
 	if amount.Sign() > 0 {
-		contractAddr := common.BytesToAddress(eng.Contract.Address().Bytes())
 		codeAddr := common.BytesToAddress(eng.Contract.CodeAddr.Bytes())
 		mState := eng.State.(types.StateDB)
-		mState.AddTokenBalance(contractAddr, codeAddr, amount)
+		mState.AddTokenBalance(codeAddr, codeAddr, amount)
 
 		mWasm.otxs = append(mWasm.otxs,
-			types.GenBalanceRecord(common.EmptyAddress, contractAddr, types.NoAddress, types.AccountAddress, types.TxContract, common.BytesToAddress(eng.Contract.CodeAddr.Bytes()), amount))
+			types.GenBalanceRecord(common.EmptyAddress, codeAddr, types.NoAddress, types.AccountAddress, types.TxContract, common.BytesToAddress(eng.Contract.CodeAddr.Bytes()), amount))
 	}
 
 	return 0, nil
@@ -1565,12 +1564,26 @@ func tcCallContract(eng *vm.Engine, index int64, args []uint64) (uint64, error) 
 	}
 	eng.Contract = vm.NewContractInner(preContract, vm.AccountRef(common.HexToAddress(string(appName))), val, eng.Gas())
 	eng.Contract.Input = make([]byte, len(action)+len(params)+1)
+	eng.Contract.SetCallCode(common.HexToAddress(string(appName)).Bytes(), eng.Contract.CodeHash.Bytes(), eng.Contract.Code)
 	copy(eng.Contract.Input[0:], action)
 	copy(eng.Contract.Input[len(action):], []byte{'|'})
 	copy(eng.Contract.Input[1+len(action):], params)
 	eng.Logger().Debug("[Engine] TC_CallContract", "app", string(appName), "action", string(action), "params", string(params))
 
 	retPointer, err := eng.Run(toFrame, eng.Contract.Input)
+
+	select {
+	case <-mWasm.Issued:
+		if err == nil {
+			_, err = mWasm.GetUTXOChangeRate(common.HexToAddress(string(appName)))
+			if err != nil {
+				eng.Logger().Error("issue without decimals set", "conAddr", common.HexToAddress(string(appName)))
+				err = vm.ErrExecutionReverted
+			}
+		}
+	default:
+	}
+
 	if err != nil {
 		// remove transaction records
 		mWasm.otxs = mWasm.otxs[:startTxRecordsIndex]

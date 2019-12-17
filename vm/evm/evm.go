@@ -294,9 +294,9 @@ func (evm *EVM) UTXOCall(c types.ContractRef, addr, token common.Address, input 
 	select {
 	case <-evm.Issued:
 		if err == nil {
-			_, err = evm.GetUTXOChangeRate(contract.self.Address())
+			_, err = evm.GetUTXOChangeRate(contract.Address())
 			if err != nil {
-				log.Error("issue without decimals set", "conAddr", contract.self.Address())
+				log.Error("issue without decimals set", "conAddr", contract.Address())
 				err = types.ExecutionReverted
 			}
 		}
@@ -384,9 +384,9 @@ func (evm *EVM) Call(c types.ContractRef, addr, token common.Address, input []by
 	select {
 	case <-evm.Issued:
 		if err == nil {
-			_, err = evm.GetUTXOChangeRate(contract.self.Address())
+			_, err = evm.GetUTXOChangeRate(contract.Address())
 			if err != nil {
-				log.Error("issue without decimals set", "conAddr", contract.self.Address())
+				log.Error("issue without decimals set", "conAddr", contract.Address())
 				err = types.ExecutionReverted
 			}
 		}
@@ -443,9 +443,9 @@ func (evm *EVM) CallCode(c types.ContractRef, addr common.Address, input []byte,
 	select {
 	case <-evm.Issued:
 		if err == nil {
-			_, err = evm.GetUTXOChangeRate(contract.self.Address())
+			_, err = evm.GetUTXOChangeRate(contract.Address())
 			if err != nil {
-				log.Error("issue without decimals set", "conAddr", contract.self.Address())
+				log.Error("issue without decimals set", "conAddr", contract.Address())
 				err = types.ExecutionReverted
 			}
 		}
@@ -494,9 +494,9 @@ func (evm *EVM) DelegateCall(c types.ContractRef, addr common.Address, input []b
 	select {
 	case <-evm.Issued:
 		if err == nil {
-			_, err = evm.GetUTXOChangeRate(contract.self.Address())
+			_, err = evm.GetUTXOChangeRate(contract.Address())
 			if err != nil {
-				log.Error("issue without decimals set", "conAddr", contract.self.Address())
+				log.Error("issue without decimals set", "conAddr", contract.Address())
 				err = types.ExecutionReverted
 			}
 		}
@@ -555,9 +555,9 @@ func (evm *EVM) StaticCall(c types.ContractRef, addr common.Address, input []byt
 	select {
 	case needCheck := <-evm.Issued:
 		if needCheck && err == nil {
-			_, err = evm.GetUTXOChangeRate(contract.self.Address())
+			_, err = evm.GetUTXOChangeRate(contract.Address())
 			if err != nil {
-				log.Error("issue without decimals set", "conAddr", contract.self.Address())
+				log.Error("issue without decimals set", "conAddr", contract.Address())
 				err = types.ExecutionReverted
 			}
 		}
@@ -654,9 +654,9 @@ func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64,
 	select {
 	case <-evm.Issued:
 		if err == nil {
-			_, err = evm.GetUTXOChangeRate(contract.self.Address())
+			_, err = evm.GetUTXOChangeRate(contract.Address())
 			if err != nil {
-				log.Error("issue without decimals set", "conAddr", contract.self.Address())
+				log.Error("issue without decimals set", "conAddr", contract.Address())
 				err = types.ExecutionReverted
 			}
 		}
