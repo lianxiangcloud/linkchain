@@ -718,6 +718,26 @@ func TestTokenErrByConstructor(t *testing.T) {
 	assert.Equal(t, types.ExecutionReverted.Error(), receipts[1].VMErr)
 }
 
+// token err by <0 decimals
+func TestTokenErrByLessThanZeroDecimals(t *testing.T) {
+	// evm start
+	statedb := newTestState()
+
+	sender := Bank[0].PrivateKey
+	sAdd := Bank[0].Address
+
+	fee1 := uint64(9999999)
+	nonce := uint64(0)
+
+	wasmTx := newContractTx(sAdd, fee1, nonce, "../test/token/app_issue_test_contracts/WNegative.bin")
+	wasmTx.Sign(types.GlobalSTDSigner, sender)
+
+	block := genBlock(types.Txs{wasmTx})
+	receipts, _, _, _, _, _, err := SP.Process(block, statedb, VC)
+	assert.Nil(t, err)
+	assert.Equal(t, types.ExecutionReverted.Error(), receipts[0].VMErr)
+}
+
 //token err by call
 func TestTokenErrByCallEVM(t *testing.T) {
 	statedb := newTestState()

@@ -110,10 +110,16 @@ func UTXOChangeRateResultDecodeWASM(data []byte) (uint8, error) {
 		log.Error("UTXOChangeRateResultDecodeWASM unmarshal err", "err", err)
 		return 0, err
 	}
+
 	rate, ok := big.NewInt(0).SetString(r.Rate, 10)
 	if !ok {
 		log.Error("UTXOChangeRateResultDecodeWASM setstring err")
 		return 0, fmt.Errorf("UTXOChangeRateResultDecodeWASM setstring err")
+	}
+
+	if rate.Sign() < 0 {
+		log.Error("UTXOChangeRateResultDecodeWASM rate negative")
+		return 0, fmt.Errorf("UTXOChangeRateResultDecodeWASM rate negative")
 	}
 	return uint8(rate.Uint64()), nil
 }
