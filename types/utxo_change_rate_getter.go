@@ -107,8 +107,8 @@ func UTXOChangeRateResultDecodeWASM(data []byte) (uint8, error) {
 	}{}
 	err := json.Unmarshal(data, &r)
 	if err != nil {
-		log.Error("UTXOChangeRateResultDecodeWASM unmarshal err", "err", err)
-		return 0, err
+		log.Debug("UTXOChangeRateResultDecodeWASM unmarshal err, turn to old-style contract", "err", err, "data", string(data))
+		r.Rate = string(data)
 	}
 
 	rate, ok := big.NewInt(0).SetString(r.Rate, 10)
