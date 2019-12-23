@@ -19,6 +19,7 @@ var (
 	wasmID            uint32 = 0x6d736100 // Notice: types/transaction has a duplication of this
 	// staticCallSimulateGas is used for simulating staticCall during getting utxo commit rate
 	staticCallSimulateGas = uint64(1e10)
+	maxUint8              = ^uint8(0)
 )
 
 // emptyCodeHash is used by create to ensure deployment is disallowed to already
@@ -614,17 +615,17 @@ func (wasm *WASM) Create(c types.ContractRef, data []byte, gas uint64, value *bi
 
 func (wasm *WASM) Upgrade(caller types.ContractRef, contractAddr common.Address, code []byte) error {
 	snapshot := wasm.StateDB.Snapshot()
-	oldRate, err := wasm.GetUTXOChangeRate(contractAddr)
+	oldRate, err := wasm.GetUTXOChangeRatePure(contractAddr)
 	if err != nil {
-		oldRate = -1
+		oldRate = maxUint8
 	}
 
 	wasm.StateDB.SetCode(contractAddr, code)
 	vm.AppCache.Delete(contractAddr.String())
 
-	newRate, err := wasm.GetUTXOChangeRate(contractAddr)
+	newRate, err := wasm.GetUTXOChangeRatePure(contractAddr)
 	if err != nil {
-		newRate = -1
+		newRate = maxUint8
 	}
 	if oldRate != newRate {
 		wasm.StateDB.RevertToSnapshot(snapshot)
@@ -708,4 +709,21 @@ func (wasm *WASM) GetUTXOChangeRate(addr common.Address) (int64, error) {
 	}
 
 	return rate, nil
+}
+
+func (wasm *WASM) GetUTXOChangeRatePure(addr common.Address) (uint8, error) {
+	data := types.UTXOChangeRateDataWASM()
+	select {
+	case wasm.Issued <- false:
+	default:
+	}
+	ret, _, _, err := wasm.StaticCall(AccountRef(common.EmptyAddress), addr, data, staticCallSimulateGas)
+	if err != nil {
+		return 0, err
+	}
+	rateUint8, err := types.UTXOChangeRateResultDecodeWASM(ret)
+	if err != nil {
+		return 0, err
+	}
+	return rateUint8, nil
 }
