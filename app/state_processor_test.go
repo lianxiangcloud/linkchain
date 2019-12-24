@@ -13,6 +13,7 @@ import (
 
 	"github.com/lianxiangcloud/linkchain/accounts/abi"
 	"github.com/lianxiangcloud/linkchain/accounts/keystore"
+	"github.com/lianxiangcloud/linkchain/config"
 	common "github.com/lianxiangcloud/linkchain/libs/common"
 	"github.com/lianxiangcloud/linkchain/libs/crypto"
 	"github.com/lianxiangcloud/linkchain/libs/cryptonote/ringct"
@@ -22,6 +23,7 @@ import (
 	"github.com/lianxiangcloud/linkchain/libs/ser"
 	types "github.com/lianxiangcloud/linkchain/types"
 	"github.com/lianxiangcloud/linkchain/vm/evm"
+	"github.com/lianxiangcloud/linkchain/vm/wasm"
 	"github.com/lianxiangcloud/linkchain/wallet/wallet"
 	"github.com/stretchr/testify/assert"
 )
@@ -1068,6 +1070,13 @@ func TestContractUpdateFail(t *testing.T) {
 	receipts, _, _, _, _, _, err := SP.Process(block, statedb, VC)
 	assert.Nil(t, err)
 	assert.Equal(t, types.ErrForbiddenDecimalsChanged.Error(), receipts[1].VMErr)
+
+	header := APP.currentBlock.Head()
+	contextWasm := wasm.NewWASMContext(header, APP.blockChain, nil, config.WasmGasRate)
+	WASM := wasm.NewWASM(contextWasm, statedb, APP.vmConfig)
+	r8, err := WASM.GetUTXOChangeRatePure(contractAddr)
+	assert.Nil(t, err)
+	assert.Equal(t, uint8(1), r8)
 }
 
 //*********** UTXO Based Transactions Test **********
