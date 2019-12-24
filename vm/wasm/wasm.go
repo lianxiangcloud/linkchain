@@ -629,6 +629,7 @@ func (wasm *WASM) Upgrade(caller types.ContractRef, contractAddr common.Address,
 	}
 	if oldRate != newRate {
 		wasm.StateDB.RevertToSnapshot(snapshot)
+		vm.AppCache.Delete(contractAddr.String())
 		return types.ErrForbiddenDecimalsChanged
 	}
 
