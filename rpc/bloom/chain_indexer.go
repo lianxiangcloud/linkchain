@@ -324,7 +324,7 @@ func (c *ChainIndexer) processSection(section uint64, lastHead common.Hash) (com
 			}
 			header.SetBloom(types.Bloom{})
 			c.backend.Process(header)
-			lastHead = header.Hash()
+			lastHead = common.EmptyHash
 			continue
 		}
 		header, err := c.bc.HeaderByHeight(nil, rpc.BlockNumber(number))
