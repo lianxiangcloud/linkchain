@@ -1438,8 +1438,8 @@ func tcEcrecover(eng *vm.Engine, index int64, args []uint64) (uint64, error) {
 		return 0, vm.ErrInvalidApiArgs
 	}
 	sign := make([]byte, 65)
-	copy(sign[:32], r.Bytes())
-	copy(sign[32:64], s.Bytes())
+	copy(sign[32-len(r.Bytes()):32], r.Bytes())
+	copy(sign[64-len(s.Bytes()):64], s.Bytes())
 
 	var realV byte
 	if isProtectedV(v) {
