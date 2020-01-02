@@ -129,10 +129,11 @@ func DefaultBindListener(nodeType types.NodeType, fullListenAddrString string, e
 	if isDHTNet {
 		var bindUdpAddr string
 		if externalAddrString != "" || isUpnpSuccess {
-			bindUdpAddr = extAddr.String()
-		} else {
+			_, listenerPort = SplitHostPort(extAddr.String())
 			bindUdpAddr = fmt.Sprintf(":%d", listenerPort)
 		}
+		bindUdpAddr = fmt.Sprintf(":%d", listenerPort)
+
 		logger.Debug("DefaultBindListener", "bindUdpAddr", bindUdpAddr)
 		addr, err := net.ResolveUDPAddr("udp", bindUdpAddr)
 		if err != nil {
