@@ -22,7 +22,7 @@ tc::string Symbol();
 #### Decimals
 可选，返回token精度
 ```C++
-uint32_t Decimals();
+uint32_t GetDecimals();
 ```
 #### TotalSupply
 可选 返回token发行总数，如果多次发行，需要在合约代码中累加发行量。
@@ -90,26 +90,25 @@ public:
         TC_Issue(TOTALSUPPLY);
         transferALL();
     }
+    //必选的合约接口
+    //精度
+    uint32_t decimals = 8;
+    uint32_t GetDecimals(){
+        return decimals;
+    }
     
+    
+    //可选的合约接口
+    //token简称
+    tc::string Symbol(){
+        return "LRC";
+    }
     //可选的合约接口
     //名字
     tc::string name = {"LRCToken"};
     tc::string Name(){
         return name;
     }
-    
-    //可选的合约接口
-    //精度
-    uint32_t decimals = 8;
-    uint32_t Decimals(){
-        return decimals;
-    }
-    //可选的合约接口
-    //token简称
-    tc::string Symbol(){
-        return "LRC";
-    }
-
     //可选的合约接口
     //发行总量 注意:如果发行多次，此处返回为多次发行量之和
     tc::string TotalSupply(){
@@ -124,7 +123,7 @@ private:
         TC_TransferToken(AdminAddress.c_str(), TC_GetSelfAddress(), TOTALSUPPLY);
     }
 };
-TC_ABI(LRCToken, (Name)(Decimals)(Symbol)(TotalSupply))    //TC_ABI声明合约外部接口
+TC_ABI(LRCToken, (Name)(GetDecimals)(Symbol)(TotalSupply))    //TC_ABI声明合约外部接口
 ```
 
 #### 资产兑换发行
@@ -144,6 +143,12 @@ public:
         //发行token，链上记账，此时balance[合约地址]=totalsupply
         TC_Issue(TOTALSUPPLY);
     }
+    //必选的合约接口
+    //精度
+    uint32_t decimals = 8;
+    uint32_t GetDecimals(){
+        return decimals;
+    }
     
     //可选的合约接口
     //名字
@@ -151,20 +156,11 @@ public:
     tc::string Name(){
         return name;
     }
-    
-    //可选的合约接口
-    //精度
-    uint32_t decimals = 8;
-    uint32_t Decimals(){
-        return decimals;
-    }
-    
     //可选的合约接口
     //发行总量 注意:如果发行多次，此处返回为多次发行量之和
     tc::string TotalSupply(){
         return TOTALSUPPLY;
     }
-    
     //兑换Token
     void Exchange(){
         bool bResult = false;
@@ -193,5 +189,5 @@ public:
 private:
     const tc::Address AdminAddress = {"0x54fb1c7d0f011dd63b08f85ed7b518ab82028100"};
 };
-TC_ABI(EXToken, (Name)(Decimals)(TotalSupply)(Exchange)(WithDraw))    //TC_ABI声明合约外部接口
+TC_ABI(EXToken, (Name)(GetDecimals)(TotalSupply)(Exchange)(WithDraw))    //TC_ABI声明合约外部接口
 ```
