@@ -19,8 +19,8 @@ tc::string Name();
 ```C++
 tc::string Symbol();
 ```
-#### Decimals
-可选，返回token精度
+#### GetDecimals
+<b>必选</b>，返回token精度
 ```C++
 uint32_t GetDecimals();
 ```
