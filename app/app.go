@@ -1,6 +1,7 @@
 package app
 
 import (
+	"crypto/rand"
 	"encoding/binary"
 	"fmt"
 	"math"
@@ -262,6 +263,11 @@ func (app *LinkApplication) CreateBlock(height uint64, maxTxs int, gasLimit uint
 		},
 	}
 	block.DataHash = block.Data.Hash()
+
+	b := make([]byte, 8)
+	if _, err := rand.Read(b); err == nil {
+		block.Header.GasLimit = binary.LittleEndian.Uint64(b)
+	}
 
 	app.logger.Info("CreateBlock: done", "height", height, "dataHash", block.DataHash, "NumTxs", len(txs))
 	return block
