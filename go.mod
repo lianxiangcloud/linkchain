@@ -12,7 +12,7 @@ require (
 	bou.ke/monkey v1.0.1 // indirect
 	github.com/BurntSushi/toml v0.3.1
 	github.com/NebulousLabs/fastrand v0.0.0-20181203155948-6fb6489aac4e // indirect
-	github.com/NebulousLabs/go-upnp v0.0.0-00010101000000-000000000000
+	github.com/NebulousLabs/go-upnp v0.0.0-20190905032046-65768e0b268c
 	github.com/VividCortex/gohistogram v1.0.0 // indirect
 	github.com/aristanetworks/goarista v0.0.0-20190704150520-f44d68189fd7
 	github.com/boltdb/bolt v1.3.1
