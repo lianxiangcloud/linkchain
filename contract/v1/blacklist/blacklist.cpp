@@ -2,9 +2,11 @@
 #include <string>
 
 #define ContractCommitteeAddr "0x0000000000000000000000436f6d6d6974746565"
-#define LiankeAddress         "0x0000000000000000000000000000000000000000"
+#define EmptyAddress          "0x0000000000000000000000000000000000000000"
 #define RKEY                  "right"
 #define AddressLength         42
+#define MintAdminKey          "blacklist"
+#define MintWhitelistKey      "blacklist"
 
 const tc::Address GetRightAccount(const std::string& right) {
 	tc::Address addr;
@@ -26,7 +28,7 @@ bool CheckAddrRight(const tc::Address& addr, const std::string& right) {
 }
 
 bool IsAddressIllegal(const tc::Address& sender, const tc::Address& blackAddress) {
-    tc::Address liankeAddress = tc::Address(LiankeAddress);
+    tc::Address liankeAddress = tc::Address(EmptyAddress);
     return (sender == blackAddress) || (blackAddress == liankeAddress);
 }
 
@@ -73,6 +75,76 @@ public:
         }
         return delString+strBlackAddress;
     }
+
+    void SetMintAdminAddr(const tc::BInt addr) {
+        TC_Payable(false);
+        TC_RequireWithMsg(addr != EmptyAddress, "admin address can not be empty address");
+        const tc::Address& sender = tc::App::getInstance()->sender();
+        TC_RequireWithMsg(CheckAddrRight(sender, MintAdminKey), "Address does not have permission");
+        m_mintAdminAddr.set(addr);
+    }
+
+    const std::string MintAdminAddr() {
+        TC_Payable(false);
+        if (m_mintAdminAddr.get() == EmptyAddress) {
+            return GetRightAccount(MintAdminKey).toString();
+        }
+        return m_mintAdminAddr.get().toString();
+    }
+
+    void InsertMintWhitelist(const std::string coinName, const tc::Address tokenId) {
+        TC_Payable(false);
+        TC_RequireWithMsg(coinName.length() > 0, "coin name param not set");
+        TC_RequireWithMsg(tokenId != EmptyAddress, "tokenId param illegal");
+        const tc::Address& sender = tc::App::getInstance()->sender();
+        TC_RequireWithMsg(CheckAddrRight(sender, MintWhitelistKey), "Address does not have permission");
+        tc::Address checkAddr = m_mapMintWhitelist.get(coinName);
+        TC_RequireWithMsg(checkAddr == EmptyAddress, "this mintage contarct has been set");
+        m_mapMintWhitelist.set(tokenId, coinName);
+    }
+
+    void DeleteMintWhitelist(const std::string coinName) {
+        TC_Payable(false);
+        TC_RequireWithMsg(coinName.length() > 0, "coin name param not set");
+        const tc::Address& sender = tc::App::getInstance()->sender();
+        TC_RequireWithMsg(CheckAddrRight(sender, MintWhitelistKey), "Address does not have permission");
+        tc::Address checkAddr = m_mapMintWhitelist.get(coinName);
+        TC_RequireWithMsg(checkAddr != EmptyAddress, "this mintage contarct not exist");
+        tc::Address emptyTokenId = EmptyAddress;
+        m_mapMintWhitelist.set(emptyTokenId, coinName);
+    }
+
+    void UpdateMintWhitelist(const std::string coinName, const tc::Address tokenId) {
+        TC_Payable(false);
+        TC_RequireWithMsg(coinName.length() > 0, "coin name param not set");
+        TC_RequireWithMsg(tokenId != EmptyAddress, "tokenId param illegal");
+        const tc::Address& sender = tc::App::getInstance()->sender();
+        TC_RequireWithMsg(CheckAddrRight(sender, MintWhitelistKey), "Address does not have permission");
+        tc::Address checkAddr = m_mapMintWhitelist.get(coinName);
+        TC_RequireWithMsg(checkAddr != EmptyAddress, "this mintage contarct not set");
+        m_mapMintWhitelist.set(tokenId, coinName);
+    }
+
+    std::string SelectMintWhitelist(const std::string coinName) {
+        TC_Payable(false);
+        TC_RequireWithMsg(coinName.length() > 0, "coin name param not set");
+        tc::Address tokenId = m_mapMintWhitelist.get(coinName);
+        TC_RequireWithMsg(tokenId != EmptyAddress, "this mintage contarct not exist");
+        return tokenId.toString();
+    }
+
+private:
+    tc::StorValue<tc::BInt> m_mintAdminAddr{"m_mintAdminAddr"};
+    StorMap<Key<std::string>, tc::Address> m_mapMintWhitelist{"m_mapMintWhitelist"};
 };
 
-TC_ABI(Blacklist, (CheckAddBlackAddress)(CheckDelBlackAddress))
+TC_ABI(Blacklist, 
+    (CheckAddBlackAddress)\
+    (CheckDelBlackAddress)\
+    (SetMintAdminAddr)\
+    (MintAdminAddr)\
+    (InsertMintWhitelist)\
+    (DeleteMintWhitelist)\
+    (UpdateMintWhitelist)\
+    (SelectMintWhitelist)\
+)
