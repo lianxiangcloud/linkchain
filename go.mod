@@ -10,7 +10,6 @@ replace (
 
 require (
 	bou.ke/monkey v1.0.1 // indirect
-	github.com/BurntSushi/toml v0.3.1
 	github.com/NebulousLabs/fastrand v0.0.0-20181203155948-6fb6489aac4e // indirect
 	github.com/NebulousLabs/go-upnp v0.0.0-00010101000000-000000000000
 	github.com/VividCortex/gohistogram v1.0.0 // indirect
@@ -26,7 +25,6 @@ require (
 	github.com/fatih/color v1.7.0
 	github.com/fortytw2/leaktest v1.3.0
 	github.com/go-kit/kit v0.8.0
-	github.com/go-logfmt/logfmt v0.4.0 // indirect
 	github.com/go-stack/stack v1.8.0
 	github.com/golang/mock v1.3.1
 	github.com/golang/protobuf v1.3.2
@@ -50,10 +48,10 @@ require (
 	github.com/stretchr/testify v1.3.0
 	github.com/syndtr/goleveldb v1.0.0
 	github.com/xunleichain/tc-wasm v0.3.5
-	golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4
-	golang.org/x/net v0.0.0-20190628185345-da137c7871d7
-	golang.org/x/sync v0.0.0-20190423024810-112230192c58
-	golang.org/x/sys v0.0.0-20190712062909-fae7ac547cb7
+	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
+	golang.org/x/net v0.7.0
+	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4
+	golang.org/x/sys v0.5.0
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
 	gopkg.in/fatih/set.v0 v0.1.0
